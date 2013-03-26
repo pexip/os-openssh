@@ -1,0 +1,27 @@
+Description: Disable OpenSSL version check
+ OpenSSL's SONAME is sufficient nowadays.
+Author: Philip Hands <phil@hands.com>
+Author: Colin Watson <cjwatson@debian.org>
+Bug-Debian: http://bugs.debian.org/93581
+Bug-Debian: http://bugs.debian.org/664383
+Forwarded: not-needed
+Last-Update: 2012-03-19
+
+Index: b/entropy.c
+===================================================================
+--- a/entropy.c
++++ b/entropy.c
+@@ -209,13 +209,6 @@
+ #ifndef OPENSSL_PRNG_ONLY
+ 	unsigned char buf[RANDOM_SEED_SIZE];
+ #endif
+-	/*
+-	 * OpenSSL version numbers: MNNFFPPS: major minor fix patch status
+-	 * We match major, minor, fix and status (not patch)
+-	 */
+-	if ((SSLeay() ^ OPENSSL_VERSION_NUMBER) & ~0xff0L)
+-		fatal("OpenSSL version mismatch. Built against %lx, you "
+-		    "have %lx", (u_long)OPENSSL_VERSION_NUMBER, SSLeay());
+ 
+ #ifndef OPENSSL_PRNG_ONLY
+ 	if (RAND_status() == 1) {
