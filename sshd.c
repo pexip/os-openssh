@@ -2226,7 +2226,7 @@ main(int ac, char **av)
 	if (!debug_flag)
 		alarm(options.login_grace_time);
 
-	if ((r = kex_exchange_identification(ssh, -1,
+	if ((r = kex_exchange_identification(ssh, -1, options.debian_banner,
 	    options.version_addendum)) != 0)
 		sshpkt_fatal(ssh, r, "banner exchange");
 
