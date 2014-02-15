@@ -49,34 +49,6 @@ incorrect, and feel strongly enough to want to argue about it, then
 send email to debian-ssh@lists.debian.org. I will close bug reports
 claiming the default is incorrect.
 
-SSH now uses protocol 2 by default
-----------------------------------
-
-This means all your keyfiles you used for protocol version 1 need to
-be re-generated. The server keys are done automatically, but for RSA
-authentication, please read the ssh-keygen manpage.
-
-If you have an automatically generated configuration file, and decide
-at a later stage that you do want to support protocol version 1 (not
-recommended, but note that the ssh client shipped with Debian potato
-only supported protocol version 1), then you need to do the following:
-
-Change /etc/ssh/sshd_config such that:
-Protocol 2
-becomes:
-Protocol 2,1
-Also add the line:
-HostKey /etc/ssh/ssh_host_key
-
-If you do not already have an RSA1 host key in /etc/ssh/ssh_host_key,
-you will need to generate one. To do so, run this command as root:
-
-  ssh-keygen -f /etc/ssh/ssh_host_key -N '' -t rsa1
-
-As of openssh-server 1:4.1p1-2, the option to support protocol version 1
-is no longer available via debconf. You must edit the configuration file
-instead.
-
 X11 Forwarding
 --------------
 
@@ -226,8 +198,29 @@ stop'), add the following line to /etc/inittab, and run 'telinit q':
   ss:2345:respawn:/usr/sbin/sshd -D
 
 If you do this, note that you will need to stop sshd being started in the
-normal way ('rm -f /etc/rc[2345].d/S16ssh') and that you will need to
-restart this sshd manually on upgrades.
+normal way ('update-rc.d ssh disable') and that you will need to restart
+this sshd manually on upgrades.
+
+Per-connection sshd instances with systemd
+------------------------------------------
+
+If you want to reconfigure systemd to listen on port 22 itself and launch an
+instance of sshd for each connection (inetd-style socket activation), then
+you can run:
+
+  systemctl stop ssh.service
+  systemctl start ssh.socket
+
+To make this permanent:
+
+  systemctl disable ssh.service
+  systemctl enable ssh.socket
+
+This may be appropriate in environments where minimal footprint is critical
+(e.g. cloud guests).  Be aware that this bypasses MaxStartups, and systemd's
+MaxConnections cannot quite replace this as it cannot distinguish between
+authenticated and unauthenticated connections; see
+https://bugzilla.redhat.com/show_bug.cgi?id=963268 for more discussion.
 
 -- 
 Matthew Vernon <matthew@debian.org>

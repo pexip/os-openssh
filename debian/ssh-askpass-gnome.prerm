@@ -18,10 +18,8 @@ set -e
 case "$1" in
     remove|deconfigure)
 	update-alternatives --quiet --remove ssh-askpass /usr/lib/openssh/gnome-ssh-askpass
-#       install-info --quiet --remove /usr/info/ssh-askpass.info.gz
 	;;
     upgrade)
-#       install-info --quiet --remove /usr/info/ssh-askpass.info.gz
         ;;
     failed-upgrade)
         ;;

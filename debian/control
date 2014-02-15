@@ -1,22 +1,21 @@
 Source: openssh
 Section: net
 Priority: standard
-Maintainer: Colin Watson <cjwatson@ubuntu.com>
-XSBC-Original-Maintainer: Debian OpenSSH Maintainers <debian-ssh@lists.debian.org>
-Build-Depends: libwrap0-dev | libwrap-dev, zlib1g-dev (>= 1:1.2.3-1), libssl-dev (>= 0.9.8g), libpam0g-dev | libpam-dev, libgtk2.0-dev, libedit-dev, debhelper (>= 7.4.2~), libselinux1-dev [linux-any], libkrb5-dev | heimdal-dev, dpkg (>= 1.16.1~), libck-connector-dev, dh-apport
-Standards-Version: 3.8.4
+Maintainer: Debian OpenSSH Maintainers <debian-ssh@lists.debian.org>
+Build-Depends: libwrap0-dev | libwrap-dev, zlib1g-dev (>= 1:1.2.3), libssl-dev (>= 0.9.8g), libpam0g-dev | libpam-dev, libgtk2.0-dev, libedit-dev, debhelper (>= 8.1.0~), libselinux1-dev [linux-any], libkrb5-dev | heimdal-dev, dpkg (>= 1.16.1~), libck-connector-dev, dh-autoreconf, autotools-dev, dh-systemd (>= 1.4)
+Standards-Version: 3.9.5
 Uploaders: Colin Watson <cjwatson@debian.org>, Matthew Vernon <matthew@debian.org>
 Homepage: http://www.openssh.org/
-Vcs-Bzr: http://anonscm.debian.org/bzr/pkg-ssh/openssh/trunk
-Vcs-Browser: http://anonscm.debian.org/loggerhead/pkg-ssh/openssh/trunk
+Vcs-Git: git://anonscm.debian.org/pkg-ssh/openssh.git
+Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-ssh/openssh.git
 
 Package: openssh-client
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, debconf (>= 1.2.0) | debconf-2.0, adduser (>= 3.10), dpkg (>= 1.7.0), passwd
+Depends: ${shlibs:Depends}, ${misc:Depends}, adduser (>= 3.10), dpkg (>= 1.7.0), passwd
 Recommends: xauth
-Conflicts: ssh (<< 1:3.8.1p1-9), sftp, rsh-client (<<0.16.1-1), ssh-krb5 (<< 1:4.3p2-7)
+Conflicts: sftp
 Replaces: ssh, ssh-krb5
-Suggests: ssh-askpass, libpam-ssh, keychain, monkeysphere, openssh-blacklist, openssh-blacklist-extra
+Suggests: ssh-askpass, libpam-ssh, keychain, monkeysphere
 Provides: rsh-client, ssh-client
 Multi-Arch: foreign
 Description: secure shell (SSH) client, for secure access to remote machines
@@ -45,11 +44,12 @@ Description: secure shell (SSH) client, for secure access to remote machines
 Package: openssh-server
 Priority: optional
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, debconf (>= 1.2.0) | debconf-2.0, libpam-runtime (>= 0.76-14), libpam-modules (>= 0.72-9), adduser (>= 3.9), dpkg (>= 1.9.0), openssh-client (= ${binary:Version}), lsb-base (>= 3.2-13), procps
-Recommends: xauth, ${openssh-server:Recommends}
-Conflicts: ssh (<< 1:3.8.1p1-9), ssh-nonfree (<<2), ssh-socks, ssh2, sftp, rsh-client (<<0.16.1-1), ssh-krb5 (<< 1:4.3p2-7)
-Replaces: ssh, openssh-client (<< 1:3.8.1p1-11), ssh-krb5
-Suggests: ssh-askpass, rssh, molly-guard, openssh-blacklist, openssh-blacklist-extra, ufw, monkeysphere
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, libpam-runtime (>= 0.76-14), libpam-modules (>= 0.72-9), adduser (>= 3.9), dpkg (>= 1.9.0), openssh-client (= ${binary:Version}), lsb-base (>= 4.1+Debian3), procps
+Recommends: xauth, ncurses-term, ${openssh-server:Recommends}
+Conflicts: ssh-socks, ssh2, sftp
+Replaces: ssh, ssh-krb5
+Suggests: ssh-askpass, rssh, molly-guard, ufw, monkeysphere
 Provides: ssh-server
 Multi-Arch: foreign
 Description: secure shell (SSH) server, for secure access from remote machines
@@ -76,7 +76,7 @@ Description: secure shell (SSH) server, for secure access from remote machines
 Package: ssh
 Priority: extra
 Architecture: all
-Depends: ${misc:Depends}, openssh-client, openssh-server
+Depends: ${misc:Depends}, openssh-client (>= ${binary:Version}), openssh-server (>= ${binary:Version})
 Description: secure shell client and server (metapackage)
  This metapackage is a convenient way to install both the OpenSSH client
  and the OpenSSH server. It provides nothing in and of itself, so you
@@ -86,7 +86,7 @@ Package: ssh-krb5
 Section: oldlibs
 Priority: extra
 Architecture: all
-Depends: ${misc:Depends}, openssh-client, openssh-server
+Depends: ${misc:Depends}, openssh-client (>= ${binary:Version}), openssh-server (>= ${binary:Version})
 Description: secure shell client and server (transitional package)
  This is a transitional package depending on the regular Debian OpenSSH
  client and server, which now support GSSAPI natively. It will add the

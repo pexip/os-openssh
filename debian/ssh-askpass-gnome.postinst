@@ -24,29 +24,14 @@ set -e
 
 case "$1" in
     configure)
-        if dpkg --compare-versions "$2" lt-nl 1:4.1p1-1; then
-            # libexecdir changed, so remove the obsolete alternative.
-            update-alternatives --quiet --remove ssh-askpass \
-                /usr/lib/ssh/gnome-ssh-askpass
-        fi
-	if dpkg --compare-versions "$2" lt-nl 1:4.1p1-7 && \
-		[ -h /etc/alternatives/ssh-askpass ] && \
-		[ "$(readlink /etc/alternatives/ssh-askpass)" = /usr/lib/ssh/gnome-ssh-askpass ]; then
-	    # Work around the ssh-askpass alternative somehow ending up in
-	    # manual mode.
-	    update-alternatives --auto ssh-askpass
-	fi
         update-alternatives --quiet \
 	    --install /usr/bin/ssh-askpass ssh-askpass \
 	              /usr/lib/openssh/gnome-ssh-askpass 30 \
 	    --slave /usr/share/man/man1/ssh-askpass.1.gz \
 	            ssh-askpass.1.gz /usr/share/man/man1/gnome-ssh-askpass.1.gz
-
-
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
-
     ;;
 
     *)
@@ -61,5 +46,3 @@ esac
 #DEBHELPER#
 
 exit 0
-
-

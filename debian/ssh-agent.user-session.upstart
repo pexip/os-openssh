@@ -1,0 +1,19 @@
+description "SSH Agent"
+author "Stéphane Graber <stgraber@ubuntu.com>"
+
+start on starting xsession-init
+
+pre-start script
+    [ -e /etc/X11/Xsession.options ] || { stop; exit 0; }
+    grep -q "^use-ssh-agent$" /etc/X11/Xsession.options || { stop; exit 0; }
+
+    eval "$(ssh-agent)" >/dev/null
+    initctl set-env --global SSH_AUTH_SOCK=$SSH_AUTH_SOCK
+    initctl set-env --global SSH_AGENT_PID=$SSH_AGENT_PID
+end script
+
+post-stop script
+    kill $SSH_AGENT_PID 2>/dev/null || true
+    initctl unset-env --global SSH_AUTH_SOCK
+    initctl unset-env --global SSH_AGENT_PID
+end script

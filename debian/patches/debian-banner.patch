@@ -1,51 +1,63 @@
-Description: Add DebianBanner server configuration option
- Setting this to "no" causes sshd to omit the Debian revision from its
- initial protocol handshake, for those scared by package-versioning.patch.
-Author: Kees Cook <kees@debian.org>
+From 68ebfc0e90ceb0f7b24dfb38979df6a80b7ec9e4 Mon Sep 17 00:00:00 2001
+From: Kees Cook <kees@debian.org>
+Date: Sun, 9 Feb 2014 16:10:06 +0000
+Subject: Add DebianBanner server configuration option
+
+Setting this to "no" causes sshd to omit the Debian revision from its
+initial protocol handshake, for those scared by package-versioning.patch.
+
 Bug-Debian: http://bugs.debian.org/562048
 Forwarded: not-needed
-Last-Update: 2010-02-28
+Last-Update: 2013-09-14
 
-Index: b/servconf.c
-===================================================================
+Patch-Name: debian-banner.patch
+---
+ servconf.c    | 9 +++++++++
+ servconf.h    | 2 ++
+ sshd.c        | 3 ++-
+ sshd_config.5 | 5 +++++
+ 4 files changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/servconf.c b/servconf.c
+index 65f71ad..63ff4ff 100644
 --- a/servconf.c
 +++ b/servconf.c
-@@ -142,6 +142,7 @@
- 	options->authorized_principals_file = NULL;
+@@ -157,6 +157,7 @@ initialize_server_options(ServerOptions *options)
  	options->ip_qos_interactive = -1;
  	options->ip_qos_bulk = -1;
+ 	options->version_addendum = NULL;
 +	options->debian_banner = -1;
  }
  
  void
-@@ -289,6 +290,8 @@
- 		options->ip_qos_interactive = IPTOS_LOWDELAY;
- 	if (options->ip_qos_bulk == -1)
+@@ -312,6 +313,8 @@ fill_default_server_options(ServerOptions *options)
  		options->ip_qos_bulk = IPTOS_THROUGHPUT;
+ 	if (options->version_addendum == NULL)
+ 		options->version_addendum = xstrdup("");
 +	if (options->debian_banner == -1)
 +		options->debian_banner = 1;
- 
  	/* Turn privilege separation on by default */
  	if (use_privsep == -1)
-@@ -338,6 +341,7 @@
- 	sZeroKnowledgePasswordAuthentication, sHostCertificate,
- 	sRevokedKeys, sTrustedUserCAKeys, sAuthorizedPrincipalsFile,
- 	sKexAlgorithms, sIPQoS,
+ 		use_privsep = PRIVSEP_NOSANDBOX;
+@@ -362,6 +365,7 @@ typedef enum {
+ 	sKexAlgorithms, sIPQoS, sVersionAddendum,
+ 	sAuthorizedKeysCommand, sAuthorizedKeysCommandUser,
+ 	sAuthenticationMethods, sHostKeyAgent,
 +	sDebianBanner,
  	sDeprecated, sUnsupported
  } ServerOpCodes;
  
-@@ -473,6 +477,7 @@
- 	{ "authorizedprincipalsfile", sAuthorizedPrincipalsFile, SSHCFG_ALL },
- 	{ "kexalgorithms", sKexAlgorithms, SSHCFG_GLOBAL },
- 	{ "ipqos", sIPQoS, SSHCFG_ALL },
+@@ -504,6 +508,7 @@ static struct {
+ 	{ "authorizedkeyscommanduser", sAuthorizedKeysCommandUser, SSHCFG_ALL },
+ 	{ "versionaddendum", sVersionAddendum, SSHCFG_GLOBAL },
+ 	{ "authenticationmethods", sAuthenticationMethods, SSHCFG_ALL },
 +	{ "debianbanner", sDebianBanner, SSHCFG_GLOBAL },
  	{ NULL, sBadOption, 0 }
  };
  
-@@ -1436,6 +1441,10 @@
+@@ -1666,6 +1671,10 @@ process_server_config_line(ServerOptions *options, char *line,
  		}
- 		break;
+ 		return 0;
  
 +	case sDebianBanner:
 +		intptr = &options->debian_banner;
@@ -54,38 +66,38 @@ Index: b/servconf.c
  	case sDeprecated:
  		logit("%s line %d: Deprecated option %s",
  		    filename, linenum, arg);
-Index: b/servconf.h
-===================================================================
+diff --git a/servconf.h b/servconf.h
+index eba76ee..98d68ce 100644
 --- a/servconf.h
 +++ b/servconf.h
-@@ -166,6 +166,8 @@
+@@ -188,6 +188,8 @@ typedef struct {
  
- 	int	num_permitted_opens;
- 
-+	int	debian_banner;
+ 	u_int	num_auth_methods;
+ 	char   *auth_methods[MAX_AUTH_METHODS];
 +
- 	char   *chroot_directory;
- 	char   *revoked_keys_file;
- 	char   *trusted_user_ca_keys;
-Index: b/sshd.c
-===================================================================
++	int	debian_banner;
+ }       ServerOptions;
+ 
+ /* Information about the incoming connection as used by Match */
+diff --git a/sshd.c b/sshd.c
+index 82168a1..c49a877 100644
 --- a/sshd.c
 +++ b/sshd.c
-@@ -423,7 +423,8 @@
- 		minor = PROTOCOL_MINOR_1;
+@@ -440,7 +440,8 @@ sshd_exchange_identification(int sock_in, int sock_out)
  	}
- 	snprintf(buf, sizeof buf, "SSH-%d.%d-%.100s%s", major, minor,
--	    SSH_RELEASE, newline);
-+	    options.debian_banner ? SSH_RELEASE : SSH_RELEASE_MINIMUM,
-+	    newline);
- 	server_version_string = xstrdup(buf);
  
- 	/* Send our protocol version identification. */
-Index: b/sshd_config.5
-===================================================================
+ 	xasprintf(&server_version_string, "SSH-%d.%d-%.100s%s%s%s",
+-	    major, minor, SSH_RELEASE,
++	    major, minor,
++	    options.debian_banner ? SSH_RELEASE : SSH_RELEASE_MINIMUM,
+ 	    *options.version_addendum == '\0' ? "" : " ",
+ 	    options.version_addendum, newline);
+ 
+diff --git a/sshd_config.5 b/sshd_config.5
+index 39643de..bdca797 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
-@@ -340,6 +340,11 @@
+@@ -413,6 +413,11 @@ or
  .Dq no .
  The default is
  .Dq delayed .

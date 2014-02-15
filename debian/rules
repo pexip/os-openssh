@@ -12,6 +12,13 @@ else
   RUN_TESTS :=
 endif
 
+ifeq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+  PARALLEL :=
+else
+  PARALLEL := \
+	-j$(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+endif
+
 DEB_HOST_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
 DEB_BUILD_GNU_TYPE ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
 
@@ -34,16 +41,17 @@ ifeq ($(DEB_HOST_ARCH_OS),)
   endif
 endif
 
-# Change the version string to include the Debian version
-SSH_EXTRAVERSION := Debian-$(shell dpkg-parsechangelog | sed -n -e '/^Version:/s/Version: //p' | sed -e 's/[^-]*-//')
+# Change the version string to reflect distribution
+DISTRIBUTION := $(shell dpkg-vendor --query vendor)
+SSH_EXTRAVERSION := $(DISTRIBUTION)-$(shell dpkg-parsechangelog | sed -n -e '/^Version:/s/Version: //p' | sed -e 's/[^-]*-//')
 
-DISTRIBUTOR := $(shell dpkg-vendor --derives-from Ubuntu 2>/dev/null && echo Ubuntu)
+DISTRIBUTOR := $(shell if dpkg-vendor --derives-from Ubuntu 2>/dev/null; then echo Ubuntu; else echo Debian; fi)
 ifeq ($(DISTRIBUTOR),Ubuntu)
-DEFAULT_PATH := /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/bin/X11:/usr/games
+DEFAULT_PATH := /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games
 else
-DEFAULT_PATH := /usr/local/bin:/usr/bin:/bin:/usr/bin/X11:/usr/games
+DEFAULT_PATH := /usr/local/bin:/usr/bin:/bin:/usr/games
 endif
-SUPERUSER_PATH := /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/bin/X11
+SUPERUSER_PATH := /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 ifeq ($(DISTRIBUTOR),Ubuntu)
 server_recommends := ssh-import-id
@@ -65,6 +73,11 @@ ifeq ($(DEB_HOST_ARCH_OS),hurd)
 confflags += --with-libs=-lcrypt
 endif
 
+# http://gcc.gnu.org/bugzilla/show_bug.cgi?id=60155
+ifeq ($(DEB_HOST_ARCH),hppa)
+confflags += --without-hardening
+endif
+
 # Everything above here is common to the deb and udeb builds.
 confflags_udeb := $(confflags)
 
@@ -77,13 +90,15 @@ confflags += --with-ssl-engine
 ifeq ($(DEB_HOST_ARCH_OS),linux)
 confflags += --with-selinux
 endif
+ifeq ($(DISTRIBUTOR),Ubuntu)
 confflags += --with-consolekit
+endif
 
 # The deb build wants xauth; the udeb build doesn't.
 confflags += --with-xauth=/usr/bin/xauth
 confflags_udeb += --without-xauth
 
-# Default paths. The udeb build has /usr/bin/X11 and /usr/games removed.
+# Default paths. The udeb build has /usr/games removed.
 confflags += --with-default-path=$(DEFAULT_PATH) --with-superuser-path=$(SUPERUSER_PATH)
 confflags_udeb += --with-default-path=/usr/local/bin:/usr/bin:/bin --with-superuser-path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -104,7 +119,14 @@ confflags += --with-ldflags='$(strip -Wl,--as-needed $(default_ldflags))'
 confflags_udeb += --with-ldflags='-Wl,--as-needed'
 
 %:
-	dh $@ --with apport
+	dh $@ --with=autoreconf,systemd
+
+autoreconf:
+	autoreconf -f -i
+	cp -f /usr/share/misc/config.guess /usr/share/misc/config.sub ./
+
+override_dh_autoreconf:
+	dh_autoreconf debian/rules -- autoreconf
 
 override_dh_auto_configure:
 	dh_auto_configure -Bbuild-deb -- $(confflags)
@@ -119,8 +141,8 @@ override_dh_auto_build:
 	perl -pi -e 's/ +-lnsl//' build-udeb/config.status
 	cd build-udeb && ./config.status
 
-	$(MAKE) -C build-deb -j 2 ASKPASS_PROGRAM='/usr/bin/ssh-askpass'
-	$(MAKE) -C build-udeb -j 2 ASKPASS_PROGRAM='/usr/bin/ssh-askpass' ssh scp sftp sshd ssh-keygen
+	$(MAKE) -C build-deb $(PARALLEL) ASKPASS_PROGRAM='/usr/bin/ssh-askpass'
+	$(MAKE) -C build-udeb $(PARALLEL) ASKPASS_PROGRAM='/usr/bin/ssh-askpass' ssh scp sftp sshd ssh-keygen
 
 	$(MAKE) -C contrib gnome-ssh-askpass2 CC='$(CC) $(default_cflags) -Wall -Wl,--as-needed $(default_ldflags)' PKG_CONFIG=$(PKG_CONFIG)
 
@@ -159,18 +181,26 @@ override_dh_install:
 		debian/openssh-client/etc/ssh/moduli \
 		debian/openssh-client/etc/ssh/ssh_config
 
+	# dh_apport would be neater, but at the time of writing it isn't in
+	# unstable yet.
+	install -p -m 644 debian/openssh-client.apport debian/openssh-client/usr/share/apport/package-hooks/openssh-client.py
+	install -p -m 644 debian/openssh-server.apport debian/openssh-server/usr/share/apport/package-hooks/openssh-server.py
+
+	# Upstart user job (only used under user sessions)
+	install -p -m 644 -D debian/ssh-agent.user-session.upstart debian/openssh-client/usr/share/upstart/sessions/ssh-agent.conf
+
 override_dh_installdocs:
 	dh_installdocs -Nopenssh-server -Nssh
 	dh_installdocs -popenssh-server -pssh --link-doc=openssh-client
 	# Avoid breaking dh_installexamples later.
 	mkdir -p debian/openssh-server/usr/share/doc/openssh-client
 
+override_dh_systemd_enable:
+	dh_systemd_enable -popenssh-server --name ssh ssh.service
+	dh_systemd_enable -popenssh-server --name ssh --no-enable ssh.socket
+
 override_dh_installinit:
-	dh_installinit -n --name ssh
-	# We need to keep the init script as well as the Upstart job for
-	# now, for the benefit of people running sshd in chroots.
-	install -D -o root -g root debian/openssh-server.ssh.init debian/openssh-server/etc/init.d/ssh
-	install -D -o root -g root -m 644 debian/openssh-server.ssh.default debian/openssh-server/etc/default/ssh
+	dh_installinit -R --name ssh
 
 override_dh_installpam:
 	dh_installpam --name sshd
@@ -179,35 +209,18 @@ override_dh_fixperms:
 	dh_fixperms
 	chmod u+s debian/openssh-client/usr/lib/openssh/ssh-keysign
 
-override_dh_installdeb:
-	dh_installdeb
-	perl -i debian/substitute-conffile.pl \
-		ETC_SSH_MODULI debian/openssh-client/etc/ssh/moduli \
-		ETC_SSH_SSH_CONFIG debian/openssh-client/etc/ssh/ssh_config \
-		debian/openssh-client/DEBIAN/preinst
-	# Yes, ETC_PAM_D_SSH is meant to be spelled that way, to match the
-	# old configuration file name we need to transfer.
-	perl -i debian/substitute-conffile.pl \
-		ETC_DEFAULT_SSH debian/openssh-server/etc/default/ssh \
-		ETC_INIT_D_SSH debian/openssh-server/etc/init.d/ssh \
-		ETC_PAM_D_SSH debian/openssh-server/etc/pam.d/sshd \
-		debian/openssh-server/DEBIAN/preinst
+# Tighten libssl dependencies to match the check in entropy.c.
+override_dh_shlibdeps:
+	dh_shlibdeps
+	debian/adjust-openssl-dependencies
 
 override_dh_gencontrol:
 	dh_gencontrol -- -V'openssh-server:Recommends=$(server_recommends)'
+
+override_dh_builddeb:
+	dh_builddeb -- -Zxz
 
 debian/faq.html:
 	wget -O - http://www.openssh.org/faq.html | \
 		sed 's,\(href="\)\(txt/\|[^":]*\.html\),\1http://www.openssh.org/\2,g' \
 		> debian/faq.html
-
-# You only need to run this immediately after checking out the package from
-# revision control.
-quilt-setup:
-	[ ! -d .pc ]
-	set -e; for patch in $$(quilt series | tac); do \
-		patch -p1 -R --no-backup-if-mismatch <"debian/patches/$$patch"; \
-	done
-	quilt push -a
-
-.PHONY: quilt-setup

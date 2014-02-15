@@ -1,4 +1,4 @@
-/* $OpenBSD: serverloop.c,v 1.160 2011/05/15 08:09:01 djm Exp $ */
+/* $OpenBSD: serverloop.c,v 1.169 2013/12/19 00:19:12 dtucker Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -148,7 +148,7 @@ static void
 notify_parent(void)
 {
 	if (notify_pipe[1] != -1)
-		write(notify_pipe[1], "", 1);
+		(void)write(notify_pipe[1], "", 1);
 }
 static void
 notify_prepare(fd_set *readset)
@@ -277,12 +277,21 @@ client_alive_check(void)
  */
 static void
 wait_until_can_do_something(fd_set **readsetp, fd_set **writesetp, int *maxfdp,
-    u_int *nallocp, u_int max_time_milliseconds)
+    u_int *nallocp, u_int64_t max_time_milliseconds)
 {
 	struct timeval tv, *tvp;
 	int ret;
+	time_t minwait_secs = 0;
 	int client_alive_scheduled = 0;
 	int program_alive_scheduled = 0;
+
+	/* Allocate and update select() masks for channel descriptors. */
+	channel_prepare_select(readsetp, writesetp, maxfdp, nallocp,
+	    &minwait_secs, 0);
+
+	if (minwait_secs != 0)
+		max_time_milliseconds = MIN(max_time_milliseconds,
+		    (u_int)minwait_secs * 1000);
 
 	/*
 	 * if using client_alive, set the max timeout accordingly,
@@ -295,11 +304,9 @@ wait_until_can_do_something(fd_set **readsetp, fd_set **writesetp, int *maxfdp,
 	if (compat20 &&
 	    max_time_milliseconds == 0 && options.client_alive_interval) {
 		client_alive_scheduled = 1;
-		max_time_milliseconds = options.client_alive_interval * 1000;
+		max_time_milliseconds =
+		    (u_int64_t)options.client_alive_interval * 1000;
 	}
-
-	/* Allocate and update select() masks for channel descriptors. */
-	channel_prepare_select(readsetp, writesetp, maxfdp, nallocp, 0);
 
 	if (compat20) {
 #if 0
@@ -557,7 +564,7 @@ server_loop(pid_t pid, int fdin_arg, int fdout_arg, int fderr_arg)
 	int wait_status;	/* Status returned by wait(). */
 	pid_t wait_pid;		/* pid returned by wait(). */
 	int waiting_termination = 0;	/* Have displayed waiting close message. */
-	u_int max_time_milliseconds;
+	u_int64_t max_time_milliseconds;
 	u_int previous_stdout_buffer_bytes;
 	u_int stdout_buffer_bytes;
 	int type;
@@ -688,7 +695,7 @@ server_loop(pid_t pid, int fdin_arg, int fdout_arg, int fderr_arg)
 				/* Display list of open channels. */
 				cp = channel_open_message();
 				buffer_append(&stderr_buffer, cp, strlen(cp));
-				xfree(cp);
+				free(cp);
 			}
 		}
 		max_fd = MAX(connection_in, connection_out);
@@ -702,7 +709,7 @@ server_loop(pid_t pid, int fdin_arg, int fdout_arg, int fderr_arg)
 		    &nalloc, max_time_milliseconds);
 
 		if (received_sigterm) {
-			logit("Exiting on signal %d", received_sigterm);
+			logit("Exiting on signal %d", (int)received_sigterm);
 			/* Clean up sessions, utmp, etc. */
 			cleanup_exit(255);
 		}
@@ -716,10 +723,8 @@ server_loop(pid_t pid, int fdin_arg, int fdout_arg, int fderr_arg)
 		/* Process output to the client and to program stdin. */
 		process_output(writeset);
 	}
-	if (readset)
-		xfree(readset);
-	if (writeset)
-		xfree(writeset);
+	free(readset);
+	free(writeset);
 
 	/* Cleanup and termination code. */
 
@@ -819,7 +824,9 @@ void
 server_loop2(Authctxt *authctxt)
 {
 	fd_set *readset = NULL, *writeset = NULL;
-	int rekeying = 0, max_fd, nalloc = 0;
+	int rekeying = 0, max_fd;
+	u_int nalloc = 0;
+	u_int64_t rekey_timeout_ms = 0;
 
 	debug("Entering interactive session for SSH2.");
 
@@ -848,11 +855,16 @@ server_loop2(Authctxt *authctxt)
 
 		if (!rekeying && packet_not_very_much_data_to_write())
 			channel_output_poll();
+		if (options.rekey_interval > 0 && compat20 && !rekeying)
+			rekey_timeout_ms = packet_get_rekey_timeout() * 1000;
+		else
+			rekey_timeout_ms = 0;
+
 		wait_until_can_do_something(&readset, &writeset, &max_fd,
-		    &nalloc, 0);
+		    &nalloc, rekey_timeout_ms);
 
 		if (received_sigterm) {
-			logit("Exiting on signal %d", received_sigterm);
+			logit("Exiting on signal %d", (int)received_sigterm);
 			/* Clean up sessions, utmp, etc. */
 			cleanup_exit(255);
 		}
@@ -873,10 +885,8 @@ server_loop2(Authctxt *authctxt)
 	}
 	collect_children();
 
-	if (readset)
-		xfree(readset);
-	if (writeset)
-		xfree(writeset);
+	free(readset);
+	free(writeset);
 
 	/* free all channels, no more reads and writes */
 	channel_free_all();
@@ -911,7 +921,7 @@ server_input_stdin_data(int type, u_int32_t seq, void *ctxt)
 	packet_check_eom();
 	buffer_append(&stdin_buffer, data, data_len);
 	memset(data, 0, data_len);
-	xfree(data);
+	free(data);
 }
 
 static void
@@ -944,7 +954,7 @@ server_input_window_size(int type, u_int32_t seq, void *ctxt)
 static Channel *
 server_request_direct_tcpip(void)
 {
-	Channel *c;
+	Channel *c = NULL;
 	char *target, *originator;
 	u_short target_port, originator_port;
 
@@ -957,12 +967,19 @@ server_request_direct_tcpip(void)
 	debug("server_request_direct_tcpip: originator %s port %d, target %s "
 	    "port %d", originator, originator_port, target, target_port);
 
-	/* XXX check permission */
-	c = channel_connect_to(target, target_port,
-	    "direct-tcpip", "direct-tcpip");
+	/* XXX fine grained permissions */
+	if ((options.allow_tcp_forwarding & FORWARD_LOCAL) != 0 &&
+	    !no_port_forwarding_flag) {
+		c = channel_connect_to(target, target_port,
+		    "direct-tcpip", "direct-tcpip");
+	} else {
+		logit("refused local port forward: "
+		    "originator %s port %d, target %s port %d",
+		    originator, originator_port, target, target_port);
+	}
 
-	xfree(originator);
-	xfree(target);
+	free(originator);
+	free(target);
 
 	return c;
 }
@@ -1091,7 +1108,7 @@ server_input_channel_open(int type, u_int32_t seq, void *ctxt)
 		}
 		packet_send();
 	}
-	xfree(ctype);
+	free(ctype);
 }
 
 static void
@@ -1120,7 +1137,7 @@ server_input_global_request(int type, u_int32_t seq, void *ctxt)
 		    listen_address, listen_port);
 
 		/* check permissions */
-		if (!options.allow_tcp_forwarding ||
+		if ((options.allow_tcp_forwarding & FORWARD_REMOTE) == 0 ||
 		    no_port_forwarding_flag ||
 		    (!want_reply && listen_port == 0)
 #ifndef NO_IPPORT_RESERVED_CONCEPT
@@ -1136,7 +1153,7 @@ server_input_global_request(int type, u_int32_t seq, void *ctxt)
 			    listen_address, listen_port,
 			    &allocated_listen_port, options.gateway_ports);
 		}
-		xfree(listen_address);
+		free(listen_address);
 	} else if (strcmp(rtype, "cancel-tcpip-forward") == 0) {
 		char *cancel_address;
 		u_short cancel_port;
@@ -1148,7 +1165,7 @@ server_input_global_request(int type, u_int32_t seq, void *ctxt)
 
 		success = channel_cancel_rport_listener(cancel_address,
 		    cancel_port);
-		xfree(cancel_address);
+		free(cancel_address);
 	} else if (strcmp(rtype, "no-more-sessions@openssh.com") == 0) {
 		no_more_sessions = 1;
 		success = 1;
@@ -1161,7 +1178,7 @@ server_input_global_request(int type, u_int32_t seq, void *ctxt)
 		packet_send();
 		packet_write_wait();
 	}
-	xfree(rtype);
+	free(rtype);
 }
 
 static void
@@ -1193,7 +1210,7 @@ server_input_channel_req(int type, u_int32_t seq, void *ctxt)
 		packet_put_int(c->remote_id);
 		packet_send();
 	}
-	xfree(rtype);
+	free(rtype);
 }
 
 static void
