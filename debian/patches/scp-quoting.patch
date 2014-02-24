@@ -1,17 +1,26 @@
-Description: Adjust scp quoting in verbose mode
- Tweak scp's reporting of filenames in verbose mode to be a bit less
- confusing with spaces.
- .
- This should be revised to mimic real shell quoting.
-Author: Nicolas Valcárcel <nvalcarcel@ubuntu.com>
+From 52d571e95114cd6d63b5dc4829f87fd55213c828 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Nicolas=20Valc=C3=A1rcel?= <nvalcarcel@ubuntu.com>
+Date: Sun, 9 Feb 2014 16:09:59 +0000
+Subject: Adjust scp quoting in verbose mode
+
+Tweak scp's reporting of filenames in verbose mode to be a bit less
+confusing with spaces.
+
+This should be revised to mimic real shell quoting.
+
 Bug-Ubuntu: https://bugs.launchpad.net/bugs/89945
 Last-Update: 2010-02-27
 
-Index: b/scp.c
-===================================================================
+Patch-Name: scp-quoting.patch
+---
+ scp.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/scp.c b/scp.c
+index 18d3b1d..0669d02 100644
 --- a/scp.c
 +++ b/scp.c
-@@ -189,8 +189,16 @@
+@@ -189,8 +189,16 @@ do_local_cmd(arglist *a)
  
  	if (verbose_mode) {
  		fprintf(stderr, "Executing:");

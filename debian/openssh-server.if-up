@@ -30,8 +30,8 @@ if [ ! -f /var/run/sshd.pid ] || \
 	exit 0
 fi
 
-# We'd like to use 'reload' here, but it has some problems; see #502444.
-stop ssh || true
-start ssh || true
+# We'd like to use 'reload' here, but it has some problems; see
+# #502444.
+invoke-rc.d ssh restart >/dev/null 2>&1 || true
 
 exit 0

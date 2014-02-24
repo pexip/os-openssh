@@ -1,0 +1,28 @@
+From 6b7aca6f112d216f321466cc7301b5183e772513 Mon Sep 17 00:00:00 2001
+From: Colin Watson <cjwatson@debian.org>
+Date: Sun, 9 Feb 2014 16:10:17 +0000
+Subject: Support synchronisation with service supervisor using SIGSTOP
+
+Forwarded: no
+Last-Update: 2013-09-14
+
+Patch-Name: sigstop.patch
+---
+ sshd.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/sshd.c b/sshd.c
+index c49a877..23e8c2d 100644
+--- a/sshd.c
++++ b/sshd.c
+@@ -1924,6 +1924,10 @@ main(int ac, char **av)
+ 			}
+ 		}
+ 
++		if (getenv("SSH_SIGSTOP"))
++			/* Tell service supervisor that we are ready. */
++			kill(getpid(), SIGSTOP);
++
+ 		/* Accept a connection and return in a forked child */
+ 		server_accept_loop(&sock_in, &sock_out,
+ 		    &newsock, config_s);

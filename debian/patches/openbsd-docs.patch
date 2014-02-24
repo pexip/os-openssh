@@ -1,15 +1,28 @@
-Description: Adjust various OpenBSD-specific references in manual pages
- No single bug reference for this patch, but history includes:
-  http://bugs.debian.org/154434 (login.conf(5))
-  http://bugs.debian.org/513417 (/etc/rc)
-  http://bugs.debian.org/530692 (ssl(8))
-  https://bugs.launchpad.net/bugs/456660 (ssl(8))
-Author: Colin Watson <cjwatson@debian.org>
-Forwarded: not-needed
-Last-Update: 2010-02-28
+From 1c4af29874fe7bd1cec92ee90fc613c3cf83f571 Mon Sep 17 00:00:00 2001
+From: Colin Watson <cjwatson@debian.org>
+Date: Sun, 9 Feb 2014 16:10:09 +0000
+Subject: Adjust various OpenBSD-specific references in manual pages
 
-Index: b/moduli.5
-===================================================================
+No single bug reference for this patch, but history includes:
+ http://bugs.debian.org/154434 (login.conf(5))
+ http://bugs.debian.org/513417 (/etc/rc)
+ http://bugs.debian.org/530692 (ssl(8))
+ https://bugs.launchpad.net/bugs/456660 (ssl(8))
+
+Forwarded: not-needed
+Last-Update: 2013-09-14
+
+Patch-Name: openbsd-docs.patch
+---
+ moduli.5      |  4 ++--
+ ssh-keygen.1  | 12 ++++--------
+ ssh.1         |  4 ++++
+ sshd.8        |  5 ++---
+ sshd_config.5 |  3 +--
+ 5 files changed, 13 insertions(+), 15 deletions(-)
+
+diff --git a/moduli.5 b/moduli.5
+index ef0de08..149846c 100644
 --- a/moduli.5
 +++ b/moduli.5
 @@ -21,7 +21,7 @@
@@ -21,7 +34,7 @@ Index: b/moduli.5
  file contains prime numbers and generators for use by
  .Xr sshd 8
  in the Diffie-Hellman Group Exchange key exchange method.
-@@ -110,7 +110,7 @@
+@@ -110,7 +110,7 @@ first estimates the size of the modulus required to produce enough
  Diffie-Hellman output to sufficiently key the selected symmetric cipher.
  .Xr sshd 8
  then randomly selects a modulus from
@@ -30,12 +43,12 @@ Index: b/moduli.5
  that best meets the size requirement.
  .Sh SEE ALSO
  .Xr ssh-keygen 1 ,
-Index: b/ssh-keygen.1
-===================================================================
+diff --git a/ssh-keygen.1 b/ssh-keygen.1
+index 0e0ed98..299ccf8 100644
 --- a/ssh-keygen.1
 +++ b/ssh-keygen.1
-@@ -149,9 +149,7 @@
- .Pa ~/.ssh/id_dsa
+@@ -172,9 +172,7 @@ key in
+ .Pa ~/.ssh/id_ed25519
  or
  .Pa ~/.ssh/id_rsa .
 -Additionally, the system administrator may use this to generate host keys,
@@ -45,18 +58,18 @@ Index: b/ssh-keygen.1
  .Pp
  Normally this program generates the key and asks for a file in which
  to store the private key.
-@@ -197,9 +195,7 @@
- For each of the key types (rsa1, rsa, dsa and ecdsa) for which host keys
+@@ -221,9 +219,7 @@ For each of the key types (rsa1, rsa, dsa, ecdsa and ed25519)
+ for which host keys
  do not exist, generate the host keys with the default key file path,
  an empty passphrase, default bits for the key type, and default comment.
 -This is used by
 -.Pa /etc/rc
 -to generate new host keys.
 +This is used by system administration scripts to generate new host keys.
- .It Fl a Ar trials
- Specifies the number of primality tests to perform when screening DH-GEX
- candidates using the
-@@ -535,7 +531,7 @@
+ .It Fl a Ar rounds
+ When saving a new-format private key (i.e. an ed25519 key or any SSH protocol
+ 2 key when the
+@@ -628,7 +624,7 @@ option.
  Valid generator values are 2, 3, and 5.
  .Pp
  Screened DH groups may be installed in
@@ -65,7 +78,7 @@ Index: b/ssh-keygen.1
  It is important that this file contains moduli of a range of bit lengths and
  that both ends of a connection share common moduli.
  .Sh CERTIFICATES
-@@ -661,7 +657,7 @@
+@@ -827,7 +823,7 @@ on all machines
  where the user wishes to log in using public key authentication.
  There is no need to keep the contents of this file secret.
  .Pp
@@ -74,13 +87,13 @@ Index: b/ssh-keygen.1
  Contains Diffie-Hellman groups used for DH-GEX.
  The file format is described in
  .Xr moduli 5 .
-Index: b/ssh.1
-===================================================================
+diff --git a/ssh.1 b/ssh.1
+index ff5e6ac..67b4f44 100644
 --- a/ssh.1
 +++ b/ssh.1
-@@ -731,6 +731,10 @@
- .Sx HISTORY
- section of
+@@ -763,6 +763,10 @@ Protocol 1 is restricted to using only RSA keys,
+ but protocol 2 may use any.
+ The HISTORY section of
  .Xr ssl 8
 +(on non-OpenBSD systems, see
 +.nh
@@ -89,11 +102,11 @@ Index: b/ssh.1
  contains a brief discussion of the DSA and RSA algorithms.
  .Pp
  The file
-Index: b/sshd.8
-===================================================================
+diff --git a/sshd.8 b/sshd.8
+index e6a900b..b016e90 100644
 --- a/sshd.8
 +++ b/sshd.8
-@@ -69,7 +69,7 @@
+@@ -70,7 +70,7 @@ over an insecure network.
  .Nm
  listens for connections from clients.
  It is normally started at boot from
@@ -102,7 +115,7 @@ Index: b/sshd.8
  It forks a new
  daemon for each incoming connection.
  The forked daemons handle
-@@ -853,7 +853,7 @@
+@@ -862,7 +862,7 @@ This file is for host-based authentication (see
  .Xr ssh 1 ) .
  It should only be writable by root.
  .Pp
@@ -111,19 +124,19 @@ Index: b/sshd.8
  Contains Diffie-Hellman groups used for the "Diffie-Hellman Group Exchange".
  The file format is described in
  .Xr moduli 5 .
-@@ -951,7 +951,6 @@
- .Xr ssh-vulnkey 1 ,
+@@ -961,7 +961,6 @@ The content of this file is not sensitive; it can be world-readable.
+ .Xr ssh-keyscan 1 ,
  .Xr chroot 2 ,
  .Xr hosts_access 5 ,
 -.Xr login.conf 5 ,
  .Xr moduli 5 ,
  .Xr sshd_config 5 ,
  .Xr inetd 8 ,
-Index: b/sshd_config.5
-===================================================================
+diff --git a/sshd_config.5 b/sshd_config.5
+index bdca797..9fa6086 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
-@@ -222,8 +222,7 @@
+@@ -283,8 +283,7 @@ This option is only available for protocol version 2.
  By default, no banner is displayed.
  .It Cm ChallengeResponseAuthentication
  Specifies whether challenge-response authentication is allowed (e.g. via

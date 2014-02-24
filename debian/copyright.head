@@ -7,11 +7,11 @@ It was downloaded from here:
 worldwide mirrors are listed here:
   http://www.openssh.com/ftp.html
 
-The Debian specific parts of the package are mostly taken from the
+The Debian-specific parts of the package were initially derived from the
 original ssh package, which has since been renamed as ssh-nonfree.
 
 The Debian patch is distributed under the terms of the GPL, which you
-can find in /usr/share/common-licenses/GPL.
+can find in /usr/share/common-licenses/GPL-2.
 
 In addition, as a special exception, Matthew Vernon gives permission
 to link the code of the Debian patch with any version of the OpenSSH

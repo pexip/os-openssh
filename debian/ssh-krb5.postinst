@@ -6,14 +6,6 @@ action="$1"
 oldversion="$2"
 
 if [ "$action" = configure ] ; then
-    if dpkg --compare-versions "$oldversion" lt-nl 1:4.3p2-7; then
-        # Replaced by /etc/init.d/ssh.
-        if [ -f /etc/init.d/ssh-krb5 ]; then
-            mv /etc/init.d/ssh-krb5 /etc/init.d/ssh-krb5.dpkg-old
-            update-rc.d ssh-krb5 remove || true
-        fi
-    fi
-
     # Make sure that GSSAPI is enabled.  If there is no uncommented GSSAPI
     # configuration, uncomment any commented-out configuration if present
     # (this will catch the case of a fresh install of openssh-server).
@@ -58,9 +50,8 @@ GSSAPIKeyExchange yes
 EOF
             fi
         fi
-        if [ -n "$changed" ] && [ -e /etc/init/ssh.conf ] ; then
-            stop ssh || true
-            start ssh || true
+        if [ -n "$changed" ]; then
+            invoke-rc.d ssh restart
         fi
     fi
 fi
