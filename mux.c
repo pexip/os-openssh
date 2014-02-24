@@ -1,4 +1,4 @@
-/* $OpenBSD: mux.c,v 1.29 2011/06/22 22:08:42 djm Exp $ */
+/* $OpenBSD: mux.c,v 1.44 2013/07/12 00:19:58 djm Exp $ */
 /*
  * Copyright (c) 2002-2008 Damien Miller <djm@openbsd.org>
  *
@@ -61,10 +61,6 @@
 
 #ifdef HAVE_UTIL_H
 # include <util.h>
-#endif
-
-#ifdef HAVE_LIBUTIL_H
-# include <libutil.h>
 #endif
 
 #include "openbsd-compat/sys-queue.h"
@@ -223,7 +219,8 @@ mux_master_control_cleanup_cb(int cid, void *unused)
 			    __func__, c->self, c->remote_id);
 		c->remote_id = -1;
 		sc->ctl_chan = -1;
-		if (sc->type != SSH_CHANNEL_OPEN) {
+		if (sc->type != SSH_CHANNEL_OPEN &&
+		    sc->type != SSH_CHANNEL_OPENING) {
 			debug2("%s: channel %d: not open", __func__, sc->self);
 			chan_mark_dead(sc);
 		} else {
@@ -290,13 +287,13 @@ process_mux_master_hello(u_int rid, Channel *c, Buffer *m, Buffer *r)
 		char *value = buffer_get_string_ret(m, NULL);
 
 		if (name == NULL || value == NULL) {
-			if (name != NULL)
-				xfree(name);
+			free(name);
+			free(value);
 			goto malf;
 		}
 		debug2("Unrecognised slave extension \"%s\"", name);
-		xfree(name);
-		xfree(value);
+		free(name);
+		free(value);
 	}
 	state->hello_rcvd = 1;
 	return 0;
@@ -316,6 +313,8 @@ process_mux_new_session(u_int rid, Channel *c, Buffer *m, Buffer *r)
 	cctx->term = NULL;
 	cctx->rid = rid;
 	cmd = reserved = NULL;
+	cctx->env = NULL;
+	env_len = 0;
 	if ((reserved = buffer_get_string_ret(m, NULL)) == NULL ||
 	    buffer_get_int_ret(&cctx->want_tty, m) != 0 ||
 	    buffer_get_int_ret(&cctx->want_x_fwd, m) != 0 ||
@@ -325,28 +324,25 @@ process_mux_new_session(u_int rid, Channel *c, Buffer *m, Buffer *r)
 	    (cctx->term = buffer_get_string_ret(m, &len)) == NULL ||
 	    (cmd = buffer_get_string_ret(m, &len)) == NULL) {
  malf:
-		if (cmd != NULL)
-			xfree(cmd);
-		if (reserved != NULL)
-			xfree(reserved);
-		if (cctx->term != NULL)
-			xfree(cctx->term);
+		free(cmd);
+		free(reserved);
+		for (j = 0; j < env_len; j++)
+			free(cctx->env[j]);
+		free(cctx->env);
+		free(cctx->term);
+		free(cctx);
 		error("%s: malformed message", __func__);
 		return -1;
 	}
-	xfree(reserved);
+	free(reserved);
 	reserved = NULL;
 
-	cctx->env = NULL;
-	env_len = 0;
 	while (buffer_len(m) > 0) {
 #define MUX_MAX_ENV_VARS	4096
-		if ((cp = buffer_get_string_ret(m, &len)) == NULL) {
-			xfree(cmd);
+		if ((cp = buffer_get_string_ret(m, &len)) == NULL)
 			goto malf;
-		}
 		if (!env_permitted(cp)) {
-			xfree(cp);
+			free(cp);
 			continue;
 		}
 		cctx->env = xrealloc(cctx->env, env_len + 2,
@@ -367,7 +363,7 @@ process_mux_new_session(u_int rid, Channel *c, Buffer *m, Buffer *r)
 
 	buffer_init(&cctx->cmd);
 	buffer_append(&cctx->cmd, cmd, strlen(cmd));
-	xfree(cmd);
+	free(cmd);
 	cmd = NULL;
 
 	/* Gather fds from client */
@@ -378,12 +374,11 @@ process_mux_new_session(u_int rid, Channel *c, Buffer *m, Buffer *r)
 			for (j = 0; j < i; j++)
 				close(new_fd[j]);
 			for (j = 0; j < env_len; j++)
-				xfree(cctx->env[j]);
-			if (env_len > 0)
-				xfree(cctx->env);
-			xfree(cctx->term);
+				free(cctx->env[j]);
+			free(cctx->env);
+			free(cctx->term);
 			buffer_free(&cctx->cmd);
-			xfree(cctx);
+			free(cctx);
 
 			/* prepare reply */
 			buffer_put_int(r, MUX_S_FAILURE);
@@ -408,13 +403,14 @@ process_mux_new_session(u_int rid, Channel *c, Buffer *m, Buffer *r)
 		close(new_fd[0]);
 		close(new_fd[1]);
 		close(new_fd[2]);
-		xfree(cctx->term);
+		free(cctx->term);
 		if (env_len != 0) {
 			for (i = 0; i < env_len; i++)
-				xfree(cctx->env[i]);
-			xfree(cctx->env);
+				free(cctx->env[i]);
+			free(cctx->env);
 		}
 		buffer_free(&cctx->cmd);
+		free(cctx);
 		return 0;
 	}
 
@@ -601,12 +597,16 @@ mux_confirm_remote_forward(int type, u_int32_t seq, void *ctxt)
 			buffer_put_int(&out, MUX_S_REMOTE_PORT);
 			buffer_put_int(&out, fctx->rid);
 			buffer_put_int(&out, rfwd->allocated_port);
+			channel_update_permitted_opens(rfwd->handle,
+			   rfwd->allocated_port);
 		} else {
 			buffer_put_int(&out, MUX_S_OK);
 			buffer_put_int(&out, fctx->rid);
 		}
 		goto out;
 	} else {
+		if (rfwd->listen_port == 0)
+			channel_update_permitted_opens(rfwd->handle, -1);
 		xasprintf(&failmsg, "remote port forwarding failed for "
 		    "listen port %d", rfwd->listen_port);
 	}
@@ -615,7 +615,7 @@ mux_confirm_remote_forward(int type, u_int32_t seq, void *ctxt)
 	buffer_put_int(&out, MUX_S_FAILURE);
 	buffer_put_int(&out, fctx->rid);
 	buffer_put_cstring(&out, failmsg);
-	xfree(failmsg);
+	free(failmsg);
  out:
 	buffer_put_string(&c->output, buffer_ptr(&out), buffer_len(&out));
 	buffer_free(&out);
@@ -630,25 +630,28 @@ process_mux_open_fwd(u_int rid, Channel *c, Buffer *m, Buffer *r)
 	Forward fwd;
 	char *fwd_desc = NULL;
 	u_int ftype;
+	u_int lport, cport;
 	int i, ret = 0, freefwd = 1;
 
 	fwd.listen_host = fwd.connect_host = NULL;
 	if (buffer_get_int_ret(&ftype, m) != 0 ||
 	    (fwd.listen_host = buffer_get_string_ret(m, NULL)) == NULL ||
-	    buffer_get_int_ret(&fwd.listen_port, m) != 0 ||
+	    buffer_get_int_ret(&lport, m) != 0 ||
 	    (fwd.connect_host = buffer_get_string_ret(m, NULL)) == NULL ||
-	    buffer_get_int_ret(&fwd.connect_port, m) != 0) {
+	    buffer_get_int_ret(&cport, m) != 0 ||
+	    lport > 65535 || cport > 65535) {
 		error("%s: malformed message", __func__);
 		ret = -1;
 		goto out;
 	}
-
+	fwd.listen_port = lport;
+	fwd.connect_port = cport;
 	if (*fwd.listen_host == '\0') {
-		xfree(fwd.listen_host);
+		free(fwd.listen_host);
 		fwd.listen_host = NULL;
 	}
 	if (*fwd.connect_host == '\0') {
-		xfree(fwd.connect_host);
+		free(fwd.connect_host);
 		fwd.connect_host = NULL;
 	}
 
@@ -659,10 +662,8 @@ process_mux_open_fwd(u_int rid, Channel *c, Buffer *m, Buffer *r)
 	    ftype != MUX_FWD_DYNAMIC) {
 		logit("%s: invalid forwarding type %u", __func__, ftype);
  invalid:
-		if (fwd.listen_host)
-			xfree(fwd.listen_host);
-		if (fwd.connect_host)
-			xfree(fwd.connect_host);
+		free(fwd.listen_host);
+		free(fwd.connect_host);
 		buffer_put_int(r, MUX_S_FAILURE);
 		buffer_put_int(r, rid);
 		buffer_put_cstring(r, "Invalid forwarding request");
@@ -730,9 +731,9 @@ process_mux_open_fwd(u_int rid, Channel *c, Buffer *m, Buffer *r)
 	}
 
 	if (ftype == MUX_FWD_LOCAL || ftype == MUX_FWD_DYNAMIC) {
-		if (channel_setup_local_fwd_listener(fwd.listen_host,
+		if (!channel_setup_local_fwd_listener(fwd.listen_host,
 		    fwd.listen_port, fwd.connect_host, fwd.connect_port,
-		    options.gateway_ports) < 0) {
+		    options.gateway_ports)) {
  fail:
 			logit("slave-requested %s failed", fwd_desc);
 			buffer_put_int(r, MUX_S_FAILURE);
@@ -745,8 +746,9 @@ process_mux_open_fwd(u_int rid, Channel *c, Buffer *m, Buffer *r)
 	} else {
 		struct mux_channel_confirm_ctx *fctx;
 
-		if (channel_request_remote_forwarding(fwd.listen_host,
-		    fwd.listen_port, fwd.connect_host, fwd.connect_port) < 0)
+		fwd.handle = channel_request_remote_forwarding(fwd.listen_host,
+		    fwd.listen_port, fwd.connect_host, fwd.connect_port);
+		if (fwd.handle < 0)
 			goto fail;
 		add_remote_forward(&options, &fwd);
 		fctx = xcalloc(1, sizeof(*fctx));
@@ -763,13 +765,10 @@ process_mux_open_fwd(u_int rid, Channel *c, Buffer *m, Buffer *r)
 	buffer_put_int(r, MUX_S_OK);
 	buffer_put_int(r, rid);
  out:
-	if (fwd_desc != NULL)
-		xfree(fwd_desc);
+	free(fwd_desc);
 	if (freefwd) {
-		if (fwd.listen_host != NULL)
-			xfree(fwd.listen_host);
-		if (fwd.connect_host != NULL)
-			xfree(fwd.connect_host);
+		free(fwd.listen_host);
+		free(fwd.connect_host);
 	}
 	return ret;
 }
@@ -777,46 +776,102 @@ process_mux_open_fwd(u_int rid, Channel *c, Buffer *m, Buffer *r)
 static int
 process_mux_close_fwd(u_int rid, Channel *c, Buffer *m, Buffer *r)
 {
-	Forward fwd;
+	Forward fwd, *found_fwd;
 	char *fwd_desc = NULL;
+	const char *error_reason = NULL;
 	u_int ftype;
-	int ret = 0;
+	int i, listen_port, ret = 0;
+	u_int lport, cport;
 
 	fwd.listen_host = fwd.connect_host = NULL;
 	if (buffer_get_int_ret(&ftype, m) != 0 ||
 	    (fwd.listen_host = buffer_get_string_ret(m, NULL)) == NULL ||
-	    buffer_get_int_ret(&fwd.listen_port, m) != 0 ||
+	    buffer_get_int_ret(&lport, m) != 0 ||
 	    (fwd.connect_host = buffer_get_string_ret(m, NULL)) == NULL ||
-	    buffer_get_int_ret(&fwd.connect_port, m) != 0) {
+	    buffer_get_int_ret(&cport, m) != 0 ||
+	    lport > 65535 || cport > 65535) {
 		error("%s: malformed message", __func__);
 		ret = -1;
 		goto out;
 	}
+	fwd.listen_port = lport;
+	fwd.connect_port = cport;
 
 	if (*fwd.listen_host == '\0') {
-		xfree(fwd.listen_host);
+		free(fwd.listen_host);
 		fwd.listen_host = NULL;
 	}
 	if (*fwd.connect_host == '\0') {
-		xfree(fwd.connect_host);
+		free(fwd.connect_host);
 		fwd.connect_host = NULL;
 	}
 
-	debug2("%s: channel %d: request %s", __func__, c->self,
+	debug2("%s: channel %d: request cancel %s", __func__, c->self,
 	    (fwd_desc = format_forward(ftype, &fwd)));
 
-	/* XXX implement this */
-	buffer_put_int(r, MUX_S_FAILURE);
-	buffer_put_int(r, rid);
-	buffer_put_cstring(r, "unimplemented");
+	/* make sure this has been requested */
+	found_fwd = NULL;
+	switch (ftype) {
+	case MUX_FWD_LOCAL:
+	case MUX_FWD_DYNAMIC:
+		for (i = 0; i < options.num_local_forwards; i++) {
+			if (compare_forward(&fwd,
+			    options.local_forwards + i)) {
+				found_fwd = options.local_forwards + i;
+				break;
+			}
+		}
+		break;
+	case MUX_FWD_REMOTE:
+		for (i = 0; i < options.num_remote_forwards; i++) {
+			if (compare_forward(&fwd,
+			    options.remote_forwards + i)) {
+				found_fwd = options.remote_forwards + i;
+				break;
+			}
+		}
+		break;
+	}
 
+	if (found_fwd == NULL)
+		error_reason = "port not forwarded";
+	else if (ftype == MUX_FWD_REMOTE) {
+		/*
+		 * This shouldn't fail unless we confused the host/port
+		 * between options.remote_forwards and permitted_opens.
+		 * However, for dynamic allocated listen ports we need
+		 * to lookup the actual listen port.
+		 */
+	        listen_port = (fwd.listen_port == 0) ?
+		    found_fwd->allocated_port : fwd.listen_port;
+		if (channel_request_rforward_cancel(fwd.listen_host,
+		    listen_port) == -1)
+			error_reason = "port not in permitted opens";
+	} else {	/* local and dynamic forwards */
+		/* Ditto */
+		if (channel_cancel_lport_listener(fwd.listen_host,
+		    fwd.listen_port, fwd.connect_port,
+		    options.gateway_ports) == -1)
+			error_reason = "port not found";
+	}
+
+	if (error_reason == NULL) {
+		buffer_put_int(r, MUX_S_OK);
+		buffer_put_int(r, rid);
+
+		free(found_fwd->listen_host);
+		free(found_fwd->connect_host);
+		found_fwd->listen_host = found_fwd->connect_host = NULL;
+		found_fwd->listen_port = found_fwd->connect_port = 0;
+	} else {
+		buffer_put_int(r, MUX_S_FAILURE);
+		buffer_put_int(r, rid);
+		buffer_put_cstring(r, error_reason);
+	}
  out:
-	if (fwd_desc != NULL)
-		xfree(fwd_desc);
-	if (fwd.listen_host != NULL)
-		xfree(fwd.listen_host);
-	if (fwd.connect_host != NULL)
-		xfree(fwd.connect_host);
+	free(fwd_desc);
+	free(fwd.listen_host);
+	free(fwd.connect_host);
 
 	return ret;
 }
@@ -833,14 +888,12 @@ process_mux_stdio_fwd(u_int rid, Channel *c, Buffer *m, Buffer *r)
 	if ((reserved = buffer_get_string_ret(m, NULL)) == NULL ||
 	   (chost = buffer_get_string_ret(m, NULL)) == NULL ||
 	    buffer_get_int_ret(&cport, m) != 0) {
-		if (reserved != NULL)
-			xfree(reserved);
-		if (chost != NULL)
-			xfree(chost);
+		free(reserved);
+		free(chost);
 		error("%s: malformed message", __func__);
 		return -1;
 	}
-	xfree(reserved);
+	free(reserved);
 
 	debug2("%s: channel %d: request stdio fwd to %s:%u",
 	    __func__, c->self, chost, cport);
@@ -852,7 +905,7 @@ process_mux_stdio_fwd(u_int rid, Channel *c, Buffer *m, Buffer *r)
 			    __func__, i);
 			for (j = 0; j < i; j++)
 				close(new_fd[j]);
-			xfree(chost);
+			free(chost);
 
 			/* prepare reply */
 			buffer_put_int(r, MUX_S_FAILURE);
@@ -876,7 +929,7 @@ process_mux_stdio_fwd(u_int rid, Channel *c, Buffer *m, Buffer *r)
  cleanup:
 		close(new_fd[0]);
 		close(new_fd[1]);
-		xfree(chost);
+		free(chost);
 		return 0;
 	}
 
@@ -938,7 +991,7 @@ process_mux_stop_listening(u_int rid, Channel *c, Buffer *m, Buffer *r)
 	if (mux_listener_channel != NULL) {
 		channel_free(mux_listener_channel);
 		client_stop_mux();
-		xfree(options.control_path);
+		free(options.control_path);
 		options.control_path = NULL;
 		mux_listener_channel = NULL;
 		muxserver_sock = -1;
@@ -1038,7 +1091,7 @@ mux_exit_message(Channel *c, int exitval)
 	Buffer m;
 	Channel *mux_chan;
 
-	debug3("%s: channel %d: exit message, evitval %d", __func__, c->self,
+	debug3("%s: channel %d: exit message, exitval %d", __func__, c->self,
 	    exitval);
 
 	if ((mux_chan = channel_by_id(c->ctl_chan)) == NULL)
@@ -1135,7 +1188,8 @@ muxserver_listen(void)
 				close(muxserver_sock);
 				muxserver_sock = -1;
 			}
-			xfree(options.control_path);
+			free(orig_control_path);
+			free(options.control_path);
 			options.control_path = NULL;
 			options.control_master = SSHCTL_MASTER_NO;
 			return;
@@ -1156,12 +1210,11 @@ muxserver_listen(void)
 		}
 		error("ControlSocket %s already exists, disabling multiplexing",
 		    orig_control_path);
-		xfree(orig_control_path);
 		unlink(options.control_path);
 		goto disable_mux_master;
 	}
 	unlink(options.control_path);
-	xfree(options.control_path);
+	free(options.control_path);
 	options.control_path = orig_control_path;
 
 	set_nonblock(muxserver_sock);
@@ -1246,13 +1299,13 @@ mux_session_confirm(int id, int success, void *arg)
 	cc->mux_pause = 0; /* start processing messages again */
 	c->open_confirm_ctx = NULL;
 	buffer_free(&cctx->cmd);
-	xfree(cctx->term);
+	free(cctx->term);
 	if (cctx->env != NULL) {
 		for (i = 0; cctx->env[i] != NULL; i++)
-			xfree(cctx->env[i]);
-		xfree(cctx->env);
+			free(cctx->env[i]);
+		free(cctx->env);
 	}
-	xfree(cctx);
+	free(cctx);
 }
 
 /* ** Multiplexing client support */
@@ -1382,7 +1435,9 @@ mux_client_read_packet(int fd, Buffer *m)
 	buffer_init(&queue);
 	if (mux_client_read(fd, &queue, 4) != 0) {
 		if ((oerrno = errno) == EPIPE)
-		debug3("%s: read header failed: %s", __func__, strerror(errno));
+			debug3("%s: read header failed: %s", __func__,
+			    strerror(errno));
+		buffer_free(&queue);
 		errno = oerrno;
 		return -1;
 	}
@@ -1390,6 +1445,7 @@ mux_client_read_packet(int fd, Buffer *m)
 	if (mux_client_read(fd, &queue, need) != 0) {
 		oerrno = errno;
 		debug3("%s: read body failed: %s", __func__, strerror(errno));
+		buffer_free(&queue);
 		errno = oerrno;
 		return -1;
 	}
@@ -1436,8 +1492,8 @@ mux_client_hello_exchange(int fd)
 		char *value = buffer_get_string(&m, NULL);
 
 		debug2("Unrecognised master extension \"%s\"", name);
-		xfree(name);
-		xfree(value);
+		free(name);
+		free(value);
 	}
 	buffer_free(&m);
 	return 0;
@@ -1537,18 +1593,19 @@ mux_client_request_terminate(int fd)
 }
 
 static int
-mux_client_request_forward(int fd, u_int ftype, Forward *fwd)
+mux_client_forward(int fd, int cancel_flag, u_int ftype, Forward *fwd)
 {
 	Buffer m;
 	char *e, *fwd_desc;
 	u_int type, rid;
 
 	fwd_desc = format_forward(ftype, fwd);
-	debug("Requesting %s", fwd_desc);
-	xfree(fwd_desc);
+	debug("Requesting %s %s",
+	    cancel_flag ? "cancellation of" : "forwarding of", fwd_desc);
+	free(fwd_desc);
 
 	buffer_init(&m);
-	buffer_put_int(&m, MUX_C_OPEN_FWD);
+	buffer_put_int(&m, cancel_flag ? MUX_C_CLOSE_FWD : MUX_C_OPEN_FWD);
 	buffer_put_int(&m, muxclient_request_id);
 	buffer_put_int(&m, ftype);
 	buffer_put_cstring(&m,
@@ -1577,6 +1634,8 @@ mux_client_request_forward(int fd, u_int ftype, Forward *fwd)
 	case MUX_S_OK:
 		break;
 	case MUX_S_REMOTE_PORT:
+		if (cancel_flag)
+			fatal("%s: got MUX_S_REMOTE_PORT for cancel", __func__);
 		fwd->allocated_port = buffer_get_int(&m);
 		logit("Allocated port %u for remote forward to %s:%d",
 		    fwd->allocated_port,
@@ -1606,27 +1665,28 @@ mux_client_request_forward(int fd, u_int ftype, Forward *fwd)
 }
 
 static int
-mux_client_request_forwards(int fd)
+mux_client_forwards(int fd, int cancel_flag)
 {
-	int i;
+	int i, ret = 0;
 
-	debug3("%s: requesting forwardings: %d local, %d remote", __func__,
+	debug3("%s: %s forwardings: %d local, %d remote", __func__,
+	    cancel_flag ? "cancel" : "request",
 	    options.num_local_forwards, options.num_remote_forwards);
 
 	/* XXX ExitOnForwardingFailure */
 	for (i = 0; i < options.num_local_forwards; i++) {
-		if (mux_client_request_forward(fd,
+		if (mux_client_forward(fd, cancel_flag,
 		    options.local_forwards[i].connect_port == 0 ?
 		    MUX_FWD_DYNAMIC : MUX_FWD_LOCAL,
 		    options.local_forwards + i) != 0)
-			return -1;
+			ret = -1;
 	}
 	for (i = 0; i < options.num_remote_forwards; i++) {
-		if (mux_client_request_forward(fd, MUX_FWD_REMOTE,
+		if (mux_client_forward(fd, cancel_flag, MUX_FWD_REMOTE,
 		    options.remote_forwards + i) != 0)
-			return -1;
+			ret = -1;
 	}
-	return 0;
+	return ret;
 }
 
 static int
@@ -2014,11 +2074,11 @@ muxclient(const char *path)
 		fprintf(stderr, "Exit request sent.\r\n");
 		exit(0);
 	case SSHMUX_COMMAND_FORWARD:
-		if (mux_client_request_forwards(sock) != 0)
+		if (mux_client_forwards(sock, 0) != 0)
 			fatal("%s: master forward request failed", __func__);
 		exit(0);
 	case SSHMUX_COMMAND_OPEN:
-		if (mux_client_request_forwards(sock) != 0) {
+		if (mux_client_forwards(sock, 0) != 0) {
 			error("%s: master forward request failed", __func__);
 			return;
 		}
@@ -2030,6 +2090,11 @@ muxclient(const char *path)
 	case SSHMUX_COMMAND_STOP:
 		mux_client_request_stop_listening(sock);
 		fprintf(stderr, "Stop listening request sent.\r\n");
+		exit(0);
+	case SSHMUX_COMMAND_CANCEL_FWD:
+		if (mux_client_forwards(sock, 1) != 0)
+			error("%s: master cancel forward request failed",
+			    __func__);
 		exit(0);
 	default:
 		fatal("unrecognised muxclient_command %d", muxclient_command);

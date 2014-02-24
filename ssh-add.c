@@ -1,4 +1,4 @@
-/* $OpenBSD: ssh-add.c,v 1.101 2011/05/04 21:15:29 djm Exp $ */
+/* $OpenBSD: ssh-add.c,v 1.108 2013/12/19 00:10:30 djm Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -73,6 +73,7 @@ static char *default_files[] = {
 #ifdef OPENSSL_HAS_ECC
 	_PATH_SSH_CLIENT_ID_ECDSA,
 #endif
+	_PATH_SSH_CLIENT_ID_ED25519,
 	_PATH_SSH_CLIENT_IDENTITY,
 	NULL
 };
@@ -90,16 +91,16 @@ clear_pass(void)
 {
 	if (pass) {
 		memset(pass, 0, strlen(pass));
-		xfree(pass);
+		free(pass);
 		pass = NULL;
 	}
 }
 
 static int
-delete_file(AuthenticationConnection *ac, const char *filename)
+delete_file(AuthenticationConnection *ac, const char *filename, int key_only)
 {
-	Key *public;
-	char *comment = NULL;
+	Key *public = NULL, *cert = NULL;
+	char *certpath = NULL, *comment = NULL;
 	int ret = -1;
 
 	public = key_load_public(filename, &comment);
@@ -113,8 +114,33 @@ delete_file(AuthenticationConnection *ac, const char *filename)
 	} else
 		fprintf(stderr, "Could not remove identity: %s\n", filename);
 
-	key_free(public);
-	xfree(comment);
+	if (key_only)
+		goto out;
+
+	/* Now try to delete the corresponding certificate too */
+	free(comment);
+	comment = NULL;
+	xasprintf(&certpath, "%s-cert.pub", filename);
+	if ((cert = key_load_public(certpath, &comment)) == NULL)
+		goto out;
+	if (!key_equal_public(cert, public))
+		fatal("Certificate %s does not match private key %s",
+		    certpath, filename);
+
+	if (ssh_remove_identity(ac, cert)) {
+		fprintf(stderr, "Identity removed: %s (%s)\n", certpath,
+		    comment);
+		ret = 0;
+	} else
+		fprintf(stderr, "Could not remove identity: %s\n", certpath);
+
+ out:
+	if (cert != NULL)
+		key_free(cert);
+	if (public != NULL)
+		key_free(public);
+	free(certpath);
+	free(comment);
 
 	return ret;
 }
@@ -139,11 +165,11 @@ delete_all(AuthenticationConnection *ac)
 }
 
 static int
-add_file(AuthenticationConnection *ac, const char *filename)
+add_file(AuthenticationConnection *ac, const char *filename, int key_only)
 {
 	Key *private, *cert;
 	char *comment = NULL;
-	char msg[1024], *certpath;
+	char msg[1024], *certpath = NULL;
 	int fd, perms_ok, ret = -1;
 	Buffer keyblob;
 
@@ -190,7 +216,7 @@ add_file(AuthenticationConnection *ac, const char *filename)
 			pass = read_passphrase(msg, RP_ALLOW_STDIN);
 			if (strcmp(pass, "") == 0) {
 				clear_pass();
-				xfree(comment);
+				free(comment);
 				buffer_free(&keyblob);
 				return -1;
 			}
@@ -219,6 +245,9 @@ add_file(AuthenticationConnection *ac, const char *filename)
 		fprintf(stderr, "Could not add identity: %s\n", filename);
 	}
 
+	/* Skip trying to load the cert if requested */
+	if (key_only)
+		goto out;
 
 	/* Now try to add the certificate flavour too */
 	xasprintf(&certpath, "%s-cert.pub", filename);
@@ -253,8 +282,9 @@ add_file(AuthenticationConnection *ac, const char *filename)
 	if (confirm != 0)
 		fprintf(stderr, "The user must confirm each use of the key\n");
  out:
-	xfree(certpath);
-	xfree(comment);
+	if (certpath != NULL)
+		free(certpath);
+	free(comment);
 	key_free(private);
 
 	return ret;
@@ -263,14 +293,17 @@ add_file(AuthenticationConnection *ac, const char *filename)
 static int
 update_card(AuthenticationConnection *ac, int add, const char *id)
 {
-	char *pin;
+	char *pin = NULL;
 	int ret = -1;
 
-	pin = read_passphrase("Enter passphrase for PKCS#11: ", RP_ALLOW_STDIN);
-	if (pin == NULL)
-		return -1;
+	if (add) {
+		if ((pin = read_passphrase("Enter passphrase for PKCS#11: ",
+		    RP_ALLOW_STDIN)) == NULL)
+			return -1;
+	}
 
-	if (ssh_update_card(ac, add, id, pin, lifetime, confirm)) {
+	if (ssh_update_card(ac, add, id, pin == NULL ? "" : pin,
+	    lifetime, confirm)) {
 		fprintf(stderr, "Card %s: %s\n",
 		    add ? "added" : "removed", id);
 		ret = 0;
@@ -279,7 +312,7 @@ update_card(AuthenticationConnection *ac, int add, const char *id)
 		    add ? "add" : "remove", id);
 		ret = -1;
 	}
-	xfree(pin);
+	free(pin);
 	return ret;
 }
 
@@ -301,14 +334,14 @@ list_identities(AuthenticationConnection *ac, int do_fp)
 				    SSH_FP_HEX);
 				printf("%d %s %s (%s)\n",
 				    key_size(key), fp, comment, key_type(key));
-				xfree(fp);
+				free(fp);
 			} else {
 				if (!key_write(key, stdout))
 					fprintf(stderr, "key_write failed");
 				fprintf(stdout, " %s\n", comment);
 			}
 			key_free(key);
-			xfree(comment);
+			free(comment);
 		}
 	}
 	if (!had_identities) {
@@ -334,7 +367,7 @@ lock_agent(AuthenticationConnection *ac, int lock)
 			passok = 0;
 		}
 		memset(p2, 0, strlen(p2));
-		xfree(p2);
+		free(p2);
 	}
 	if (passok && ssh_lock_agent(ac, lock, p1)) {
 		fprintf(stderr, "Agent %slocked.\n", lock ? "" : "un");
@@ -342,18 +375,18 @@ lock_agent(AuthenticationConnection *ac, int lock)
 	} else
 		fprintf(stderr, "Failed to %slock agent.\n", lock ? "" : "un");
 	memset(p1, 0, strlen(p1));
-	xfree(p1);
+	free(p1);
 	return (ret);
 }
 
 static int
-do_file(AuthenticationConnection *ac, int deleting, char *file)
+do_file(AuthenticationConnection *ac, int deleting, int key_only, char *file)
 {
 	if (deleting) {
-		if (delete_file(ac, file) == -1)
+		if (delete_file(ac, file, key_only) == -1)
 			return -1;
 	} else {
-		if (add_file(ac, file) == -1)
+		if (add_file(ac, file, key_only) == -1)
 			return -1;
 	}
 	return 0;
@@ -366,12 +399,13 @@ usage(void)
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "  -l          List fingerprints of all identities.\n");
 	fprintf(stderr, "  -L          List public key parameters of all identities.\n");
+	fprintf(stderr, "  -k          Load only keys and not certificates.\n");
+	fprintf(stderr, "  -c          Require confirmation to sign using identities\n");
+	fprintf(stderr, "  -t life     Set lifetime (in seconds) when adding identities.\n");
 	fprintf(stderr, "  -d          Delete identity.\n");
 	fprintf(stderr, "  -D          Delete all identities.\n");
 	fprintf(stderr, "  -x          Lock agent.\n");
 	fprintf(stderr, "  -X          Unlock agent.\n");
-	fprintf(stderr, "  -t life     Set lifetime (in seconds) when adding identities.\n");
-	fprintf(stderr, "  -c          Require confirmation to sign using identities\n");
 	fprintf(stderr, "  -s pkcs11   Add keys from PKCS#11 provider.\n");
 	fprintf(stderr, "  -e pkcs11   Remove keys provided by PKCS#11 provider.\n");
 }
@@ -383,7 +417,7 @@ main(int argc, char **argv)
 	extern int optind;
 	AuthenticationConnection *ac = NULL;
 	char *pkcs11provider = NULL;
-	int i, ch, deleting = 0, ret = 0;
+	int i, ch, deleting = 0, ret = 0, key_only = 0;
 
 	/* Ensure that fds 0, 1 and 2 are open or directed to /dev/null */
 	sanitise_stdfd();
@@ -400,8 +434,11 @@ main(int argc, char **argv)
 		    "Could not open a connection to your authentication agent.\n");
 		exit(2);
 	}
-	while ((ch = getopt(argc, argv, "lLcdDxXe:s:t:")) != -1) {
+	while ((ch = getopt(argc, argv, "klLcdDxXe:s:t:")) != -1) {
 		switch (ch) {
+		case 'k':
+			key_only = 1;
+			break;
 		case 'l':
 		case 'L':
 			if (list_identities(ac, ch == 'l' ? 1 : 0) == -1)
@@ -467,7 +504,7 @@ main(int argc, char **argv)
 			    default_files[i]);
 			if (stat(buf, &st) < 0)
 				continue;
-			if (do_file(ac, deleting, buf) == -1)
+			if (do_file(ac, deleting, key_only, buf) == -1)
 				ret = 1;
 			else
 				count++;
@@ -476,7 +513,7 @@ main(int argc, char **argv)
 			ret = 1;
 	} else {
 		for (i = 0; i < argc; i++) {
-			if (do_file(ac, deleting, argv[i]) == -1)
+			if (do_file(ac, deleting, key_only, argv[i]) == -1)
 				ret = 1;
 		}
 	}

@@ -1,4 +1,4 @@
-/* $OpenBSD: readconf.h,v 1.90 2011/05/24 07:15:47 djm Exp $ */
+/* $OpenBSD: readconf.h,v 1.99 2013/10/16 22:49:38 djm Exp $ */
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -24,11 +24,18 @@ typedef struct {
 	char	 *connect_host;		/* Host to connect. */
 	int	  connect_port;		/* Port to connect on connect_host. */
 	int	  allocated_port;	/* Dynamically allocated listen port */
+	int	  handle;		/* Handle for dynamic listen ports */
 }       Forward;
 /* Data structure for representing option data. */
 
 #define MAX_SEND_ENV		256
-#define SSH_MAX_HOSTS_FILES	256
+#define SSH_MAX_HOSTS_FILES	32
+#define MAX_CANON_DOMAINS	32
+
+struct allowed_cname {
+	char *source_list;
+	char *target_list;
+};
 
 typedef struct {
 	int     forward_agent;	/* Forward authentication agent. */
@@ -95,6 +102,7 @@ typedef struct {
 
 	int     num_identity_files;	/* Number of files for RSA/DSA identities. */
 	char   *identity_files[SSH_MAX_IDENTITY_FILES];
+	int    identity_file_userprovided[SSH_MAX_IDENTITY_FILES];
 	Key    *identity_keys[SSH_MAX_IDENTITY_FILES];
 
 	/* Local TCP/IP forward requests. */
@@ -108,6 +116,7 @@ typedef struct {
 
 	int	enable_ssh_keysign;
 	int64_t rekey_limit;
+	int	rekey_interval;
 	int	no_host_authentication_for_localhost;
 	int	identities_only;
 	int	server_alive_interval;
@@ -134,7 +143,23 @@ typedef struct {
 	int	use_roaming;
 
 	int	request_tty;
+
+	int	proxy_use_fdpass;
+
+	int	num_canonical_domains;
+	char	*canonical_domains[MAX_CANON_DOMAINS];
+	int	canonicalize_hostname;
+	int	canonicalize_max_dots;
+	int	canonicalize_fallback_local;
+	int	num_permitted_cnames;
+	struct allowed_cname permitted_cnames[MAX_CANON_DOMAINS];
+
+	char	*ignored_unknown; /* Pattern list of unknown tokens to ignore */
 }       Options;
+
+#define SSH_CANONICALISE_NO	0
+#define SSH_CANONICALISE_YES	1
+#define SSH_CANONICALISE_ALWAYS	2
 
 #define SSHCTL_MASTER_NO	0
 #define SSHCTL_MASTER_YES	1
@@ -147,15 +172,20 @@ typedef struct {
 #define REQUEST_TTY_YES		2
 #define REQUEST_TTY_FORCE	3
 
+#define SSHCONF_CHECKPERM	1  /* check permissions on config file */
+#define SSHCONF_USERCONF	2  /* user provided config file not system */
+
 void     initialize_options(Options *);
 void     fill_default_options(Options *);
-int	 read_config_file(const char *, const char *, Options *, int);
+int	 process_config_line(Options *, struct passwd *, const char *, char *,
+    const char *, int, int *, int);
+int	 read_config_file(const char *, struct passwd *, const char *,
+    Options *, int);
 int	 parse_forward(Forward *, const char *, int, int);
-
-int
-process_config_line(Options *, const char *, char *, const char *, int, int *);
+int	 default_ssh_port(void);
 
 void	 add_local_forward(Options *, const Forward *);
 void	 add_remote_forward(Options *, const Forward *);
+void	 add_identity_file(Options *, const char *, const char *, int);
 
 #endif				/* READCONF_H */
