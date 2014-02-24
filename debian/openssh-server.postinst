@@ -291,14 +291,6 @@ if [ "$action" = configure ]; then
 	    # restart it under Upstart.
 	    start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/sshd.pid || true
 	fi
-	if dpkg --compare-versions "$2" lt 1:6.5p1-2 && \
-	   deb-systemd-helper debian-installed ssh.socket && \
-	   deb-systemd-helper --quiet was-enabled ssh.service && \
-	   deb-systemd-helper --quiet was-enabled ssh.socket; then
-	    # 1:6.5p1-1 mistakenly left both ssh.service and ssh.socket
-	    # enabled.
-	    deb-systemd-helper disable ssh.socket >/dev/null || true
-	fi
 	if dpkg --compare-versions "$2" lt 1:6.5p1-3 && \
 	   [ -d /run/systemd/system ]; then
 	    # We must stop the sysvinit-controlled sshd before we can
