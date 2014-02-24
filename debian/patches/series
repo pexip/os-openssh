@@ -28,3 +28,5 @@ sigstop.patch
 debian-config.patch
 fix-case-sensitive-matching.patch
 getsockname-error.patch
+openssh-6.5p1-fingerprint_hash.patch
+openssh-6.5p1-fips.patch

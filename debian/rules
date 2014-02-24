@@ -105,10 +105,10 @@ confflags_udeb += --with-default-path=/usr/local/bin:/usr/bin:/bin --with-superu
 # Compiler flags.
 export DEB_BUILD_MAINT_OPTIONS := hardening=+all
 default_cflags := $(shell dpkg-buildflags --get CPPFLAGS) $(shell dpkg-buildflags --get CFLAGS)
-cflags := $(default_cflags)
+cflags := $(default_cflags) -I/usr/lib/ssl/fips-2.0/include
 cflags += -DLOGIN_PROGRAM=\"/bin/login\" -DLOGIN_NO_ENDOPT
 cflags += -DSSH_EXTRAVERSION=\"$(SSH_EXTRAVERSION)\"
-cflags_udeb := -Os
+cflags_udeb := -Os -I/usr/lib/ssl/fips-2.0/include
 cflags_udeb += -DSSH_EXTRAVERSION=\"$(SSH_EXTRAVERSION)\"
 confflags += --with-cflags='$(cflags)'
 confflags_udeb += --with-cflags='$(cflags_udeb)'

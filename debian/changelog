@@ -2,6 +2,7 @@ openssh (1:6.5p1-4pexip1) pexip; urgency=low
 
   * Prepare Pexip packaging
   * Back out systemd support, as we have none.
+  * Import OpenSUSE patches for FIPS mode support
 
  -- John-Mark Bell <jmb@pexip.com>  Mon, 24 Feb 2014 15:55:23 +0000
 
