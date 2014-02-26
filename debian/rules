@@ -90,9 +90,9 @@ confflags += --with-ssl-engine
 ifeq ($(DEB_HOST_ARCH_OS),linux)
 confflags += --with-selinux
 endif
-ifeq ($(DISTRIBUTOR),Ubuntu)
-confflags += --with-consolekit
-endif
+#ifeq ($(DISTRIBUTOR),Ubuntu)
+#confflags += --with-consolekit
+#endif
 
 # The deb build wants xauth; the udeb build doesn't.
 confflags += --with-xauth=/usr/bin/xauth
