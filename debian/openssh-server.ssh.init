@@ -34,7 +34,7 @@ run_by_init() {
 }
 
 check_for_upstart() {
-    if init_is_upstart; then
+    if which initctl && initctl version | grep -q upstart; then
 	exit $1
     fi
 }
