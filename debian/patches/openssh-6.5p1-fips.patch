@@ -762,7 +762,7 @@ diff --git a/openbsd-compat/arc4random.c b/openbsd-compat/arc4random.c
  	_ARC4_LOCK();
 -	_rs_random_u32(&val);
 +	if (fips_mode()) {
-+		RAND_bytes(&val, sizeof(val));
++		RAND_bytes((u_int8_t *)&val, sizeof(val));
 +	} else {
 +		_rs_random_u32(&val);
 +	}
