@@ -1074,7 +1074,7 @@ diff --git a/sshd.c b/sshd.c
 diff --git a/ssh-dss.c b/ssh-dss.c
 --- a/ssh-dss.c
 +++ b/ssh-dss.c
-@@ -42,38 +42,63 @@
+@@ -42,38 +42,64 @@
  
  #define INTBLOB_LEN	20
  #define SIGBLOB_LEN	(2*INTBLOB_LEN)
@@ -1086,6 +1086,7 @@ diff --git a/ssh-dss.c b/ssh-dss.c
 +	const EVP_MD *evp_md = EVP_dss1();
 +	EVP_MD_CTX md;
 +	u_char *tsig;
++	const unsigned char *psig;
 +	EVP_PKEY *pkey;
 +	int signature_ok = 0;
  	DSA_SIG *sig;
@@ -1112,7 +1113,7 @@ diff --git a/ssh-dss.c b/ssh-dss.c
 +
 +	EVP_PKEY_set1_DSA(pkey, key->dsa);
 +	slen = EVP_PKEY_size(pkey);
-+	tsig = xmalloc(slen);
++	psig = tsig = xmalloc(slen);
 +
 +	EVP_MD_CTX_init(&md);
 +	if (EVP_SignInit_ex(&md, evp_md, NULL) == 1 &&
@@ -1131,7 +1132,7 @@ diff --git a/ssh-dss.c b/ssh-dss.c
 -	sig = DSA_do_sign(digest, dlen, key->dsa);
 -	memset(digest, 'd', sizeof(digest));
 +	/* Output of EVP_SignFinal() is encoded, convert to DSA_SIG */
-+	sig = d2i_DSA_SIG(NULL, (const unsigned char **)&tsig, len);
++	sig = d2i_DSA_SIG(NULL, &psig, len);
 +	memset(tsig, 'd', len);
 +	free(tsig);
  
@@ -1146,7 +1147,7 @@ diff --git a/ssh-dss.c b/ssh-dss.c
  	if (rlen > INTBLOB_LEN || slen > INTBLOB_LEN) {
  		error("bad sig size %u %u", rlen, slen);
  		DSA_SIG_free(sig);
-@@ -106,20 +131,24 @@
+@@ -106,20 +132,24 @@
  		buffer_free(&b);
  	}
  	return 0;
@@ -1157,7 +1158,7 @@ diff --git a/ssh-dss.c b/ssh-dss.c
  {
 +	const EVP_MD *evp_md = EVP_dss1();
 +	EVP_MD_CTX md;
-+	u_char *tsig;
++	u_char *psig, *tsig;
 +	EVP_PKEY *pkey;
  	DSA_SIG *sig;
 -	u_char digest[SSH_DIGEST_MAX_LENGTH], *sigblob;
@@ -1174,7 +1175,7 @@ diff --git a/ssh-dss.c b/ssh-dss.c
  		return -1;
  	}
  
-@@ -166,24 +195,36 @@
+@@ -166,24 +196,36 @@
  	if ((BN_bin2bn(sigblob, INTBLOB_LEN, sig->r) == NULL) ||
  	    (BN_bin2bn(sigblob+ INTBLOB_LEN, INTBLOB_LEN, sig->s) == NULL))
  		fatal("%s: BN_bin2bn failed", __func__);
@@ -1191,8 +1192,8 @@ diff --git a/ssh-dss.c b/ssh-dss.c
 -	}
 +	/* Sig is a DSA_SIG structure; convert to encoded buffer */
 +	len = i2d_DSA_SIG(sig, NULL);
-+	tsig = xmalloc(len);
-+	i2d_DSA_SIG(sig, &tsig);
++	psig = tsig = xmalloc(len);
++	i2d_DSA_SIG(sig, &psig);
 +	DSA_SIG_free(sig);
 +
 +	/* Verify the signature */
