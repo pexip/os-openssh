@@ -278,7 +278,7 @@ diff --git a/fips.c b/fips.c
 new file mode 100644
 --- /dev/null
 +++ b/fips.c
-@@ -0,0 +1,67 @@
+@@ -0,0 +1,66 @@
 +/*
 + * Copyright (c) 2012 Petr Cerny.  All rights reserved.
 + *
@@ -303,8 +303,7 @@ new file mode 100644
 + * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#include <openssl/evp.h>
-+#include <openssl/fips.h>
++#include <openssl/crypto.h>
 +
 +#include "fips.h"
 +
