@@ -15,39 +15,41 @@ Privilege separation is turned on by default, so, if you decide you
 want it turned off, you need to add "UsePrivilegeSeparation no" to
 /etc/ssh/sshd_config.
 
-PermitRootLogin set to yes
---------------------------
+PermitRootLogin
+---------------
 
-This is now the default setting (in line with upstream), and people
-who asked for an automatically-generated configuration file when
-upgrading from potato (or on a new install) will have this setting in
-their /etc/ssh/sshd_config file.
+As of 1:6.6p1-1, new installations will be set to "PermitRootLogin
+without-password".  This disables password authentication for root, foiling
+password dictionary attacks on the root user.  Some sites may wish to use
+the stronger "PermitRootLogin forced-commands-only" or "PermitRootLogin no",
+but note that "PermitRootLogin no" will break setups that SSH to root with a
+forced command to take full-system backups.  You can use PermitRootLogin in
+a Match block if you want finer-grained control here.
 
-Should you wish to change this setting, edit /etc/ssh/sshd_config, and
-change:
-PermitRootLogin yes
-to:
-PermitRootLogin no
+For many years Debian's OpenSSH packaging used "PermitRootLogin yes", in
+line with upstream.  To avoid breaking local setups, this is still true for
+installations upgraded from before 1:6.6p1-1.  If you wish to change this,
+you should edit /etc/ssh/sshd_config, change it manually, and run "service
+ssh restart" as root.
 
-Having PermitRootLogin set to yes means that an attacker that knows
-the root password can ssh in directly (without having to go via a user
-account). If you set it to no, then they must compromise a normal user
-account. In the vast majority of cases, this does not give added
-security; remember that any account you su to root from is equivalent
-to root - compromising this account gives an attacker access to root
-easily. If you only ever log in as root from the physical console,
-then you probably want to set this value to no.
+Disabling PermitRootLogin means that an attacker possessing credentials for
+the root account (any credentials in the case of "yes", or private key
+material in the case of "without-password") must compromise a normal user
+account rather than being able to SSH directly to root.  Be careful to avoid
+a false illusion of security if you change this setting; any account you
+escalate to root from should be considered equivalent to root for the
+purposes of security against external attack.  You might for example disable
+it if you know you will only ever log in as root from the physical console.
 
-As an aside, PermitRootLogin can also be set to "without-password" or
-"forced-commands-only" - see sshd(8) for more details.
+Since the root account does not generally have non-password credentials
+unless you explicitly install an SSH public key in its
+~/.ssh/authorized_keys, which you presumably only do if you want to SSH to
+it, "without-password" should be a reasonable default for most sites.
 
-DO NOT FILE BUG REPORTS SAYING YOU THINK THIS DEFAULT IS INCORRECT!
+For further discussion, see:
 
-The argument above is somewhat condensed; I have had this discussion
-at great length with many people. If you think the default is
-incorrect, and feel strongly enough to want to argue about it, then
-send email to debian-ssh@lists.debian.org. I will close bug reports
-claiming the default is incorrect.
+  https://bugs.debian.org/298138
+  https://bugzilla.mindrot.org/show_bug.cgi?id=2164
 
 X11 Forwarding
 --------------

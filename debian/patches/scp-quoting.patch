@@ -1,4 +1,4 @@
-From 52d571e95114cd6d63b5dc4829f87fd55213c828 Mon Sep 17 00:00:00 2001
+From 8ab204ee192e655d5a8f4d599adb3d99eeabedc6 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Nicolas=20Valc=C3=A1rcel?= <nvalcarcel@ubuntu.com>
 Date: Sun, 9 Feb 2014 16:09:59 +0000
 Subject: Adjust scp quoting in verbose mode

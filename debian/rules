@@ -133,10 +133,6 @@ override_dh_auto_configure:
 	dh_auto_configure -Bbuild-udeb -- $(confflags_udeb)
 
 override_dh_auto_build:
-	# Debian's /var/log/btmp has inappropriate permissions.
-	perl -pi -e 's,.*#define USE_BTMP .*,/* #undef USE_BTMP */,' build-deb/config.h
-	perl -pi -e 's,.*#define USE_BTMP .*,/* #undef USE_BTMP */,' build-udeb/config.h
-
 	# Avoid libnsl linkage. Ugh.
 	perl -pi -e 's/ +-lnsl//' build-udeb/config.status
 	cd build-udeb && ./config.status
@@ -190,8 +186,9 @@ override_dh_install:
 	install -p -m 644 -D debian/ssh-agent.user-session.upstart debian/openssh-client/usr/share/upstart/sessions/ssh-agent.conf
 
 override_dh_installdocs:
-	dh_installdocs -Nopenssh-server -Nssh
-	dh_installdocs -popenssh-server -pssh --link-doc=openssh-client
+	dh_installdocs -Nopenssh-server -Nopenssh-sftp-server -Nssh
+	dh_installdocs -popenssh-server -popenssh-sftp-server -pssh \
+		--link-doc=openssh-client
 	# Avoid breaking dh_installexamples later.
 	mkdir -p debian/openssh-server/usr/share/doc/openssh-client
 
