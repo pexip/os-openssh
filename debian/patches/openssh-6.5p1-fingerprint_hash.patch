@@ -278,7 +278,7 @@ diff --git a/key.c b/key.c
  		    dgst_rep);
  		break;
  	}
- 	memset(dgst_raw, 0, dgst_raw_len);
+ 	explicit_bzero(dgst_raw, dgst_raw_len);
  	free(dgst_raw);
  	return retval;
  }
@@ -629,24 +629,24 @@ diff --git a/sshconnect.c b/sshconnect.c
  					    " found in DNS.\n");
  				else
 @@ -1212,17 +1212,17 @@ fail:
- 
  /* returns 0 if key verifies or -1 if key does NOT verify */
  int
  verify_host_key(char *host, struct sockaddr *hostaddr, Key *host_key)
  {
  	int flags = 0;
  	char *fp;
+ 	Key *plain = NULL;
  
 -	fp = key_fingerprint(host_key, SSH_FP_MD5, SSH_FP_HEX);
 +	fp = key_fingerprint(host_key, key_fp_type_select(), SSH_FP_HEX);
  	debug("Server host key: %s %s", key_type(host_key), fp);
  	free(fp);
  
- 	/* XXX certs are not yet supported for DNS */
- 	if (!key_is_cert(host_key) && options.verify_host_key_dns &&
- 	    verify_host_key_dns(host, hostaddr, host_key, &flags) == 0) {
- 		if (flags & DNS_VERIFY_FOUND) {
- 
+ 	if (options.verify_host_key_dns) {
+ 		/*
+ 		 * XXX certs are not yet supported for DNS, so downgrade
+ 		 * them and try the plain key.
+ 		 */
 @@ -1319,18 +1319,18 @@ show_other_keys(struct hostkeys *hostkey
  	char *fp, *ra;
  	const struct hostkey_entry *found;

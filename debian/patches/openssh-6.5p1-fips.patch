@@ -8,9 +8,9 @@ diff --git a/Makefile.in b/Makefile.in
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -77,7 +77,8 @@ LIBSSH_OBJS=authfd.o authfile.o bufaux.o
- 	jpake.o schnorr.o ssh-pkcs11.o krl.o smult_curve25519_ref.o \
+ 	ssh-pkcs11.o krl.o smult_curve25519_ref.o \
  	kexc25519.o kexc25519c.o poly1305.o chacha.o cipher-chachapoly.o \
- 	ssh-ed25519.o digest.o \
+ 	ssh-ed25519.o digest-openssl.o hmac.o \
 -	sc25519.o ge25519.o fe25519.o ed25519.o verify.o hash.o blocks.o
 +	sc25519.o ge25519.o fe25519.o ed25519.o verify.o hash.o blocks.o \
 +	fips.o
@@ -134,15 +134,15 @@ diff --git a/cipher-ctr.c b/cipher-ctr.c
 diff --git a/cipher.c b/cipher.c
 --- a/cipher.c
 +++ b/cipher.c
-@@ -44,16 +44,17 @@
- #include <string.h>
- #include <stdarg.h>
+@@ -46,16 +46,17 @@
  #include <stdio.h>
  
  #include "xmalloc.h"
  #include "log.h"
  #include "misc.h"
  #include "cipher.h"
+ #include "buffer.h"
+ #include "digest.h"
 +#include "fips.h"
  
  /* compatibility with old or broken OpenSSL versions */
@@ -266,14 +266,14 @@ diff --git a/cipher.c b/cipher.c
      const char *passphrase, int do_encrypt)
  {
 +	/* This function is only used for SSH v1, which is disabled in FIPS mode */
- 	MD5_CTX md;
  	u_char digest[16];
  
- 	MD5_Init(&md);
- 	MD5_Update(&md, (const u_char *)passphrase, strlen(passphrase));
- 	MD5_Final(digest, &md);
+ 	if (ssh_digest_memory(SSH_DIGEST_MD5, passphrase, strlen(passphrase),
+ 	    digest, sizeof(digest)) < 0)
+ 		fatal("%s: md5 failed", __func__);
  
  	cipher_init(cc, cipher, digest, 16, NULL, 0, do_encrypt);
+ 
 diff --git a/fips.c b/fips.c
 new file mode 100644
 --- /dev/null
@@ -526,29 +526,29 @@ diff --git a/mac.c b/mac.c
  #include "misc.h"
 +#include "fips.h"
  
+ #include "digest.h"
+ #include "hmac.h"
  #include "umac.h"
  
  #include "openbsd-compat/openssl-compat.h"
  
- #define SSH_EVP		1	/* OpenSSL EVP-based MAC */
- #define SSH_UMAC	2	/* UMAC (not integrated with OpenSSL) */
- #define SSH_UMAC128	3
+ #define SSH_DIGEST	1	/* SSH_DIGEST_XXX */
 @@ -86,25 +87,44 @@ struct {
- 	{ "hmac-md5-96-etm@openssh.com",	SSH_EVP, EVP_md5, 96, 0, 0, 1 },
- 	{ "hmac-ripemd160-etm@openssh.com",	SSH_EVP, EVP_ripemd160, 0, 0, 0, 1 },
- 	{ "umac-64-etm@openssh.com",		SSH_UMAC, NULL, 0, 128, 64, 1 },
- 	{ "umac-128-etm@openssh.com",		SSH_UMAC128, NULL, 0, 128, 128, 1 },
+ 	{ "hmac-md5-96-etm@openssh.com",	SSH_DIGEST, SSH_DIGEST_MD5, 96, 0, 0, 1 },
+ 	{ "hmac-ripemd160-etm@openssh.com",	SSH_DIGEST, SSH_DIGEST_RIPEMD160, 0, 0, 0, 1 },
+ 	{ "umac-64-etm@openssh.com",		SSH_UMAC, 0, 0, 128, 64, 1 },
+ 	{ "umac-128-etm@openssh.com",		SSH_UMAC128, 0, 0, 128, 128, 1 },
  
- 	{ NULL,					0, NULL, 0, 0, 0, 0 }
+ 	{ NULL,					0, 0, 0, 0, 0, 0 }
  };
  
 +static const struct macalg macs_fips140_2[] = {
-+	{ "hmac-sha1",				SSH_EVP, EVP_sha1, 0, 0, 0, 0 },
++	{ "hmac-sha1",				SSH_DIGEST, SSH_DIGEST_SHA1, 0, 0, 0, 0 },
 +#ifdef HAVE_EVP_SHA256
-+	{ "hmac-sha2-256",			SSH_EVP, EVP_sha256, 0, 0, 0, 0 },
-+	{ "hmac-sha2-512",			SSH_EVP, EVP_sha512, 0, 0, 0, 0 },
++	{ "hmac-sha2-256",			SSH_DIGEST, SSH_DIGEST_SHA256, 0, 0, 0, 0 },
++	{ "hmac-sha2-512",			SSH_DIGEST, SSH_DIGEST_SHA512, 0, 0, 0, 0 },
 +#endif
-+	{ NULL,					0, NULL, 0, 0, 0, 0 }
++	{ NULL,					0, 0, 0, 0, 0, 0 }
 +};
 +
 +static const struct macalg *
@@ -592,12 +592,12 @@ diff --git a/mac.c b/mac.c
 +	for (m = fips_select_macs(); m->name != NULL; m++) {
  		if (strcmp(name, m->name) != 0)
  			continue;
- 		if (mac != NULL)
+ 		if (mac != NULL) {
  			mac_setup_by_alg(mac, m);
- 		debug2("mac_setup: found %s", name);
+ 			debug2("mac_setup: setup %s", name);
+ 		}
  		return (0);
  	}
- 	debug2("mac_setup: unknown %s", name);
 diff --git a/myproposal.h b/myproposal.h
 --- a/myproposal.h
 +++ b/myproposal.h
@@ -833,11 +833,11 @@ diff --git a/ssh.c b/ssh.c
  			options.address_family = AF_INET;
  			break;
 @@ -959,16 +962,22 @@ main(int ac, char **av)
+ 	if (addrs == NULL && options.proxy_command == NULL) {
+ 		if ((addrs = resolve_host(host, options.port, 1,
+ 		    cname, sizeof(cname))) == NULL)
+ 			cleanup_exit(255); /* resolve_host logs the error */
  	}
- 	if (muxclient_command != 0 && options.control_path == NULL)
- 		fatal("No ControlPath specified for \"-O\" command");
- 	if (options.control_path != NULL)
- 		muxclient(options.control_path);
  
  	timeout_ms = options.connection_timeout * 1000;
  
@@ -859,14 +859,14 @@ diff --git a/sshconnect2.c b/sshconnect2.c
 --- a/sshconnect2.c
 +++ b/sshconnect2.c
 @@ -67,16 +67,17 @@
+ #include "misc.h"
+ #include "match.h"
  #include "dispatch.h"
  #include "canohost.h"
  #include "msg.h"
  #include "pathnames.h"
  #include "uidswap.h"
  #include "hostfile.h"
- #include "schnorr.h"
- #include "jpake.h"
 +#include "fips.h"
  
  #ifdef GSSAPI
@@ -876,7 +876,7 @@ diff --git a/sshconnect2.c b/sshconnect2.c
  /* import */
  extern char *client_version_string;
  extern char *server_version_string;
-@@ -190,44 +191,55 @@ ssh_kex2(char *host, struct sockaddr *ho
+@@ -189,44 +190,55 @@ ssh_kex2(char *host, struct sockaddr *ho
  
  	if (options.ciphers == (char *)-1) {
  		logit("No valid ciphers for protocol version 2 given, using defaults.");
@@ -1129,10 +1129,10 @@ diff --git a/ssh-dss.c b/ssh-dss.c
  	}
  
 -	sig = DSA_do_sign(digest, dlen, key->dsa);
--	memset(digest, 'd', sizeof(digest));
+-	explicit_bzero(digest, sizeof(digest));
 +	/* Output of EVP_SignFinal() is encoded, convert to DSA_SIG */
 +	sig = d2i_DSA_SIG(NULL, &psig, len);
-+	memset(tsig, 'd', len);
++	explicit_bzero(tsig, len);
 +	free(tsig);
  
  	if (sig == NULL) {
@@ -1180,7 +1180,7 @@ diff --git a/ssh-dss.c b/ssh-dss.c
  		fatal("%s: BN_bin2bn failed", __func__);
  
  	/* clean up */
- 	memset(sigblob, 0, len);
+ 	explicit_bzero(sigblob, len);
  	free(sigblob);
  
 -	/* sha1 the data */
@@ -1208,12 +1208,12 @@ diff --git a/ssh-dss.c b/ssh-dss.c
 +		EVP_MD_CTX_cleanup(&md);
  
 -	ret = DSA_do_verify(digest, dlen, sig, key->dsa);
--	memset(digest, 'd', sizeof(digest));
+-	explicit_bzero(digest, sizeof(digest));
 +		EVP_PKEY_free(pkey);
 +	}
  
 -	DSA_SIG_free(sig);
-+	memset(tsig, 'd', len);
++	explicit_bzero(tsig, len);
 +	free(tsig);
  
  	debug("%s: signature %s", __func__,
@@ -1279,7 +1279,7 @@ diff --git a/ssh-rsa.c b/ssh-rsa.c
  	sig = xmalloc(slen);
  
 -	ok = RSA_sign(nid, digest, dlen, sig, &len, key->rsa);
--	memset(digest, 'd', sizeof(digest));
+-	explicit_bzero(digest, sizeof(digest));
 +	EVP_MD_CTX_init(&md);
 +	if (EVP_SignInit_ex(&md, evp_md, NULL) == 1 &&
 +	    EVP_SignUpdate(&md, data, datalen) == 1) {
@@ -1329,7 +1329,7 @@ diff --git a/ssh-rsa.c b/ssh-rsa.c
  		    modlen, len);
  		sigblob = xrealloc(sigblob, 1, modlen);
  		memmove(sigblob + diff, sigblob, len);
- 		memset(sigblob, 0, diff);
+ 		explicit_bzero(sigblob, diff);
  		len = modlen;
  	}
  	/* hash the data */
@@ -1357,8 +1357,8 @@ diff --git a/ssh-rsa.c b/ssh-rsa.c
  
 -	ret = openssh_RSA_verify(hash_alg, digest, dlen, sigblob, len,
 -	    key->rsa);
--	memset(digest, 'd', sizeof(digest));
- 	memset(sigblob, 's', len);
+-	explicit_bzero(digest, sizeof(digest));
+ 	explicit_bzero(sigblob, len);
  	free(sigblob);
  	debug("%s: signature %scorrect", __func__, (ret == 0) ? "in" : "");
  	return ret;
