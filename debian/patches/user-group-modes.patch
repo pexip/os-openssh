@@ -1,4 +1,4 @@
-From b63620615d5c8af09e350608233f69191ad6c275 Mon Sep 17 00:00:00 2001
+From 77638f6662ecd8500e1b97e537233b1277ca829f Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:09:58 +0000
 Subject: Allow harmless group-writability
@@ -216,10 +216,10 @@ index 4aab9a9..f99de7f 100644
 -	return 0;
 -}
 diff --git a/readconf.c b/readconf.c
-index e79e355..273552d 100644
+index 6409937..32c4b42 100644
 --- a/readconf.c
 +++ b/readconf.c
-@@ -36,6 +36,8 @@
+@@ -37,6 +37,8 @@
  #include <stdio.h>
  #include <string.h>
  #include <unistd.h>
@@ -228,7 +228,7 @@ index e79e355..273552d 100644
  #ifdef HAVE_UTIL_H
  #include <util.h>
  #endif
-@@ -1475,8 +1477,7 @@ read_config_file(const char *filename, struct passwd *pw, const char *host,
+@@ -1477,8 +1479,7 @@ read_config_file(const char *filename, struct passwd *pw, const char *host,
  
  		if (fstat(fileno(f), &sb) == -1)
  			fatal("fstat %s: %s", filename, strerror(errno));
@@ -252,10 +252,10 @@ index 27794e2..ff5e6ac 100644
  .It Pa ~/.ssh/environment
  Contains additional definitions for environment variables; see
 diff --git a/ssh_config.5 b/ssh_config.5
-index b3c5dc6..3c6b9d4 100644
+index 3172fd4..4bf7cbb 100644
 --- a/ssh_config.5
 +++ b/ssh_config.5
-@@ -1523,6 +1523,8 @@ The format of this file is described above.
+@@ -1529,6 +1529,8 @@ The format of this file is described above.
  This file is used by the SSH client.
  Because of the potential for abuse, this file must have strict permissions:
  read/write for the user, and not accessible by others.

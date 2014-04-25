@@ -1,4 +1,4 @@
-From cf359c36be95e478071cb0dc4491aba88a5bae70 Mon Sep 17 00:00:00 2001
+From eb567100ef178f4395c95cc1f37b921e02c3dd5b Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:10:08 +0000
 Subject: Fix picky lintian errors about slogin symlinks
@@ -15,7 +15,7 @@ Patch-Name: lintian-symlink-pickiness.patch
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/Makefile.in b/Makefile.in
-index 5cf8100..b7de26f 100644
+index feee0b2..7d192bb 100644
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -293,9 +293,9 @@ install-files:

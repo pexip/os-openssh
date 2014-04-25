@@ -1,3 +1,83 @@
+openssh (1:6.6p1-3pexip1) pexip; urgency=low
+
+  * Prepare Pexip packaging
+
+ -- John-Mark Bell <jmb@pexip.com>  Fri, 25 Apr 2014 17:10:42 +0100
+
+openssh (1:6.6p1-3) unstable; urgency=medium
+
+  * Debconf translations:
+    - French (thanks, Étienne Gilli; closes: #743242).
+  * Never signal the service supervisor with SIGSTOP more than once, to
+    prevent a hang on re-exec (thanks, Robie Basak; LP: #1306877).
+
+ -- Colin Watson <cjwatson@debian.org>  Mon, 14 Apr 2014 12:11:50 +0100
+
+openssh (1:6.6p1-2) unstable; urgency=medium
+
+  * If no root password is set, then switch to "PermitRootLogin
+    without-password" without asking (LP: #1300127).
+
+ -- Colin Watson <cjwatson@debian.org>  Mon, 31 Mar 2014 12:20:46 +0100
+
+openssh (1:6.6p1-1) unstable; urgency=medium
+
+  [ Colin Watson ]
+  * Apply various warning-suppression and regression-test fixes to
+    gssapi.patch from Damien Miller.
+  * New upstream release (http://www.openssh.com/txt/release-6.6,
+    LP: #1298280):
+    - CVE-2014-2532: sshd(8): when using environment passing with an
+      sshd_config(5) AcceptEnv pattern with a wildcard, OpenSSH prior to 6.6
+      could be tricked into accepting any environment variable that contains
+      the characters before the wildcard character.
+  * Re-enable btmp logging, as its permissions were fixed a long time ago in
+    response to #370050 (closes: #341883).
+  * Change to "PermitRootLogin without-password" for new installations, and
+    ask a debconf question when upgrading systems with "PermitRootLogin yes"
+    from previous versions (closes: #298138).
+  * Debconf translations:
+    - Danish (thanks, Joe Hansen).
+    - Portuguese (thanks, Américo Monteiro).
+    - Russian (thanks, Yuri Kozlov; closes: #742308).
+    - Swedish (thanks, Andreas Rönnquist).
+    - Japanese (thanks, victory).
+    - German (thanks, Stephan Beck; closes: #742541).
+    - Italian (thanks, Beatrice Torracca).
+  * Don't start ssh-agent from the Upstart user session job if something
+    like Xsession has already done so (based on work by Bruno Vasselle;
+    LP: #1244736).
+
+  [ Matthew Vernon ]
+  * CVE-2014-2653: Fix failure to check SSHFP records if server presents a
+    certificate (bug reported by me, patch by upstream's Damien Miller;
+    thanks also to Mark Wooding for his help in fixing this) (Closes:
+    #742513)
+
+ -- Colin Watson <cjwatson@debian.org>  Fri, 28 Mar 2014 18:04:41 +0000
+
+openssh (1:6.5p1-6) unstable; urgency=medium
+
+  * Fix Breaks/Replaces versions of openssh-sftp-server on openssh-server
+    (thanks, Axel Beckert).
+
+ -- Colin Watson <cjwatson@debian.org>  Thu, 06 Mar 2014 16:18:44 +0000
+
+openssh (1:6.5p1-5) unstable; urgency=medium
+
+  [ Colin Watson ]
+  * Add Alias=sshd.service to systemd ssh.service file, to match "Provides:
+    sshd" in the sysvinit script (thanks, Michael Biebl).
+  * Add Before=ssh.service to systemd ssh.socket file, since otherwise
+    nothing guarantees that ssh.service has stopped before ssh.socket starts
+    (thanks, Uoti Urpala).
+
+  [ Axel Beckert ]
+  * Split sftp-server into its own package to allow it to also be used by
+    other SSH server implementations like dropbear (closes: #504290).
+
+ -- Colin Watson <cjwatson@debian.org>  Wed, 05 Mar 2014 13:53:08 +0000
+
 openssh (1:6.5p1-4pexip1) pexip; urgency=low
 
   * Prepare Pexip packaging

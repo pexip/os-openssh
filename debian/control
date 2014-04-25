@@ -47,7 +47,7 @@ Package: openssh-server
 Priority: optional
 Architecture: any
 Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends}, libpam-runtime (>= 0.76-14), libpam-modules (>= 0.72-9), adduser (>= 3.9), dpkg (>= 1.9.0), openssh-client (= ${binary:Version}), lsb-base (>= 3.2-13), procps
+Depends: ${shlibs:Depends}, ${misc:Depends}, libpam-runtime (>= 0.76-14), libpam-modules (>= 0.72-9), adduser (>= 3.9), dpkg (>= 1.9.0), openssh-client (= ${binary:Version}), lsb-base (>= 3.2-13), procps, openssh-sftp-server
 Recommends: xauth, ncurses-term, ${openssh-server:Recommends}
 Conflicts: ssh-socks, ssh2, sftp
 Replaces: ssh, ssh-krb5
@@ -74,6 +74,31 @@ Description: secure shell (SSH) server, for secure access from remote machines
  .
  sshd replaces the insecure rshd program, which is obsolete for most
  purposes.
+
+Package: openssh-sftp-server
+Priority: optional
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: openssh-server | ssh-server
+Breaks: openssh-server (<< 1:6.5p1-5)
+Replaces: openssh-server (<< 1:6.5p1-5)
+Enhances: openssh-server, ssh-server
+Description: secure shell (SSH) sftp server module, for SFTP access from remote machines
+ This is the portable version of OpenSSH, a free implementation of
+ the Secure Shell protocol as specified by the IETF secsh working
+ group.
+ .
+ Ssh (Secure Shell) is a program for logging into a remote machine
+ and for executing commands on a remote machine.
+ It provides secure encrypted communications between two untrusted
+ hosts over an insecure network. X11 connections and arbitrary TCP/IP
+ ports can also be forwarded over the secure channel.
+ It can be used to provide applications with a secure communication
+ channel.
+ .
+ This package provides the SFTP server module for the SSH server. It
+ is needed if you want to access your SSH server with SFTP. The SFTP
+ server module also works with other SSH daemons like dropbear.
 
 Package: ssh
 Priority: extra

@@ -1,4 +1,4 @@
-From 1c4af29874fe7bd1cec92ee90fc613c3cf83f571 Mon Sep 17 00:00:00 2001
+From ec9bfd62211fdf5a3004ef2045c2eb3baccfd375 Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:10:09 +0000
 Subject: Adjust various OpenBSD-specific references in manual pages
@@ -44,7 +44,7 @@ index ef0de08..149846c 100644
  .Sh SEE ALSO
  .Xr ssh-keygen 1 ,
 diff --git a/ssh-keygen.1 b/ssh-keygen.1
-index 0e0ed98..299ccf8 100644
+index 12e00d4..a71de74 100644
 --- a/ssh-keygen.1
 +++ b/ssh-keygen.1
 @@ -172,9 +172,7 @@ key in
@@ -133,7 +133,7 @@ index e6a900b..b016e90 100644
  .Xr sshd_config 5 ,
  .Xr inetd 8 ,
 diff --git a/sshd_config.5 b/sshd_config.5
-index bdca797..9fa6086 100644
+index 8f078f6..908e0bb 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
 @@ -283,8 +283,7 @@ This option is only available for protocol version 2.

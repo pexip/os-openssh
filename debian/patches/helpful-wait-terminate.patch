@@ -1,4 +1,4 @@
-From 71003a35537df521296408d9f6bd0a200ed2a854 Mon Sep 17 00:00:00 2001
+From ef912859a4300360164292abe47b5516c8ee4a13 Mon Sep 17 00:00:00 2001
 From: Matthew Vernon <matthew@debian.org>
 Date: Sun, 9 Feb 2014 16:09:56 +0000
 Subject: Mention ~& when waiting for forwarded connections to terminate
@@ -12,7 +12,7 @@ Patch-Name: helpful-wait-terminate.patch
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/serverloop.c b/serverloop.c
-index 5b2f802..d3079d2 100644
+index 2f8e3a0..441d73b 100644
 --- a/serverloop.c
 +++ b/serverloop.c
 @@ -687,7 +687,7 @@ server_loop(pid_t pid, int fdin_arg, int fdout_arg, int fderr_arg)

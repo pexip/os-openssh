@@ -1,4 +1,4 @@
-From f08f2d9c3fedf37f97f1b2d06f1fe36af4e5f1c3 Mon Sep 17 00:00:00 2001
+From df5c8d109fb3d9ec16a487107a44300ed3006849 Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:10:18 +0000
 Subject: Various Debian-specific configuration changes
@@ -34,10 +34,10 @@ Patch-Name: debian-config.patch
  5 files changed, 51 insertions(+), 3 deletions(-)
 
 diff --git a/readconf.c b/readconf.c
-index 273552d..6ac8bea 100644
+index 32c4b42..5429fc2 100644
 --- a/readconf.c
 +++ b/readconf.c
-@@ -1618,7 +1618,7 @@ fill_default_options(Options * options)
+@@ -1640,7 +1640,7 @@ fill_default_options(Options * options)
  	if (options->forward_x11 == -1)
  		options->forward_x11 = 0;
  	if (options->forward_x11_trusted == -1)
@@ -71,7 +71,7 @@ index 228e5ab..c9386aa 100644
 +    GSSAPIAuthentication yes
 +    GSSAPIDelegateCredentials no
 diff --git a/ssh_config.5 b/ssh_config.5
-index 85f306c..cc91a5c 100644
+index 1d500e9..22e6372 100644
 --- a/ssh_config.5
 +++ b/ssh_config.5
 @@ -71,6 +71,22 @@ Since the first obtained value for each parameter is used, more
@@ -97,7 +97,7 @@ index 85f306c..cc91a5c 100644
  The configuration file has the following format:
  .Pp
  Empty lines and lines starting with
-@@ -648,7 +664,8 @@ token used for the session will be set to expire after 20 minutes.
+@@ -654,7 +670,8 @@ token used for the session will be set to expire after 20 minutes.
  Remote clients will be refused access after this time.
  .Pp
  The default is
@@ -120,7 +120,7 @@ index d9b8594..4db32f5 100644
  #StrictModes yes
  #MaxAuthTries 6
 diff --git a/sshd_config.5 b/sshd_config.5
-index 9fa6086..496530b 100644
+index 908e0bb..90fd3f4 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
 @@ -57,6 +57,31 @@ Arguments may optionally be enclosed in double quotes
