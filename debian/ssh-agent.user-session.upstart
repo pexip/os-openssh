@@ -8,7 +8,7 @@ pre-start script
     grep -q "^use-ssh-agent$" /etc/X11/Xsession.options || { stop; exit 0; }
     [ -z "$SSH_AUTH_SOCK" ] || { stop; exit 0; }
 
-    eval "$(ssh-agent)" >/dev/null
+    eval "$(ssh-agent -s)" >/dev/null
     initctl set-env --global SSH_AUTH_SOCK=$SSH_AUTH_SOCK
     initctl set-env --global SSH_AGENT_PID=$SSH_AGENT_PID
     initctl set-env --global SSH_AGENT_LAUNCHER=upstart

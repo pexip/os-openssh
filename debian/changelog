@@ -1,3 +1,19 @@
+openssh (1:6.6p1-5) unstable; urgency=medium
+
+  * Force ssh-agent Upstart job to use sh syntax regardless of the user's
+    shell (thanks, Steffen Stempel; LP: #1312928).
+
+ -- Colin Watson <cjwatson@debian.org>  Thu, 01 May 2014 16:27:53 +0100
+
+openssh (1:6.6p1-4) unstable; urgency=medium
+
+  * Debconf translations:
+    - Spanish (thanks, Matías Bellone; closes: #744867).
+  * Apply upstream-recommended patch to fix bignum encoding for
+    curve25519-sha256@libssh.org, fixing occasional key exchange failures.
+
+ -- Colin Watson <cjwatson@debian.org>  Mon, 21 Apr 2014 21:29:53 +0100
+
 openssh (1:6.6p1-3) unstable; urgency=medium
 
   * Debconf translations:

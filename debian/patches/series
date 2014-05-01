@@ -27,3 +27,4 @@ gnome-ssh-askpass2-icon.patch
 sigstop.patch
 debian-config.patch
 sshfp_with_server_cert_upstr
+curve25519-sha256-bignum-encoding.patch
