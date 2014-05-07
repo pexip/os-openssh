@@ -876,7 +876,7 @@ diff --git a/sshconnect2.c b/sshconnect2.c
  /* import */
  extern char *client_version_string;
  extern char *server_version_string;
-@@ -189,44 +190,55 @@ ssh_kex2(char *host, struct sockaddr *ho
+@@ -189,43 +190,54 @@ ssh_kex2(char *host, struct sockaddr *ho
  
  	if (options.ciphers == (char *)-1) {
  		logit("No valid ciphers for protocol version 2 given, using defaults.");
@@ -921,18 +921,16 @@ diff --git a/sshconnect2.c b/sshconnect2.c
  	}
  	if (options.kex_algorithms != NULL)
  		myproposal[PROPOSAL_KEX_ALGS] = options.kex_algorithms;
--
 +	else if (fips_mode())
 +		myproposal[PROPOSAL_KEX_ALGS] = KEX_FIPS_140_2_KEX;
-+ 
+ 	myproposal[PROPOSAL_KEX_ALGS] = compat_kex_proposal(
+ 	    myproposal[PROPOSAL_KEX_ALGS]);
+
  #ifdef GSSAPI
  	/* If we've got GSSAPI algorithms, then we also support the
  	 * 'null' hostkey, as a last resort */
  	if (options.gss_keyex && gss) {
  		orig = myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS];
- 		xasprintf(&myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS], 
- 		    "%s,null", orig);
- 		free(gss);
 diff --git a/sshd.c b/sshd.c
 --- a/sshd.c
 +++ b/sshd.c
@@ -1063,12 +1061,12 @@ diff --git a/sshd.c b/sshd.c
 +	else if (fips_mode())
 +		myproposal[PROPOSAL_KEX_ALGS] = KEX_FIPS_140_2_KEX;
  
+ 	myproposal[PROPOSAL_KEX_ALGS] = compat_kex_proposal(
+ 	    myproposal[PROPOSAL_KEX_ALGS]);
+
  	if (options.rekey_limit || options.rekey_interval)
  		packet_set_rekey_limits((u_int32_t)options.rekey_limit,
  		    (time_t)options.rekey_interval);
- 
- 	myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] = compat_pkalg_proposal(
- 	    list_hostkey_types());
  
 diff --git a/ssh-dss.c b/ssh-dss.c
 --- a/ssh-dss.c
