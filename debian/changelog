@@ -1,3 +1,9 @@
+openssh (1:6.6p1-5pexip2) pexip; urgency=low
+
+  * Do not create ed25519 host key in FIPS mode
+
+ -- John-Mark Bell <jmb@pexip.com>  Tue, 07 Oct 2014 16:22:37 +0100
+
 openssh (1:6.6p1-5pexip1) pexip; urgency=low
 
   * Prepare Pexip packaging
