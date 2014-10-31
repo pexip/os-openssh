@@ -1,0 +1,16 @@
+diff --git a/ssh_config b/ssh_config
+index 228e5ab..c9386aa 100644
+--- a/ssh_config
++++ b/ssh_config
+@@ -51,5 +51,10 @@
+ #   RekeyLimit 1G 1h
+     SendEnv LANG LC_*
+     HashKnownHosts yes
+-    GSSAPIAuthentication yes
++    GSSAPIAuthentication no
+     GSSAPIDelegateCredentials no
++    Tunnel no
++    ForwardX11 no
++    GatewayPorts no
++    Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,aes192-cbc,aes256-cbc
++    MACs hmac-sha2-256,hmac-sha2-512,hmac-sha1

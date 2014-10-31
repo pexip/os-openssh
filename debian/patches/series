@@ -30,3 +30,4 @@ sshfp_with_server_cert_upstr
 curve25519-sha256-bignum-encoding.patch
 openssh-6.5p1-fingerprint_hash.patch
 openssh-6.5p1-fips.patch
+extra-config.patch
