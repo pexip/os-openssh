@@ -125,9 +125,9 @@ index e6a900b..b016e90 100644
  The file format is described in
  .Xr moduli 5 .
 @@ -961,7 +961,6 @@ The content of this file is not sensitive; it can be world-readable.
+ .Xr ssh-keygen 1 ,
  .Xr ssh-keyscan 1 ,
  .Xr chroot 2 ,
- .Xr hosts_access 5 ,
 -.Xr login.conf 5 ,
  .Xr moduli 5 ,
  .Xr sshd_config 5 ,
@@ -140,7 +140,7 @@ index 8f078f6..908e0bb 100644
  By default, no banner is displayed.
  .It Cm ChallengeResponseAuthentication
  Specifies whether challenge-response authentication is allowed (e.g. via
--PAM or though authentication styles supported in
+-PAM or through authentication styles supported in
 -.Xr login.conf 5 )
 +PAM).
  The default is

@@ -30,16 +30,16 @@ index bcd8cad..6409937 100644
 --- a/readconf.c
 +++ b/readconf.c
 @@ -151,6 +151,7 @@ typedef enum {
- 	oKexAlgorithms, oIPQoS, oRequestTTY, oIgnoreUnknown, oProxyUseFdpass,
- 	oCanonicalDomains, oCanonicalizeHostname, oCanonicalizeMaxDots,
  	oCanonicalizeFallbackLocal, oCanonicalizePermittedCNAMEs,
+ 	oStreamLocalBindMask, oStreamLocalBindUnlink, oRevokedHostKeys,
+ 	oFingerprintHash, oUpdateHostkeys, oHostbasedKeyTypes,
 +	oProtocolKeepAlives, oSetupTimeOut,
  	oIgnoredUnknownOption, oDeprecated, oUnsupported
  } OpCodes;
  
 @@ -274,6 +275,8 @@ static struct {
- 	{ "canonicalizemaxdots", oCanonicalizeMaxDots },
- 	{ "canonicalizepermittedcnames", oCanonicalizePermittedCNAMEs },
+ 	{ "updatehostkeys", oUpdateHostkeys },
+ 	{ "hostbasedkeytypes", oHostbasedKeyTypes },
  	{ "ignoreunknown", oIgnoreUnknown },
 +	{ "protocolkeepalives", oProtocolKeepAlives },
 +	{ "setuptimeout", oSetupTimeOut },
@@ -103,9 +103,9 @@ index 473971e..3172fd4 100644
 +and
 +.Cm SetupTimeOut
 +are Debian-specific compatibility aliases for this option.
- .It Cm StrictHostKeyChecking
- If this flag is set to
- .Dq yes ,
+ .It Cm StreamLocalBindMask
+ Sets the octal file creation mode mask
+ .Pq umask
 @@ -1345,6 +1356,12 @@ Specifies whether the system should send TCP keepalive messages to the
  other side.
  If they are sent, death of the connection or crash of one
@@ -132,4 +132,4 @@ index ceed88a..2164d58 100644
 +.Cm KeepAlive .
  .It Cm TrustedUserCAKeys
  Specifies a file containing public keys of certificate authorities that are
- trusted to sign user certificates for authentication.
+ trusted to sign user certificates for authentication, or

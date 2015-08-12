@@ -23,41 +23,41 @@ index 90de888..37fd2de 100644
 --- a/servconf.c
 +++ b/servconf.c
 @@ -156,6 +156,7 @@ initialize_server_options(ServerOptions *options)
- 	options->ip_qos_interactive = -1;
  	options->ip_qos_bulk = -1;
  	options->version_addendum = NULL;
+ 	options->fingerprint_hash = -1;
 +	options->debian_banner = -1;
  }
  
- void
+ /* Returns 1 if a string option is unset or set to "none" or 0 otherwise. */
 @@ -309,6 +310,8 @@ fill_default_server_options(ServerOptions *options)
- 		options->ip_qos_bulk = IPTOS_THROUGHPUT;
- 	if (options->version_addendum == NULL)
- 		options->version_addendum = xstrdup("");
+ 		options->fwd_opts.streamlocal_bind_unlink = 0;
+ 	if (options->fingerprint_hash == -1)
+ 		options->fingerprint_hash = SSH_FP_HASH_DEFAULT;
 +	if (options->debian_banner == -1)
 +		options->debian_banner = 1;
  	/* Turn privilege separation on by default */
  	if (use_privsep == -1)
  		use_privsep = PRIVSEP_NOSANDBOX;
 @@ -359,6 +362,7 @@ typedef enum {
- 	sKexAlgorithms, sIPQoS, sVersionAddendum,
- 	sAuthorizedKeysCommand, sAuthorizedKeysCommandUser,
- 	sAuthenticationMethods, sHostKeyAgent,
+ 	sAuthenticationMethods, sHostKeyAgent, sPermitUserRC,
+ 	sStreamLocalBindMask, sStreamLocalBindUnlink,
+ 	sAllowStreamLocalForwarding, sFingerprintHash,
 +	sDebianBanner,
  	sDeprecated, sUnsupported
  } ServerOpCodes;
  
 @@ -496,6 +500,7 @@ static struct {
- 	{ "authorizedkeyscommanduser", sAuthorizedKeysCommandUser, SSHCFG_ALL },
- 	{ "versionaddendum", sVersionAddendum, SSHCFG_GLOBAL },
- 	{ "authenticationmethods", sAuthenticationMethods, SSHCFG_ALL },
+ 	{ "streamlocalbindunlink", sStreamLocalBindUnlink, SSHCFG_ALL },
+ 	{ "allowstreamlocalforwarding", sAllowStreamLocalForwarding, SSHCFG_ALL },
+ 	{ "fingerprinthash", sFingerprintHash, SSHCFG_GLOBAL },
 +	{ "debianbanner", sDebianBanner, SSHCFG_GLOBAL },
  	{ NULL, sBadOption, 0 }
  };
  
 @@ -1654,6 +1659,10 @@ process_server_config_line(ServerOptions *options, char *line,
- 		}
- 		return 0;
+ 			options->fingerprint_hash = value;
+ 		break;
  
 +	case sDebianBanner:
 +		intptr = &options->debian_banner;
@@ -71,9 +71,9 @@ index c922eb5..dcd1c2a 100644
 --- a/servconf.h
 +++ b/servconf.h
 @@ -186,6 +186,8 @@ typedef struct {
- 
- 	u_int	num_auth_methods;
  	char   *auth_methods[MAX_AUTH_METHODS];
+ 
+ 	int	fingerprint_hash;
 +
 +	int	debian_banner;
  }       ServerOptions;

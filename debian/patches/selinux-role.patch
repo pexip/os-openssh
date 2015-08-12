@@ -194,8 +194,8 @@ index 7f32b0c..4d5e8fa 100644
 --- a/monitor.h
 +++ b/monitor.h
 @@ -68,6 +68,8 @@ enum monitor_reqtype {
- 	MONITOR_REQ_GSSSIGN = 150, MONITOR_ANS_GSSSIGN = 151,
- 	MONITOR_REQ_GSSUPCREDS = 152, MONITOR_ANS_GSSUPCREDS = 153,
+ 	MONITOR_REQ_PAM_FREE_CTX = 110, MONITOR_ANS_PAM_FREE_CTX = 111,
+ 	MONITOR_REQ_AUDIT_EVENT = 112, MONITOR_REQ_AUDIT_COMMAND = 113,
  
 +	MONITOR_REQ_AUTHROLE = 154,
 +
@@ -257,7 +257,7 @@ index a4e9d24..9c2ee49 100644
 @@ -41,7 +41,8 @@ void mm_log_handler(LogLevel, const char *, void *);
  int mm_is_monitor(void);
  DH *mm_choose_dh(int, int, int);
- int mm_key_sign(Key *, u_char **, u_int *, u_char *, u_int);
+ int mm_key_sign(Key *, u_char **, u_int *, const u_char *, u_int);
 -void mm_inform_authserv(char *, char *);
 +void mm_inform_authserv(char *, char *, char *);
 +void mm_inform_authrole(char *);
@@ -407,7 +407,7 @@ index 2bcf818..6848df4 100644
 +do_setusercontext(struct passwd *pw, const char *role)
  {
  	char *chroot_path, *tmp;
- 
+ #ifdef USE_LIBIAF
 @@ -1530,7 +1530,7 @@ do_setusercontext(struct passwd *pw)
  		endgrent();
  #endif

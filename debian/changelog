@@ -1,3 +1,17 @@
+openssh (1:6.9p1-0pexip1) pexip; urgency=low
+
+  * New upstream release
+  * debian/patches/curve25519-sha256-bignum-encoding.patch,
+    debian/patches/sshfp_with_server_cert_upstr:
+    Drop; merged upstream
+  * debian/patches/openssh-6.5p1-fingerprint_hash.patch:
+    Drop; superceded by upstream changes
+  * debian/patches/series:
+    - disable gssapi.patch: no longer applies and not needed
+  * debian/openssh-client.docs: remove Changelog.gssapi
+
+ -- John-Mark Bell <jmb@pexip.com>  Fri, 07 Aug 2015 18:30:12 +0100
+
 openssh (1:6.6p1-5pexip4) pexip; urgency=low
 
   * Relax MaxSessions configuration
