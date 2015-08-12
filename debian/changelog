@@ -1,3 +1,9 @@
+openssh (1:7.0p1-0pexip1) pexip; urgency=low
+
+  * New upstream release
+
+ -- John-Mark Bell <jmb@pexip.com>  Wed, 12 Aug 2015 16:20:47 +0100
+
 openssh (1:6.9p1-0pexip1) pexip; urgency=low
 
   * New upstream release

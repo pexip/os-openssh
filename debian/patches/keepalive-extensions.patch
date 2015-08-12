@@ -30,16 +30,16 @@ index bcd8cad..6409937 100644
 --- a/readconf.c
 +++ b/readconf.c
 @@ -151,6 +151,7 @@ typedef enum {
- 	oCanonicalizeFallbackLocal, oCanonicalizePermittedCNAMEs,
  	oStreamLocalBindMask, oStreamLocalBindUnlink, oRevokedHostKeys,
  	oFingerprintHash, oUpdateHostkeys, oHostbasedKeyTypes,
+ 	oPubkeyAcceptedKeyTypes,
 +	oProtocolKeepAlives, oSetupTimeOut,
  	oIgnoredUnknownOption, oDeprecated, oUnsupported
  } OpCodes;
  
 @@ -274,6 +275,8 @@ static struct {
- 	{ "updatehostkeys", oUpdateHostkeys },
  	{ "hostbasedkeytypes", oHostbasedKeyTypes },
+ 	{ "pubkeyacceptedkeytypes", oPubkeyAcceptedKeyTypes },
  	{ "ignoreunknown", oIgnoreUnknown },
 +	{ "protocolkeepalives", oProtocolKeepAlives },
 +	{ "setuptimeout", oSetupTimeOut },

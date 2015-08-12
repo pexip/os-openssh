@@ -36,9 +36,9 @@ index 90de888..37fd2de 100644
  		options->fingerprint_hash = SSH_FP_HASH_DEFAULT;
 +	if (options->debian_banner == -1)
 +		options->debian_banner = 1;
- 	/* Turn privilege separation on by default */
- 	if (use_privsep == -1)
- 		use_privsep = PRIVSEP_NOSANDBOX;
+ 
+ 	if (kex_assemble_names(KEX_SERVER_ENCRYPT, &options->ciphers) != 0 ||
+ 	    kex_assemble_names(KEX_SERVER_MAC, &options->macs) != 0 ||
 @@ -359,6 +362,7 @@ typedef enum {
  	sAuthenticationMethods, sHostKeyAgent, sPermitUserRC,
  	sStreamLocalBindMask, sStreamLocalBindUnlink,
