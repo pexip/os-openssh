@@ -1,3 +1,9 @@
+openssh (1:7.0p1-0pexip2) pexip; urgency=low
+
+  * Re-enable DH group1 sha1 key exchange by default
+
+ -- John-Mark Bell <jmb@pexip.com>  Sat, 15 Aug 2015 02:13:25 +0100
+
 openssh (1:7.0p1-0pexip1) pexip; urgency=low
 
   * New upstream release

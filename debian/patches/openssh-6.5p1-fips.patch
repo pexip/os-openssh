@@ -433,26 +433,28 @@ diff --git a/mac.c b/mac.c
 diff --git a/myproposal.h b/myproposal.h
 --- a/myproposal.h
 +++ b/myproposal.h
-@@ -83,36 +83,60 @@
- 
- #define KEX_SERVER_KEX KEX_COMMON_KEX \
- 	"diffie-hellman-group14-sha1" \
+@@ -83,36 +83,62 @@
+ 	"diffie-hellman-group14-sha1," \
+ 	"diffie-hellman-group1-sha1" 
  
  #define KEX_CLIENT_KEX KEX_COMMON_KEX \
  	"diffie-hellman-group-exchange-sha1," \
- 	"diffie-hellman-group14-sha1"
+ 	"diffie-hellman-group14-sha1," \
+ 	"diffie-hellman-group1-sha1"
  
 -#define	KEX_DEFAULT_PK_ALG	\
 +#define KEX_FIPS_140_2_SERVER_KEX \
 +	KEX_ECDH_METHODS \
 +	KEX_SHA256_METHODS \
-+	"diffie-hellman-group14-sha1" \
++	"diffie-hellman-group14-sha1," \
++	"diffie-hellman-group1-sha1"
 +
 +#define KEX_FIPS_140_2_CLIENT_KEX \
 +	KEX_ECDH_METHODS \
 +	KEX_SHA256_METHODS \
 +	"diffie-hellman-group-exchange-sha1," \
-+	"diffie-hellman-group14-sha1"
++	"diffie-hellman-group14-sha1," \
++	"diffie-hellman-group1-sha1"
 +
 +#define	KEX_DEFAULT_PK_ALG      \
  	HOSTKEY_ECDSA_CERT_METHODS \
@@ -495,7 +497,7 @@ diff --git a/myproposal.h b/myproposal.h
  	"hmac-sha1-etm@openssh.com," \
  	"umac-64@openssh.com," \
  	"umac-128@openssh.com," \
-@@ -125,16 +149,23 @@
+@@ -125,16 +151,23 @@
  	"hmac-sha1-96-etm@openssh.com," \
  	"hmac-md5-96-etm@openssh.com," \
  	"hmac-md5," \

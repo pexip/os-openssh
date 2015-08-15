@@ -26,5 +26,6 @@ no-openssl-version-check.patch
 gnome-ssh-askpass2-icon.patch
 sigstop.patch
 debian-config.patch
+default-dh1-sha1.patch
 openssh-6.5p1-fips.patch
 extra-config.patch

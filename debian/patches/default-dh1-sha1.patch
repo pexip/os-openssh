@@ -1,0 +1,20 @@
+diff --git a/myproposal.h b/myproposal.h
+index 46e5b98..9dc75e0 100644
+--- a/myproposal.h
++++ b/myproposal.h
+@@ -89,11 +89,13 @@
+ 	KEX_SHA256_METHODS
+ 
+ #define KEX_SERVER_KEX KEX_COMMON_KEX \
+-	"diffie-hellman-group14-sha1" \
++	"diffie-hellman-group14-sha1," \
++	"diffie-hellman-group1-sha1" 
+ 
+ #define KEX_CLIENT_KEX KEX_COMMON_KEX \
+ 	"diffie-hellman-group-exchange-sha1," \
+-	"diffie-hellman-group14-sha1"
++	"diffie-hellman-group14-sha1," \
++	"diffie-hellman-group1-sha1"
+ 
+ #define	KEX_DEFAULT_PK_ALG	\
+ 	HOSTKEY_ECDSA_CERT_METHODS \
