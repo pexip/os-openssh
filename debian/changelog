@@ -1,3 +1,10 @@
+openssh (1:7.0p1-0pexip3) pexip; urgency=low
+
+  * debian/patches/openssh-6.5p1-fips.patch: fix RSA host key
+    verification
+
+ -- John-Mark Bell <jmb@pexip.com>  Mon, 17 Aug 2015 12:43:36 +0100
+
 openssh (1:7.0p1-0pexip2) pexip; urgency=low
 
   * Re-enable DH group1 sha1 key exchange by default

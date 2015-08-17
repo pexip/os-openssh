@@ -1124,7 +1124,7 @@ diff --git a/ssh-rsa.c b/ssh-rsa.c
  
  	if ((b = sshbuf_from(signature, signaturelen)) == NULL)
  		return SSH_ERR_ALLOC_FAIL;
-@@ -160,107 +170,38 @@
+@@ -160,107 +170,46 @@
  			sigblob = osigblob; /* put it back for clear/free */
  			ret = SSH_ERR_ALLOC_FAIL;
  			goto out;
@@ -1146,16 +1146,24 @@ diff --git a/ssh-rsa.c b/ssh-rsa.c
 +		EVP_PKEY_set1_RSA(pkey, key->rsa);
 +
 +		EVP_MD_CTX_init(&md);
-+		if (EVP_VerifyInit_ex(&md, evp_md, NULL) != 1 ||
-+		    EVP_VerifyUpdate(&md, data, datalen) != 1 ||
-+		    EVP_VerifyFinal(&md, sigblob, len, pkey) != 1) {
-+			EVP_MD_CTX_cleanup(&md);
-+			EVP_PKEY_free(pkey);
-+			ret = SSH_ERR_LIBCRYPTO_ERROR;
-+			goto out;
++		if (EVP_VerifyInit_ex(&md, evp_md, NULL) == 1 &&
++		    EVP_VerifyUpdate(&md, data, datalen) == 1) {
++			ret = EVP_VerifyFinal(&md, sigblob, len, pkey);
 +		}
 +		EVP_MD_CTX_cleanup(&md);
 +		EVP_PKEY_free(pkey);
++
++		switch (ret) {
++		case 1:
++			ret = 0;
++			break;
++		case 0:
++			ret = SSH_ERR_SIGNATURE_INVALID;
++			goto out;
++		default:
++			ret = SSH_ERR_LIBCRYPTO_ERROR;
++			goto out;
++		}
 +	}
  
 -	ret = openssh_RSA_verify(hash_alg, digest, dlen, sigblob, len,
