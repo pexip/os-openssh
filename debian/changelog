@@ -1,3 +1,9 @@
+openssh (1:7.1p1-0pexip1) pexip; urgency=low
+
+  * New upstream release
+
+ -- John-Mark Bell <jmb@pexip.com>  Wed, 26 Aug 2015 13:19:45 +0100
+
 openssh (1:7.0p1-0pexip3) pexip; urgency=low
 
   * debian/patches/openssh-6.5p1-fips.patch: fix RSA host key
