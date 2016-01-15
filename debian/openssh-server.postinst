@@ -247,6 +247,7 @@ PermitUserEnvironment no
 PermitTunnel no
 MaxSessions 10
 Compression delayed
+ClientAliveInterval 180
 
 Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,aes192-cbc,aes256-cbc
 MACs hmac-sha2-256,hmac-sha2-512,hmac-sha1
@@ -334,6 +335,9 @@ if [ "$action" = configure ]; then
 	fi
 	if dpkg --compare-versions "$2" lt 1:6.6p1-5pexip4; then
 	   set_config_option MaxSessions 10
+	fi
+	if dpkg --compare-versions "$2" lt 1:7.1p1-0pexip2; then
+	   set_config_option ClientAliveInterval 180
 	fi
 fi
 
