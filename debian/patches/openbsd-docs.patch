@@ -92,7 +92,7 @@ index ff5e6ac..67b4f44 100644
 --- a/ssh.1
 +++ b/ssh.1
 @@ -763,6 +763,10 @@ Protocol 1 is restricted to using only RSA keys,
- but protocol 2 may use any.
+ using one of the DSA, ECDSA, Ed25519 or RSA algorithms.
  The HISTORY section of
  .Xr ssl 8
 +(on non-OpenBSD systems, see
@@ -121,9 +121,9 @@ index e6a900b..b016e90 100644
  .Pp
 -.It Pa /etc/moduli
 +.It Pa /etc/ssh/moduli
- Contains Diffie-Hellman groups used for the "Diffie-Hellman Group Exchange".
+ Contains Diffie-Hellman groups used for the "Diffie-Hellman Group Exchange"
+ key exchange method.
  The file format is described in
- .Xr moduli 5 .
 @@ -961,7 +961,6 @@ The content of this file is not sensitive; it can be world-readable.
  .Xr ssh-keygen 1 ,
  .Xr ssh-keyscan 1 ,

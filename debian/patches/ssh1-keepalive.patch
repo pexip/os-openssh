@@ -60,15 +60,13 @@ diff --git a/ssh_config.5 b/ssh_config.5
 index e7accd6..473971e 100644
 --- a/ssh_config.5
 +++ b/ssh_config.5
-@@ -1294,7 +1294,10 @@ If, for example,
+@@ -1294,6 +1294,9 @@ If, for example,
  .Cm ServerAliveCountMax
  is left at the default, if the server becomes unresponsive,
  ssh will disconnect after approximately 45 seconds.
--This option applies to protocol version 2 only.
-+This option applies to protocol version 2 only; in protocol version
-+1 there is no mechanism to request a response from the server to the
-+server alive messages, so disconnection is the responsibility of the TCP
-+stack.
++In protocol version 1 there is no mechanism to request a response from
++the server to the server alive messages, so disconnection is the 
++responsibility of the TCP stack.
  .It Cm ServerAliveInterval
  Sets a timeout interval in seconds after which if no data has been received
  from the server,

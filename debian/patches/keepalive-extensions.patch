@@ -89,7 +89,7 @@ index 473971e..3172fd4 100644
  The argument must be
  .Dq yes
  or
-@@ -1305,8 +1309,15 @@ from the server,
+@@ -1305,7 +1309,14 @@ from the server,
  will send a message through the encrypted
  channel to request a response from the server.
  The default
@@ -98,7 +98,6 @@ index 473971e..3172fd4 100644
 +or 300 if the
 +.Cm BatchMode
 +option is set.
- This option applies to protocol version 2 only.
 +.Cm ProtocolKeepAlives
 +and
 +.Cm SetupTimeOut
@@ -106,7 +105,7 @@ index 473971e..3172fd4 100644
  .It Cm StreamLocalBindMask
  Sets the octal file creation mode mask
  .Pq umask
-@@ -1345,6 +1356,12 @@ Specifies whether the system should send TCP keepalive messages to the
+@@ -1344,6 +1355,12 @@ Specifies whether the system should send TCP keepalive messages to the
  other side.
  If they are sent, death of the connection or crash of one
  of the machines will be properly noticed.

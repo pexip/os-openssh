@@ -18,14 +18,13 @@ diff --git a/Makefile.in b/Makefile.in
 index feee0b2..7d192bb 100644
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -293,9 +293,9 @@ install-files:
+@@ -293,6 +293,10 @@ install-files:
+ 	$(INSTALL) -m 644 sftp-server.8.out $(DESTDIR)$(mandir)/$(mansubdir)8/sftp-server.8
  	$(INSTALL) -m 644 ssh-keysign.8.out $(DESTDIR)$(mandir)/$(mansubdir)8/ssh-keysign.8
  	$(INSTALL) -m 644 ssh-pkcs11-helper.8.out $(DESTDIR)$(mandir)/$(mansubdir)8/ssh-pkcs11-helper.8
- 	-rm -f $(DESTDIR)$(bindir)/slogin
--	ln -s ./ssh$(EXEEXT) $(DESTDIR)$(bindir)/slogin
++	-rm -f $(DESTDIR)$(bindir)/slogin
 +	ln -s ssh$(EXEEXT) $(DESTDIR)$(bindir)/slogin
- 	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)1/slogin.1
--	ln -s ./ssh.1 $(DESTDIR)$(mandir)/$(mansubdir)1/slogin.1
++	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)1/slogin.1
 +	ln -s ssh.1 $(DESTDIR)$(mandir)/$(mansubdir)1/slogin.1
  
  install-sysconf:

@@ -37,8 +37,8 @@ index 90de888..37fd2de 100644
 +	if (options->debian_banner == -1)
 +		options->debian_banner = 1;
  
- 	if (kex_assemble_names(KEX_SERVER_ENCRYPT, &options->ciphers) != 0 ||
- 	    kex_assemble_names(KEX_SERVER_MAC, &options->macs) != 0 ||
+ 	assemble_algorithms(options);
+ 
 @@ -359,6 +362,7 @@ typedef enum {
  	sAuthenticationMethods, sHostKeyAgent, sPermitUserRC,
  	sStreamLocalBindMask, sStreamLocalBindUnlink,

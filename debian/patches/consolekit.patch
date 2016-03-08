@@ -29,10 +29,10 @@ index ee1d2c3..3d96c05 100644
 +++ b/Makefile.in
 @@ -97,7 +97,8 @@ SSHDOBJS=sshd.o auth-rhosts.o auth-passwd.o auth-rsa.o auth-rh-rsa.o \
  	sftp-server.o sftp-common.o \
- 	roaming_common.o roaming_serv.o \
  	sandbox-null.o sandbox-rlimit.o sandbox-systrace.o sandbox-darwin.o \
--	sandbox-seccomp-filter.o sandbox-capsicum.o
-+	sandbox-seccomp-filter.o sandbox-capsicum.o \
+ 	sandbox-seccomp-filter.o sandbox-capsicum.o sandbox-pledge.o \
+-	sandbox-solaris.o
++	sandbox-solaris.o \
 +	consolekit.o
  
  MANPAGES	= moduli.5.out scp.1.out ssh-add.1.out ssh-agent.1.out ssh-keygen.1.out ssh-keyscan.1.out ssh.1.out sshd.8.out sftp-server.8.out sftp.1.out ssh-keysign.8.out ssh-pkcs11-helper.8.out sshd_config.5.out ssh_config.5.out
@@ -42,7 +42,7 @@ index b6b5b6d..e2f12cd 100755
 --- a/configure
 +++ b/configure
 @@ -1432,6 +1433,7 @@ Optional Packages:
-   --with-sandbox=style    Specify privilege separation sandbox (no, darwin, rlimit, systrace, seccomp_filter, capsicum)
+   --with-sandbox=style    Specify privilege separation sandbox (no, capsicum, darwin, rlimit, seccomp_filter, systrace, pledge)
    --with-selinux          Enable SELinux support
    --with-kerberos5=PATH   Enable Kerberos 5 support
 +  --with-consolekit       Enable ConsoleKit support
@@ -186,9 +186,9 @@ index b6b5b6d..e2f12cd 100755
  
  PRIVSEP_PATH=/var/empty
 @@ -19746,6 +19877,7 @@ echo "              MD5 password support: $MD5_MSG"
- echo "                   libedit support: $LIBEDIT_MSG"
  echo "  Solaris process contract support: $SPC_MSG"
  echo "           Solaris project support: $SP_MSG"
+ echo "         Solaris privilege support: $SPP_MSG"
 +echo "                ConsoleKit support: $CONSOLEKIT_MSG"
  echo "       IP address in \$DISPLAY hack: $DISPLAY_HACK_MSG"
  echo "           Translate v4 in v6 hack: $IPV4_IN6_HACK_MSG"
@@ -229,9 +229,9 @@ index d235fb0..8669271 100644
  
  PRIVSEP_PATH=/var/empty
 @@ -4873,6 +4897,7 @@ echo "              MD5 password support: $MD5_MSG"
- echo "                   libedit support: $LIBEDIT_MSG"
  echo "  Solaris process contract support: $SPC_MSG"
  echo "           Solaris project support: $SP_MSG"
+ echo "         Solaris privilege support: $SPP_MSG"
 +echo "                ConsoleKit support: $CONSOLEKIT_MSG"
  echo "       IP address in \$DISPLAY hack: $DISPLAY_HACK_MSG"
  echo "           Translate v4 in v6 hack: $IPV4_IN6_HACK_MSG"
