@@ -1,3 +1,10 @@
+openssh (1:7.2p2-0pexip2) pexip; urgency=low
+
+  * debian/patches/CVE-2015-8325.patch:
+    Backport fix for CVE-2015-8325.
+
+ -- John-Mark Bell <jmb@pexip.com>  Fri, 15 Apr 2016 19:29:41 +0100
+
 openssh (1:7.2p2-0pexip1) pexip; urgency=low
 
   * New upstream release
