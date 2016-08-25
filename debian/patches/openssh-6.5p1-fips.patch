@@ -11,8 +11,8 @@ diff --git a/Makefile.in b/Makefile.in
  	kex.o kexdh.o kexgex.o kexecdh.o kexc25519.o \
  	kexdhc.o kexgexc.o kexecdhc.o kexc25519c.o \
  	kexdhs.o kexgexs.o kexecdhs.o kexc25519s.o \
--	platform-pledge.o
-+	platform-pledge.o \
+-	platform-pledge.o platform-tracing.o
++	platform-pledge.o platform-tracing.o \
 +	fips.o
  
  SSHOBJS= ssh.o readconf.o clientloop.o sshtty.o \
@@ -289,13 +289,16 @@ diff --git a/kex.c b/kex.c
  
  #if OPENSSL_VERSION_NUMBER >= 0x00907000L
  # if defined(HAVE_EVP_SHA256)
-@@ -105,6 +106,36 @@
+@@ -105,6 +106,39 @@
  	{ NULL, -1, -1, -1},
  };
  
 +static const struct kexalg kexalgs_fips140_2[] = {
 +	{ KEX_DH1, KEX_DH_GRP1_SHA1, 0, SSH_DIGEST_SHA1 },
-+	{ KEX_DH14, KEX_DH_GRP14_SHA1, 0, SSH_DIGEST_SHA1 },
++	{ KEX_DH14_SHA1, KEX_DH_GRP14_SHA1, 0, SSH_DIGEST_SHA1 },
++	{ KEX_DH14_SHA256, KEX_DH_GRP14_SHA256, 0, SSH_DIGEST_SHA256 },
++	{ KEX_DH16_SHA512, KEX_DH_GRP16_SHA512, 0, SSH_DIGEST_SHA512 },
++	{ KEX_DH18_SHA512, KEX_DH_GRP18_SHA512, 0, SSH_DIGEST_SHA512 },
 +	{ KEX_DHGEX_SHA1, KEX_DH_GEX_SHA1, 0, SSH_DIGEST_SHA1 },
 +#ifdef HAVE_EVP_SHA256
 +	{ KEX_DHGEX_SHA256, KEX_DH_GEX_SHA256, 0, SSH_DIGEST_SHA256 },
@@ -433,25 +436,27 @@ diff --git a/mac.c b/mac.c
 diff --git a/myproposal.h b/myproposal.h
 --- a/myproposal.h
 +++ b/myproposal.h
-@@ -90,50 +90,84 @@
- 	"diffie-hellman-group14-sha1," \
+@@ -90,50 +90,86 @@
  	"diffie-hellman-group1-sha1" 
  
  #define KEX_CLIENT_KEX KEX_COMMON_KEX \
  	"diffie-hellman-group-exchange-sha1," \
+ 	KEX_SHA2_GROUP14 \
  	"diffie-hellman-group14-sha1," \
  	"diffie-hellman-group1-sha1"
  
 +#define KEX_FIPS_140_2_SERVER_KEX \
 +	KEX_ECDH_METHODS \
-+	KEX_SHA256_METHODS \
++	KEX_SHA2_METHODS \
++	KEX_SHA2_GROUP14 \
 +	"diffie-hellman-group14-sha1," \
 +	"diffie-hellman-group1-sha1"
 +
 +#define KEX_FIPS_140_2_CLIENT_KEX \
 +	KEX_ECDH_METHODS \
-+	KEX_SHA256_METHODS \
++	KEX_SHA2_METHODS \
 +	"diffie-hellman-group-exchange-sha1," \
++	KEX_SHA2_GROUP14 \
 +	"diffie-hellman-group14-sha1," \
 +	"diffie-hellman-group1-sha1"
 +
@@ -653,7 +658,7 @@ diff --git a/ssh.c b/ssh.c
  
   again:
  	while ((opt = getopt(ac, av, "1246ab:c:e:fgi:kl:m:no:p:qstvx"
- 	    "ACD:E:F:GI:KL:MNO:PQ:R:S:TVw:W:XYy")) != -1) {
+ 	    "ACD:E:F:GI:J:KL:MNO:PQ:R:S:TVw:W:XYy")) != -1) {
  		switch (opt) {
  		case '1':
 +			if (fips_mode())
@@ -713,9 +718,9 @@ index 7751031..4dec07c 100644
 --- a/sshconnect2.c
 +++ b/sshconnect2.c
 @@ -71,6 +71,7 @@
- #include "uidswap.h"
  #include "hostfile.h"
  #include "ssherr.h"
+ #include "utf8.h"
 +#include "fips.h"
  
  #ifdef GSSAPI
@@ -877,7 +882,7 @@ diff --git a/ssh-dss.c b/ssh-dss.c
  		goto out;
  	}
  	explicit_bzero(sigblob, SIGBLOB_LEN);
-@@ -106,40 +139,41 @@
+@@ -106,41 +139,42 @@
  			}
  			memcpy(*sigp, sshbuf_ptr(b), len);
  		}
@@ -912,7 +917,8 @@ diff --git a/ssh-dss.c b/ssh-dss.c
  	char *ktype = NULL;
  
  	if (key == NULL || key->dsa == NULL ||
- 	    sshkey_type_plain(key->type) != KEY_DSA)
+ 	    sshkey_type_plain(key->type) != KEY_DSA ||
+ 	    signature == NULL || signaturelen == 0)
  		return SSH_ERR_INVALID_ARGUMENT;
 -	if (dlen == 0)
 -		return SSH_ERR_INTERNAL_ERROR;
@@ -924,7 +930,7 @@ diff --git a/ssh-dss.c b/ssh-dss.c
  		memcpy(sigblob, signature, signaturelen);
  		len = signaturelen;
  	} else {
-@@ -166,35 +199,53 @@
+@@ -167,35 +200,53 @@
  		goto out;
  	}
  	if ((BN_bin2bn(sigblob, INTBLOB_LEN, sig->r) == NULL) ||
@@ -1125,11 +1131,11 @@ diff --git a/ssh-rsa.c b/ssh-rsa.c
  
  	if (key == NULL || key->rsa == NULL ||
  	    sshkey_type_plain(key->type) != KEY_RSA ||
- 	    BN_num_bits(key->rsa->n) < SSH_RSA_MINIMUM_MODULUS_SIZE)
+ 	    BN_num_bits(key->rsa->n) < SSH_RSA_MINIMUM_MODULUS_SIZE ||
+ 	    sig == NULL || siglen == 0)
  		return SSH_ERR_INVALID_ARGUMENT;
  
  	if ((b = sshbuf_from(sig, siglen)) == NULL)
- 		return SSH_ERR_ALLOC_FAIL;
 @@ -205,151 +218,44 @@ ssh_rsa_verify(const struct sshkey *key,
  			sigblob = osigblob; /* put it back for clear/free */
  			ret = SSH_ERR_ALLOC_FAIL;

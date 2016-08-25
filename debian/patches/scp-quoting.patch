@@ -25,16 +25,16 @@ index 18d3b1d..0669d02 100644
  	if (verbose_mode) {
  		fprintf(stderr, "Executing:");
 -		for (i = 0; i < a->num; i++)
--			fprintf(stderr, " %s", a->list[i]);
+-			fmprintf(stderr, " %s", a->list[i]);
 +		for (i = 0; i < a->num; i++) {
 +			if (i == 0)
-+				fprintf(stderr, " %s", a->list[i]);
++				fmprintf(stderr, " %s", a->list[i]);
 +			else
 +				/*
 +				 * TODO: misbehaves if a->list[i] contains a
 +				 * single quote
 +				 */
-+				fprintf(stderr, " '%s'", a->list[i]);
++				fmprintf(stderr, " '%s'", a->list[i]);
 +		}
  		fprintf(stderr, "\n");
  	}

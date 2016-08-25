@@ -1,3 +1,11 @@
+openssh (1:7.3p1-0pexip1) pexip; urgency=low
+
+  * New upstream release
+  * debian/patches/CVE-2015-8325.patch:
+    Drop; merged upstream
+
+ -- John-Mark Bell <jmb@pexip.com>  Thu, 25 Aug 2016 23:56:28 +0100
+
 openssh (1:7.2p2-0pexip2) pexip; urgency=low
 
   * debian/patches/CVE-2015-8325.patch:

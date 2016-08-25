@@ -29,4 +29,3 @@ debian-config.patch
 default-dh1-sha1.patch
 openssh-6.5p1-fips.patch
 extra-config.patch
-CVE-2015-8325.patch

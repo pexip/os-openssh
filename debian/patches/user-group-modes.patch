@@ -225,9 +225,9 @@ index 6409937..32c4b42 100644
  #include <unistd.h>
 +#include <pwd.h>
 +#include <grp.h>
- #ifdef HAVE_UTIL_H
- #include <util.h>
- #endif
+ #ifdef USE_SYSTEM_GLOB
+ # include <glob.h>
+ #else
 @@ -1477,8 +1479,7 @@ read_config_file(const char *filename, struct passwd *pw, const char *host,
  
  		if (fstat(fileno(f), &sb) == -1)

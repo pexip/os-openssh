@@ -45,7 +45,7 @@ index 32c4b42..5429fc2 100644
 +		options->forward_x11_trusted = 1;
  	if (options->forward_x11_timeout == -1)
  		options->forward_x11_timeout = 1200;
- 	if (options->exit_on_forward_failure == -1)
+ 	/*
 diff --git a/ssh_config b/ssh_config
 index 228e5ab..c9386aa 100644
 --- a/ssh_config

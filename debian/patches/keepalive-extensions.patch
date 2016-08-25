@@ -32,15 +32,15 @@ index bcd8cad..6409937 100644
 @@ -151,6 +151,7 @@ typedef enum {
  	oStreamLocalBindMask, oStreamLocalBindUnlink, oRevokedHostKeys,
  	oFingerprintHash, oUpdateHostkeys, oHostbasedKeyTypes,
- 	oPubkeyAcceptedKeyTypes,
+ 	oPubkeyAcceptedKeyTypes, oProxyJump,
 +	oProtocolKeepAlives, oSetupTimeOut,
  	oIgnoredUnknownOption, oDeprecated, oUnsupported
  } OpCodes;
  
 @@ -274,6 +275,8 @@ static struct {
- 	{ "hostbasedkeytypes", oHostbasedKeyTypes },
  	{ "pubkeyacceptedkeytypes", oPubkeyAcceptedKeyTypes },
  	{ "ignoreunknown", oIgnoreUnknown },
+ 	{ "proxyjump", oProxyJump },
 +	{ "protocolkeepalives", oProtocolKeepAlives },
 +	{ "setuptimeout", oSetupTimeOut },
  
