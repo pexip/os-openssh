@@ -1,3 +1,9 @@
+openssh (1:7.3p1-0pexip2) pexip; urgency=low
+
+  * Rebuild against libssl1.0.2
+
+ -- John-Mark Bell <jmb@pexip.com>  Wed, 12 Oct 2016 02:17:47 +0100
+
 openssh (1:7.3p1-0pexip1) pexip; urgency=low
 
   * New upstream release
