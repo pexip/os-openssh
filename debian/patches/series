@@ -5,7 +5,6 @@ ssh1-keepalive.patch
 keepalive-extensions.patch
 syslog-level-silent.patch
 quieter-signals.patch
-helpful-wait-terminate.patch
 consolekit.patch
 user-group-modes.patch
 scp-quoting.patch
@@ -26,6 +25,5 @@ no-openssl-version-check.patch
 gnome-ssh-askpass2-icon.patch
 sigstop.patch
 debian-config.patch
-default-dh1-sha1.patch
 openssh-6.5p1-fips.patch
 extra-config.patch

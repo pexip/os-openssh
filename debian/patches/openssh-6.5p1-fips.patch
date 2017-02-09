@@ -184,8 +184,8 @@ diff --git a/cipher.c b/cipher.c
   * passphrase and using the resulting 16 bytes as the key.
   */
  int
- cipher_set_key_string(struct sshcipher_ctx *cc, const struct sshcipher *cipher,
-     const char *passphrase, int do_encrypt)
+ cipher_set_key_string(struct sshcipher_ctx **ccp,
+     const struct sshcipher *cipher, const char *passphrase, int do_encrypt)
  {
 +	/* This function is only used for SSH v1, which is disabled in FIPS mode */
  	u_char digest[16];
@@ -196,7 +196,7 @@ diff --git a/cipher.c b/cipher.c
  	    digest, sizeof(digest))) != 0)
  		goto out;
  
- 	r = cipher_init(cc, cipher, digest, 16, NULL, 0, do_encrypt);
+ 	r = cipher_init(ccp, cipher, digest, 16, NULL, 0, do_encrypt);
 diff --git a/fips.c b/fips.c
 new file mode 100644
 --- /dev/null
@@ -369,8 +369,8 @@ diff --git a/mac.c b/mac.c
  
  struct macalg {
 @@ -86,25 +87,44 @@ struct {
- 	{ "hmac-md5-96-etm@openssh.com",	SSH_DIGEST, SSH_DIGEST_MD5, 96, 0, 0, 1 },
  	{ "hmac-ripemd160-etm@openssh.com",	SSH_DIGEST, SSH_DIGEST_RIPEMD160, 0, 0, 0, 1 },
+ #endif
  	{ "umac-64-etm@openssh.com",		SSH_UMAC, 0, 0, 128, 64, 1 },
  	{ "umac-128-etm@openssh.com",		SSH_UMAC128, 0, 0, 128, 128, 1 },
  
@@ -436,29 +436,27 @@ diff --git a/mac.c b/mac.c
 diff --git a/myproposal.h b/myproposal.h
 --- a/myproposal.h
 +++ b/myproposal.h
-@@ -90,50 +90,86 @@
- 	"diffie-hellman-group1-sha1" 
+@@ -90,50 +90,84 @@
+ 	KEX_SHA2_GROUP14 \
+ 	"diffie-hellman-group14-sha1" \
  
  #define KEX_CLIENT_KEX KEX_COMMON_KEX \
  	"diffie-hellman-group-exchange-sha1," \
  	KEX_SHA2_GROUP14 \
- 	"diffie-hellman-group14-sha1," \
- 	"diffie-hellman-group1-sha1"
+ 	"diffie-hellman-group14-sha1"
  
 +#define KEX_FIPS_140_2_SERVER_KEX \
 +	KEX_ECDH_METHODS \
 +	KEX_SHA2_METHODS \
 +	KEX_SHA2_GROUP14 \
-+	"diffie-hellman-group14-sha1," \
-+	"diffie-hellman-group1-sha1"
++	"diffie-hellman-group14-sha1"
 +
 +#define KEX_FIPS_140_2_CLIENT_KEX \
 +	KEX_ECDH_METHODS \
 +	KEX_SHA2_METHODS \
 +	"diffie-hellman-group-exchange-sha1," \
 +	KEX_SHA2_GROUP14 \
-+	"diffie-hellman-group14-sha1," \
-+	"diffie-hellman-group1-sha1"
++	"diffie-hellman-group14-sha1"
 +
  #define	KEX_DEFAULT_PK_ALG	\
  	HOSTKEY_ECDSA_CERT_METHODS \
@@ -486,11 +484,11 @@ diff --git a/myproposal.h b/myproposal.h
  	AESGCM_CIPHER_MODES
  
  #define KEX_CLIENT_ENCRYPT KEX_SERVER_ENCRYPT "," \
- 	"aes128-cbc,aes192-cbc,aes256-cbc,3des-cbc"
+ 	"aes128-cbc,aes192-cbc,aes256-cbc"
  
 +#define	KEX_FIPS_140_2_SERVER_ENCRYPT \
 +	"aes128-ctr,aes192-ctr,aes256-ctr," \
-+	"aes128-cbc,aes192-cbc,aes256-cbc,3des-cbc"
++	"aes128-cbc,aes192-cbc,aes256-cbc"
 +
 +#define	KEX_FIPS_140_2_CLIENT_ENCRYPT KEX_FIPS_140_2_SERVER_ENCRYPT
 +
@@ -518,11 +516,11 @@ diff --git a/myproposal.h b/myproposal.h
  #else /* WITH_OPENSSL */
  
  #define KEX_SERVER_KEX		\
+ 	"curve25519-sha256," \
  	"curve25519-sha256@libssh.org"
  #define	KEX_DEFAULT_PK_ALG	\
  	"ssh-ed25519-cert-v01@openssh.com," \
  	"ssh-ed25519"
- #define	KEX_SERVER_ENCRYPT \
 diff --git a/openbsd-compat/arc4random.c b/openbsd-compat/arc4random.c
 --- a/openbsd-compat/arc4random.c
 +++ b/openbsd-compat/arc4random.c
@@ -635,7 +633,6 @@ diff --git a/ssh.c b/ssh.c
 --- a/ssh.c
 +++ b/ssh.c
 @@ -99,16 +99,17 @@
- #include "mac.h"
  #include "sshpty.h"
  #include "match.h"
  #include "msg.h"
@@ -643,6 +640,7 @@ diff --git a/ssh.c b/ssh.c
  #include "version.h"
  #include "ssherr.h"
  #include "myproposal.h"
+ #include "utf8.h"
 +#include "fips.h"
  
  #ifdef ENABLE_PKCS11
@@ -751,48 +749,6 @@ index 7751031..4dec07c 100644
  		/* Prefer algorithms that we already have keys for */
  		myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] =
  		    compat_pkalg_proposal(
-diff --git a/sshd.c b/sshd.c
---- a/sshd.c
-+++ b/sshd.c
-@@ -116,16 +116,17 @@
- #include "monitor.h"
- #ifdef GSSAPI
- #include "ssh-gss.h"
- #endif
- #include "monitor_wrap.h"
- #include "ssh-sandbox.h"
- #include "version.h"
- #include "ssherr.h"
-+#include "fips.h"
- 
- #ifndef O_NOCTTY
- #define O_NOCTTY	0
- #endif
- 
- /* Re-exec fds */
- #define REEXEC_DEVCRYPTO_RESERVED_FD	(STDERR_FILENO + 1)
- #define REEXEC_STARTUP_PIPE_FD		(STDERR_FILENO + 2)
-@@ -1712,16 +1719,20 @@ main(int ac, char **av)
- 		if ((fp = sshkey_fingerprint(pubkey, options.fingerprint_hash,
- 		    SSH_FP_DEFAULT)) == NULL)
- 			fatal("sshkey_fingerprint failed");
- 		debug("%s host key #%d: %s %s",
- 		    key ? "private" : "agent", i, keytype == KEY_RSA1 ?
- 		    sshkey_type(pubkey) : sshkey_ssh_name(pubkey), fp);
- 		free(fp);
- 	}
-+	if ((options.protocol & SSH_PROTO_1) && fips_mode()) {
-+		logit("Disabling protocol version 1. Not allowed in the FIPS mode.");
-+		options.protocol &= ~SSH_PROTO_1;
-+	}
- 	if ((options.protocol & SSH_PROTO_1) && !sensitive_data.have_ssh1_key) {
- 		logit("Disabling protocol version 1. Could not load host key");
- 		options.protocol &= ~SSH_PROTO_1;
- 	}
- 	if ((options.protocol & SSH_PROTO_2) && !sensitive_data.have_ssh2_key) {
- 		logit("Disabling protocol version 2. Could not load host key");
- 		options.protocol &= ~SSH_PROTO_2;
- 	}
 diff --git a/ssh-dss.c b/ssh-dss.c
 --- a/ssh-dss.c
 +++ b/ssh-dss.c
@@ -1012,7 +968,7 @@ diff --git a/ssh-rsa.c b/ssh-rsa.c
  		return "ssh-rsa";
  	case SSH_DIGEST_SHA256:
  		return "rsa-sha2-256";
-@@ -77,57 +75,70 @@ rsa_hash_alg_nid(int type)
+@@ -77,56 +75,69 @@ rsa_hash_alg_nid(int type)
  	}
  }
  
@@ -1038,8 +994,7 @@ diff --git a/ssh-rsa.c b/ssh-rsa.c
  	if (sigp != NULL)
  		*sigp = NULL;
  
- 	if (alg_ident == NULL || strlen(alg_ident) == 0 ||
- 	    strncmp(alg_ident, "ssh-rsa-cert", strlen("ssh-rsa-cert")) == 0)
+ 	if (alg_ident == NULL || strlen(alg_ident) == 0)
  		hash_alg = SSH_DIGEST_SHA1;
  	else
  		hash_alg = rsa_hash_alg_from_ident(alg_ident);

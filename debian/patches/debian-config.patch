@@ -94,19 +94,9 @@ index 1d500e9..22e6372 100644
 +.Cm GSSAPIAuthentication No yes
 +.El
 +.Pp
- The configuration file has the following format:
- .Pp
- Empty lines and lines starting with
-@@ -654,7 +670,8 @@ token used for the session will be set to expire after 20 minutes.
- Remote clients will be refused access after this time.
- .Pp
- The default is
--.Dq no .
-+.Dq yes
-+(Debian-specific).
- .Pp
- See the X11 SECURITY extension specification for full details on
- the restrictions imposed on untrusted clients.
+ The file contains keyword-argument pairs, one per line.
+ Lines starting with
+ .Ql #
 diff --git a/sshd_config b/sshd_config
 index d9b8594..4db32f5 100644
 --- a/sshd_config

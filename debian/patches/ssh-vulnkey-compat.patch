@@ -39,4 +39,4 @@ index 0083cf8..90de888 100644
 +	{ "permitblacklistedkeys", sDeprecated, SSHCFG_GLOBAL },
  	{ "permitemptypasswords", sEmptyPasswd, SSHCFG_ALL },
  	{ "permituserenvironment", sPermitUserEnvironment, SSHCFG_GLOBAL },
- 	{ "uselogin", sUseLogin, SSHCFG_GLOBAL },
+ 	{ "uselogin", sDeprecated, SSHCFG_GLOBAL },

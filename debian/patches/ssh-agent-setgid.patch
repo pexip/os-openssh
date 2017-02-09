@@ -37,4 +37,4 @@ index 281ecbd..38fd540 100644
 +so in the program executed by ssh-agent.
  .Sh FILES
  .Bl -tag -width Ds
- .It Pa $TMPDIR/ssh-XXXXXXXXXX/agent.\*(Ltppid\*(Gt
+ .It Pa $TMPDIR/ssh-XXXXXXXXXX/agent.<ppid>

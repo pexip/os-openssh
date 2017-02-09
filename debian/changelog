@@ -1,3 +1,26 @@
+openssh (1:7.4p1-0pexip1) pexip; urgency=low
+
+  * New upstream release
+  * debian/patches/auth-log-verbosity.patch,
+    debian/patches/consolekit.patch,
+    debian/patches/debian-banner.patch,
+    debian/patches/debian-config.patch,
+    debian/patches/keepalive-extensions.patch,
+    debian/patches/openbsd-docs.patch,
+    debian/patches/openssh-6.5p1-fips.patch,
+    debian/patches/package-versioning.patch,
+    debian/patches/selinux-role.patch,
+    debian/patches/ssh-agent-setgid.patch,
+    debian/patches/ssh-vulnkey-compat.patch,
+    debian/patches/user-group-modes.patch:
+    Rebase
+  * debian/patches/helpful-wait-terminate.patch:
+    Remove: no longer relevant
+  * debian/patches/default-dh1-sha1.patch:
+    Remove: no justification for DH group1 in 2017
+
+ -- John-Mark Bell <jmb@pexip.com>  Thu, 09 Feb 2017 15:10:12 +0000
+
 openssh (1:7.3p1-0pexip2) pexip; urgency=low
 
   * Rebuild against libssl1.0.2

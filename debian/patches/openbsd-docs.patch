@@ -144,5 +144,5 @@ index 8f078f6..908e0bb 100644
 -.Xr login.conf 5 )
 +PAM).
  The default is
- .Dq yes .
+ .Cm yes .
  .It Cm ChrootDirectory

@@ -184,13 +184,15 @@ diff --git a/misc.h b/misc.h
 index d4df619..ceb173b 100644
 --- a/misc.h
 +++ b/misc.h
-@@ -106,4 +106,6 @@ char	*read_passphrase(const char *, int);
+@@ -106,6 +106,8 @@ char	*read_passphrase(const char *, int);
  int	 ask_permission(const char *, ...) __attribute__((format(printf, 1, 2)));
  int	 read_keyfile_line(FILE *, const char *, char *, size_t, u_long *);
  
 +int	 secure_permissions(struct stat *st, uid_t uid);
 +
- #endif /* _MISC_H */
+ #define MINIMUM(a, b)	(((a) < (b)) ? (a) : (b))
+ #define MAXIMUM(a, b)	(((a) > (b)) ? (a) : (b))
+ #define ROUNDUP(x, y)   ((((x)+((y)-1))/(y))*(y))
 diff --git a/platform.c b/platform.c
 index 4aab9a9..f99de7f 100644
 --- a/platform.c

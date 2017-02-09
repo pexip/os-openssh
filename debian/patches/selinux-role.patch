@@ -14,7 +14,6 @@ Last-Update: 2013-09-14
 Patch-Name: selinux-role.patch
 ---
  auth.h                      |  1 +
- auth1.c                     |  8 +++++++-
  auth2.c                     | 10 ++++++++--
  monitor.c                   | 32 +++++++++++++++++++++++++++++---
  monitor.h                   |  2 ++
@@ -43,37 +42,6 @@ index 124e597..79e4ea5 100644
  	void		*kbdintctxt;
  	char		*info;		/* Extra info for next auth_log */
  #ifdef BSD_AUTH
-diff --git a/auth1.c b/auth1.c
-index 0f870b3..c707390 100644
---- a/auth1.c
-+++ b/auth1.c
-@@ -380,7 +380,7 @@ void
- do_authentication(Authctxt *authctxt)
- {
- 	u_int ulen;
--	char *user, *style = NULL;
-+	char *user, *style = NULL, *role = NULL;
- 
- 	/* Get the name of the user that we wish to log in as. */
- 	packet_read_expect(SSH_CMSG_USER);
-@@ -389,11 +389,17 @@ do_authentication(Authctxt *authctxt)
- 	user = packet_get_cstring(&ulen);
- 	packet_check_eom();
- 
-+	if ((role = strchr(user, '/')) != NULL)
-+		*role++ = '\0';
-+
- 	if ((style = strchr(user, ':')) != NULL)
- 		*style++ = '\0';
-+	else if (role && (style = strchr(role, ':')) != NULL)
-+		*style++ = '\0';
- 
- 	authctxt->user = user;
- 	authctxt->style = style;
-+	authctxt->role = role;
- 
- 	/* Verify that the user is a valid user. */
- 	if ((authctxt->pw = PRIVSEP(getpwnamallow(user))) != NULL)
 diff --git a/auth2.c b/auth2.c
 index fbe3e1b..70f2925 100644
 --- a/auth2.c
@@ -133,12 +101,12 @@ index 2918814..11eac63 100644
      {MONITOR_REQ_AUTHPASSWORD, MON_AUTH, mm_answer_authpassword},
  #ifdef USE_PAM
 @@ -822,6 +824,7 @@ mm_answer_pwnamallow(int sock, Buffer *m)
- 	else {
- 		/* Allow service/style information on the auth context */
- 		monitor_permit(mon_dispatch, MONITOR_REQ_AUTHSERV, 1);
-+		monitor_permit(mon_dispatch, MONITOR_REQ_AUTHROLE, 1);
- 		monitor_permit(mon_dispatch, MONITOR_REQ_AUTH2_READ_BANNER, 1);
- 	}
+ 
+ 	/* Allow service/style information on the auth context */
+ 	monitor_permit(mon_dispatch, MONITOR_REQ_AUTHSERV, 1);
++	monitor_permit(mon_dispatch, MONITOR_REQ_AUTHROLE, 1);
+ 	monitor_permit(mon_dispatch, MONITOR_REQ_AUTH2_READ_BANNER, 1);
+ 
  #ifdef USE_PAM
 @@ -852,14 +855,37 @@ mm_answer_authserv(int sock, Buffer *m)
  
@@ -201,7 +169,7 @@ index 7f32b0c..4d5e8fa 100644
 +
  };
  
- struct mm_master;
+ struct monitor {
 diff --git a/monitor_wrap.c b/monitor_wrap.c
 index 60b987d..f75dc9d 100644
 --- a/monitor_wrap.c
@@ -427,14 +395,14 @@ index 2bcf818..6848df4 100644
  		do_pwchange(s);
  		exit(1);
 @@ -1706,7 +1706,7 @@ do_child(Session *s, const char *command)
- 		/* When PAM is enabled we rely on it to do the nologin check */
- 		if (!options.use_pam)
- 			do_nologin(pw);
--		do_setusercontext(pw);
-+		do_setusercontext(pw, s->authctxt->role);
- 		/*
- 		 * PAM session modules in do_setusercontext may have
- 		 * generated messages, so if this in an interactive
+ 	/* When PAM is enabled we rely on it to do the nologin check */
+ 	if (!options.use_pam)
+ 		do_nologin(pw);
+-	do_setusercontext(pw);
++	do_setusercontext(pw, s->authctxt->role);
+ 	/*
+ 	 * PAM session modules in do_setusercontext may have
+ 	 * generated messages, so if this in an interactive
 @@ -2117,7 +2117,7 @@ session_pty_req(Session *s)
  	tty_parse_modes(s->ttyfd, &n_bytes);
  
@@ -462,7 +430,7 @@ index d787fea..e343d90 100644
 --- a/sshd.c
 +++ b/sshd.c
 @@ -769,7 +769,7 @@ privsep_postauth(Authctxt *authctxt)
- 	explicit_bzero(rnd, sizeof(rnd));
+ 	reseed_prngs();
  
  	/* Drop privileges */
 -	do_setusercontext(authctxt->pw);
@@ -496,9 +464,10 @@ diff --git a/sshpty.h b/sshpty.h
 index cfa3224..edf2436 100644
 --- a/sshpty.h
 +++ b/sshpty.h
-@@ -24,4 +24,4 @@ int	 pty_allocate(int *, int *, char *, size_t);
+@@ -24,5 +24,5 @@ int	 pty_allocate(int *, int *, char *, size_t);
  void	 pty_release(const char *);
  void	 pty_make_controlling_tty(int *, const char *);
  void	 pty_change_window_size(int, u_int, u_int, u_int, u_int);
 -void	 pty_setowner(struct passwd *, const char *);
 +void	 pty_setowner(struct passwd *, const char *, const char *);
+ void	 disconnect_controlling_tty(void);

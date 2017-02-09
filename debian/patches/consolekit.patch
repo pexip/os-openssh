@@ -536,7 +536,7 @@ index 11eac63..7c105e6 100644
 +
  static Authctxt *authctxt;
  
- #ifdef WITH_SSH1
+ /* local state for key verify */
 @@ -272,6 +279,9 @@ struct mon_table mon_dispatch_postauth20[] = {
      {MONITOR_REQ_AUDIT_EVENT, MON_PERMIT, mm_answer_audit_event},
      {MONITOR_REQ_AUDIT_COMMAND, MON_PERMIT, mm_answer_audit_command},
@@ -547,16 +547,6 @@ index 11eac63..7c105e6 100644
      {0, 0, NULL}
  };
  
-@@ -314,6 +324,9 @@ struct mon_table mon_dispatch_postauth15[] = {
-     {MONITOR_REQ_AUDIT_EVENT, MON_PERMIT, mm_answer_audit_event},
-     {MONITOR_REQ_AUDIT_COMMAND, MON_PERMIT|MON_ONCE, mm_answer_audit_command},
- #endif
-+#ifdef USE_CONSOLEKIT
-+    {MONITOR_REQ_CONSOLEKIT_REGISTER, 0, mm_answer_consolekit_register},
-+#endif
- #endif /* WITH_SSH1 */
-     {0, 0, NULL}
- };
 @@ -492,6 +505,9 @@ monitor_child_postauth(struct monitor *pmonitor)
  		monitor_permit(mon_dispatch, MONITOR_REQ_PTY, 1);
  		monitor_permit(mon_dispatch, MONITOR_REQ_PTYCLEANUP, 1);
@@ -609,7 +599,7 @@ index 4d5e8fa..10ba59e 100644
 +
  };
  
- struct mm_master;
+ struct monitor {
 diff --git a/monitor_wrap.c b/monitor_wrap.c
 index f75dc9d..a8fb07b 100644
 --- a/monitor_wrap.c
@@ -653,8 +643,8 @@ index 9c2ee49..00e93fe 100644
 --- a/monitor_wrap.h
 +++ b/monitor_wrap.h
 @@ -111,4 +111,8 @@ void *mm_zalloc(struct mm_master *, u_int, u_int);
- /* zlib allocation hooks */
- void mm_init_compression(struct mm_master *);
+ int mm_skey_query(void *, char **, char **, u_int *, char ***, u_int **);
+ int mm_skey_respond(void *, u_int, char **);
  
 +#ifdef USE_CONSOLEKIT
 +char *mm_consolekit_register(struct Session *, const char *);
