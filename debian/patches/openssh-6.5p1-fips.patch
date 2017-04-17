@@ -75,7 +75,7 @@ diff --git a/cipher.c b/cipher.c
  extern const EVP_CIPHER *evp_ssh1_3des(void);
  extern int ssh1_3des_iv(EVP_CIPHER_CTX *, int, u_char *, int);
  #endif
-@@ -99,27 +100,52 @@ struct Cipher ciphers[] = {
+@@ -99,27 +100,58 @@ struct Cipher ciphers[] = {
  	{ "none",	SSH_CIPHER_NONE, 8, 0, 0, 0, 0, CFLAG_NONE, NULL },
  #endif /* WITH_OPENSSL */
  	{ "chacha20-poly1305@openssh.com",
@@ -96,6 +96,12 @@ diff --git a/cipher.c b/cipher.c
 +	{ "aes128-ctr",	SSH_CIPHER_SSH2, 16, 16, 0, 0, 0, 0, EVP_aes_128_ctr },
 +	{ "aes192-ctr",	SSH_CIPHER_SSH2, 16, 24, 0, 0, 0, 0, EVP_aes_192_ctr },
 +	{ "aes256-ctr",	SSH_CIPHER_SSH2, 16, 32, 0, 0, 0, 0, EVP_aes_256_ctr },
++# ifdef OPENSSL_HAVE_EVPGCM
++	{ "aes128-gcm@openssh.com",
++			SSH_CIPHER_SSH2, 16, 16, 12, 16, 0, 0, EVP_aes_128_gcm },
++	{ "aes256-gcm@openssh.com",
++			SSH_CIPHER_SSH2, 16, 32, 12, 16, 0, 0, EVP_aes_256_gcm },
++# endif /* OPENSSL_HAVE_EVPGCM */
 +	{ NULL,		SSH_CIPHER_INVALID, 0, 0, 0, 0, 0, 0, NULL }
 +};
 +
@@ -129,7 +135,7 @@ diff --git a/cipher.c b/cipher.c
  			ret[rlen++] = sep;
  		nlen = strlen(c->name);
  		if ((tmp = realloc(ret, rlen + nlen + 2)) == NULL) {
-@@ -189,27 +214,27 @@ cipher_mask_ssh1(int client)
+@@ -189,27 +220,27 @@ cipher_mask_ssh1(int client)
  	}
  	return mask;
  }
@@ -159,7 +165,7 @@ diff --git a/cipher.c b/cipher.c
  #define	CIPHER_SEP	","
  int
  ciphers_valid(const char *names)
-@@ -243,17 +268,17 @@ ciphers_valid(const char *names)
+@@ -243,17 +274,17 @@ ciphers_valid(const char *names)
   */
  
  int
@@ -178,7 +184,7 @@ diff --git a/cipher.c b/cipher.c
  char *
  cipher_name(int id)
  {
-@@ -431,16 +456,17 @@ cipher_cleanup(CipherContext *cc)
+@@ -431,16 +462,17 @@ cipher_cleanup(CipherContext *cc)
  /*
   * Selects the cipher, and keys if by computing the MD5 checksum of the
   * passphrase and using the resulting 16 bytes as the key.

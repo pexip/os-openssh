@@ -5,6 +5,8 @@ openssh (1:7.4p1-0pexip2) pexip; urgency=low
     - ServerKeyBits
     - RSAAuthentication
     - RhostsRSAAuthentication
+  * debian/openssh-server.postinst: Update ciphersuites (drop CBC, add GCM)
+  * debian/patches/openssh-6.5p1-fips.patch: Permit GCM ciphers
 
  -- John-Mark Bell <jmb@pexip.com>  Mon, 17 Apr 2017 12:57:41 +0100
 

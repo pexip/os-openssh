@@ -262,7 +262,7 @@ MaxSessions 10
 Compression delayed
 ClientAliveInterval 180
 
-Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,aes192-cbc,aes256-cbc
+Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com
 MACs hmac-sha2-256,hmac-sha2-512,hmac-sha1
 
 #MaxStartups 10:30:60
@@ -357,6 +357,7 @@ if [ "$action" = configure ]; then
 	   remove_config_option ServerKeyBits
 	   remove_config_option RSAAuthentication
 	   remove_config_option RhostsRSAAuthentication
+	   set_config_option Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com
 	fi
 fi
 
