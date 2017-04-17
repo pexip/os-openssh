@@ -1,3 +1,13 @@
+openssh (1:7.4p1-0pexip2) pexip; urgency=low
+
+  * debian/openssh-server.postinst: Remove deprecated config options:
+    - KeyRegenerationInterval
+    - ServerKeyBits
+    - RSAAuthentication
+    - RhostsRSAAuthentication
+
+ -- John-Mark Bell <jmb@pexip.com>  Mon, 17 Apr 2017 12:57:41 +0100
+
 openssh (1:7.4p1-0pexip1) pexip; urgency=low
 
   * New upstream release
