@@ -11,6 +11,9 @@ then
     # make sure /var/run/sshd is not removed on upgrades
     touch /var/run/sshd/.placeholder
   fi
+  if [ -e "/etc/init.d/ssh" ] && [ -L "/etc/init.d/ssh" ] && [ $(readlink -f "/etc/init.d/ssh") = "/lib/init/upstart-job" ]; then
+    rm -f "/etc/init.d/ssh"
+  fi
 fi
 
 #DEBHELPER#
