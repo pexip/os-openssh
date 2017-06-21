@@ -25,9 +25,9 @@ index 7613ff2..bcd8cad 100644
  	{ "kbdinteractiveauthentication", oKbdInteractiveAuthentication },
  	{ "kbdinteractivedevices", oKbdInteractiveDevices },
 +	{ "useblacklistedkeys", oDeprecated },
- 	{ "rsaauthentication", oRSAAuthentication },
  	{ "pubkeyauthentication", oPubkeyAuthentication },
  	{ "dsaauthentication", oPubkeyAuthentication },		    /* alias */
+ 	{ "hostbasedauthentication", oHostbasedAuthentication },
 diff --git a/servconf.c b/servconf.c
 index 0083cf8..90de888 100644
 --- a/servconf.c

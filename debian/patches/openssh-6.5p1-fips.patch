@@ -1380,9 +1380,9 @@ index dbb16e2..9508b8f 100644
  
 -	for (kt = keytypes; kt->type != -1; kt++) {
 +	for (kt = fips_select_keytypes(); kt->type != -1; kt++) {
- 		if (kt->name == NULL || kt->sigonly)
+ 		if (kt->name == NULL)
  			continue;
- 		if ((certs_only && !kt->cert) || (plain_only && kt->cert))
+ 		if (!include_sigonly && kt->sigonly)
 @@ -243,7 +283,7 @@ sshkey_names_valid2(const char *names, int allow_wildcard)
  				 * If any has a positive or negative match then
  				 * the component is accepted.
@@ -1423,7 +1423,7 @@ index dbb16e2..9508b8f 100644
  		return sshkey_private_to_blob2(key, blob, passphrase,
  		    comment, new_format_cipher, new_format_rounds);
  	default:
-@@ -3854,10 +3902,14 @@ sshkey_parse_private_fileblob_type(struct sshbuf *blob, int type,
+@@ -3854,11 +3902,17 @@ sshkey_parse_private_fileblob_type(struct sshbuf *blob, int type,
  		    passphrase, keyp);
  #endif /* WITH_OPENSSL */
  	case KEY_ED25519:
@@ -1434,11 +1434,15 @@ index dbb16e2..9508b8f 100644
  		return sshkey_parse_private2(blob, type, passphrase,
  		    keyp, commentp);
  	case KEY_UNSPEC:
--		if (sshkey_parse_private2(blob, type, passphrase, keyp,
-+		if (!fips_mode() && sshkey_parse_private2(blob, type, passphrase, keyp,
- 		    commentp) == 0)
- 			return 0;
- #ifdef WITH_OPENSSL
+-		r = sshkey_parse_private2(blob, type, passphrase, keyp,
+-		    commentp);
++		if (!fips_mode()) {
++			r = sshkey_parse_private2(blob, type, passphrase, keyp,
++			    commentp);
++		}
+ 		/* Do not fallback to PEM parser if only passphrase is wrong. */
+ 		if (r == 0 || r == SSH_ERR_KEY_WRONG_PASSPHRASE)
+ 			return r;
 diff --git a/readconf.c b/readconf.c
 index 1d03bdf..2bde149 100644
 --- a/readconf.c

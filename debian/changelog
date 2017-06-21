@@ -1,3 +1,15 @@
+openssh (1:7.5p1-0pexip1) pexip; urgency=low
+
+  * New upstream release
+  * debian/patches/debian-banner.patch,
+    debian/patches/openssh-6.5p1-fips.patch,
+    debian/patches/package-versioning.patch,
+    debian/patches/selinux-role.patch,
+    debian/patches/ssh-vulnkey-compat.patch:
+    Rebase
+
+ -- John-Mark Bell <jmb@pexip.com>  Wed, 21 Jun 2017 13:01:15 +0100
+
 openssh (1:7.4p1-0pexip2) pexip; urgency=low
 
   * debian/openssh-server.postinst: Remove deprecated config options:

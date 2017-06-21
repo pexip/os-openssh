@@ -86,12 +86,12 @@ index af9b8f1..665c0b9 100644
 @@ -440,7 +440,8 @@ sshd_exchange_identification(int sock_in, int sock_out)
  	char remote_version[256];	/* Must be at least as big as buf. */
  
- 	xasprintf(&server_version_string, "SSH-%d.%d-%.100s%s%s%s",
+ 	xasprintf(&server_version_string, "SSH-%d.%d-%.100s%s%s\r\n",
 -	    PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_RELEASE,
 +	    PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2,
 +	    options.debian_banner ? SSH_RELEASE : SSH_RELEASE_MINIMUM,
  	    *options.version_addendum == '\0' ? "" : " ",
- 	    options.version_addendum, newline);
+ 	    options.version_addendum);
  
 diff --git a/sshd_config.5 b/sshd_config.5
 index 2164d58..8f078f6 100644

@@ -47,7 +47,7 @@ index fbe3e1b..70f2925 100644
 --- a/auth2.c
 +++ b/auth2.c
 @@ -216,7 +216,7 @@ input_userauth_request(int type, u_int32_t seq, void *ctxt)
- {
+ 	struct ssh *ssh = active_state;	/* XXX */
  	Authctxt *authctxt = ctxt;
  	Authmethod *m = NULL;
 -	char *user, *service, *method, *style = NULL;
