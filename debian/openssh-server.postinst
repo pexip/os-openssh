@@ -206,7 +206,6 @@ HostKey /etc/ssh/ssh_host_dsa_key
 HostKey /etc/ssh/ssh_host_ecdsa_key
 HostKey /etc/ssh/ssh_host_ed25519_key
 #Privilege Separation is turned on for security
-UsePrivilegeSeparation yes
 
 # Logging
 SyslogFacility AUTH
@@ -358,6 +357,9 @@ if [ "$action" = configure ]; then
 	   remove_config_option RSAAuthentication
 	   remove_config_option RhostsRSAAuthentication
 	   set_config_option Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com
+	fi
+	if dpkg --compare-versions "$2" lt 1:7.5p1-0pexip2; then
+	   remove_config_option UsePrivilegeSeparation
 	fi
 fi
 

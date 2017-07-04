@@ -1,3 +1,10 @@
+openssh (1:7.5p1-0pexip2) pexip; urgency=low
+
+  * debian/openssh-server.postinst: Remove deprecated config option:
+    - UsePrivilegeSeparation
+
+ -- John-Mark Bell <jmb@pexip.com>  Tue, 04 Jul 2017 00:21:48 +0100
+
 openssh (1:7.5p1-0pexip1) pexip; urgency=low
 
   * New upstream release
