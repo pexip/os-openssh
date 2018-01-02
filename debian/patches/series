@@ -1,10 +1,8 @@
 #gssapi.patch
 selinux-role.patch
 ssh-vulnkey-compat.patch
-ssh1-keepalive.patch
 keepalive-extensions.patch
 syslog-level-silent.patch
-quieter-signals.patch
 consolekit.patch
 user-group-modes.patch
 scp-quoting.patch

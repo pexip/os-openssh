@@ -11,12 +11,12 @@ diff --git a/Makefile.in b/Makefile.in
  	kex.o kexdh.o kexgex.o kexecdh.o kexc25519.o \
  	kexdhc.o kexgexc.o kexecdhc.o kexc25519c.o \
  	kexdhs.o kexgexs.o kexecdhs.o kexc25519s.o \
--	platform-pledge.o platform-tracing.o
-+	platform-pledge.o platform-tracing.o \
+-	platform-pledge.o platform-tracing.o platform-misc.o
++	platform-pledge.o platform-tracing.o platform-misc.o \
 +	fips.o
  
  SSHOBJS= ssh.o readconf.o clientloop.o sshtty.o \
- 	sshconnect.o sshconnect1.o sshconnect2.o mux.o
+ 	sshconnect.o sshconnect2.o mux.o
 diff --git a/cipher-ctr.c b/cipher-ctr.c
 --- a/cipher-ctr.c
 +++ b/cipher-ctr.c
@@ -70,39 +70,39 @@ diff --git a/cipher.c b/cipher.c
  
  #include "openbsd-compat/openssl-compat.h"
  
- #ifdef WITH_SSH1
- extern const EVP_CIPHER *evp_ssh1_bf(void);
- extern const EVP_CIPHER *evp_ssh1_3des(void);
- extern int ssh1_3des_iv(EVP_CIPHER_CTX *, int, u_char *, int);
- #endif
-@@ -99,27 +100,58 @@ struct Cipher ciphers[] = {
- 	{ "none",	SSH_CIPHER_NONE, 8, 0, 0, 0, 0, CFLAG_NONE, NULL },
- #endif /* WITH_OPENSSL */
- 	{ "chacha20-poly1305@openssh.com",
- 			SSH_CIPHER_SSH2, 8, 64, 0, 16, 0, CFLAG_CHACHAPOLY, NULL },
  
- 	{ NULL,		SSH_CIPHER_INVALID, 0, 0, 0, 0, 0, 0, NULL }
+ struct sshcipher_ctx {
+ 	int	plaintext;
+ 	int	encrypt;
+ 	EVP_CIPHER_CTX *evp;
+@@ -99,27 +100,58 @@ struct Cipher ciphers[] = {
+ #endif
+ 	{ "chacha20-poly1305@openssh.com",
+ 				8, 64, 0, 16, CFLAG_CHACHAPOLY, NULL },
+ 	{ "none",		8, 0, 0, 0, CFLAG_NONE, NULL },
+ 
+ 	{ NULL,			0, 0, 0, 0, 0, NULL }
  };
  
 +static const struct sshcipher ciphers_fips140_2[] = {
-+	{ "none",	SSH_CIPHER_NONE, 8, 0, 0, 0, 0, 0, EVP_enc_null },
++ 	{ "none",		8, 0, 0, 0, CFLAG_NONE, NULL },
 +
-+	{ "3des-cbc",	SSH_CIPHER_SSH2, 8, 24, 0, 0, 0, 1, EVP_des_ede3_cbc },
-+	{ "aes128-cbc",	SSH_CIPHER_SSH2, 16, 16, 0, 0, 0, 1, EVP_aes_128_cbc },
-+	{ "aes192-cbc",	SSH_CIPHER_SSH2, 16, 24, 0, 0, 0, 1, EVP_aes_192_cbc },
-+	{ "aes256-cbc",	SSH_CIPHER_SSH2, 16, 32, 0, 0, 0, 1, EVP_aes_256_cbc },
++	{ "3des-cbc",		8, 24, 0, 0, CFLAG_CBC, EVP_des_ede3_cbc },
++	{ "aes128-cbc",		16, 16, 0, 0, CFLAG_CBC, EVP_aes_128_cbc },
++	{ "aes192-cbc",		16, 24, 0, 0, CFLAG_CBC, EVP_aes_192_cbc },
++	{ "aes256-cbc",		16, 32, 0, 0, CFLAG_CBC, EVP_aes_256_cbc },
 +	{ "rijndael-cbc@lysator.liu.se",
-+			SSH_CIPHER_SSH2, 16, 32, 0, 0, 0, 1, EVP_aes_256_cbc },
-+	{ "aes128-ctr",	SSH_CIPHER_SSH2, 16, 16, 0, 0, 0, 0, EVP_aes_128_ctr },
-+	{ "aes192-ctr",	SSH_CIPHER_SSH2, 16, 24, 0, 0, 0, 0, EVP_aes_192_ctr },
-+	{ "aes256-ctr",	SSH_CIPHER_SSH2, 16, 32, 0, 0, 0, 0, EVP_aes_256_ctr },
++				16, 32, 0, 0, CFLAG_CBC, EVP_aes_256_cbc },
++	{ "aes128-ctr",		16, 16, 0, 0, 0, EVP_aes_128_ctr },
++	{ "aes192-ctr",		16, 24, 0, 0, 0, EVP_aes_192_ctr },
++	{ "aes256-ctr",		16, 32, 0, 0, 0, EVP_aes_256_ctr },
 +# ifdef OPENSSL_HAVE_EVPGCM
 +	{ "aes128-gcm@openssh.com",
-+			SSH_CIPHER_SSH2, 16, 16, 12, 16, 0, 0, EVP_aes_128_gcm },
++				16, 16, 12, 16, 0, EVP_aes_128_gcm },
 +	{ "aes256-gcm@openssh.com",
-+			SSH_CIPHER_SSH2, 16, 32, 12, 16, 0, 0, EVP_aes_256_gcm },
++				16, 32, 12, 16, 0, EVP_aes_256_gcm },
 +# endif /* OPENSSL_HAVE_EVPGCM */
-+	{ NULL,		SSH_CIPHER_INVALID, 0, 0, 0, 0, 0, 0, NULL }
++ 	{ NULL,			0, 0, 0, 0, 0, NULL }
 +};
 +
  /*--*/
@@ -127,7 +127,7 @@ diff --git a/cipher.c b/cipher.c
  
 -	for (c = ciphers; c->name != NULL; c++) {
 +	for (c = fips_select_ciphers(); c->name != NULL; c++) {
- 		if (c->number != SSH_CIPHER_SSH2)
+ 		if ((c->flags & CFLAG_INTERNAL) != 0)
  			continue;
  		if (auth_only && c->auth_len == 0)
  			continue;
@@ -135,9 +135,9 @@ diff --git a/cipher.c b/cipher.c
  			ret[rlen++] = sep;
  		nlen = strlen(c->name);
  		if ((tmp = realloc(ret, rlen + nlen + 2)) == NULL) {
-@@ -189,27 +220,27 @@ cipher_mask_ssh1(int client)
- 	}
- 	return mask;
+@@ -189,17 +220,17 @@ cipher_ctx_is_plaintext(struct sshcipher_ctx *cc)
+ {
+ 	return cc->plaintext;
  }
  
  const struct sshcipher *
@@ -151,58 +151,9 @@ diff --git a/cipher.c b/cipher.c
  	return NULL;
  }
  
- const struct sshcipher *
- cipher_by_number(int id)
- {
- 	const struct sshcipher *c;
--	for (c = ciphers; c->name != NULL; c++)
-+	for (c = fips_select_ciphers(); c->name != NULL; c++)
- 		if (c->number == id)
- 			return c;
- 	return NULL;
- }
- 
  #define	CIPHER_SEP	","
  int
  ciphers_valid(const char *names)
-@@ -243,17 +274,17 @@ ciphers_valid(const char *names)
-  */
- 
- int
- cipher_number(const char *name)
- {
- 	const struct sshcipher *c;
- 	if (name == NULL)
- 		return -1;
--	for (c = ciphers; c->name != NULL; c++)
-+	for (c = fips_select_ciphers(); c->name != NULL; c++)
- 		if (strcasecmp(c->name, name) == 0)
- 			return c->number;
- 	return -1;
- }
- 
- char *
- cipher_name(int id)
- {
-@@ -431,16 +462,17 @@ cipher_cleanup(CipherContext *cc)
- /*
-  * Selects the cipher, and keys if by computing the MD5 checksum of the
-  * passphrase and using the resulting 16 bytes as the key.
-  */
- int
- cipher_set_key_string(struct sshcipher_ctx **ccp,
-     const struct sshcipher *cipher, const char *passphrase, int do_encrypt)
- {
-+	/* This function is only used for SSH v1, which is disabled in FIPS mode */
- 	u_char digest[16];
- 	int r = SSH_ERR_INTERNAL_ERROR;
- 
- 	if ((r = ssh_digest_memory(SSH_DIGEST_MD5,
- 	    passphrase, strlen(passphrase),
- 	    digest, sizeof(digest))) != 0)
- 		goto out;
- 
- 	r = cipher_init(ccp, cipher, digest, 16, NULL, 0, do_encrypt);
 diff --git a/fips.c b/fips.c
 new file mode 100644
 --- /dev/null
@@ -293,8 +244,8 @@ diff --git a/kex.c b/kex.c
  #include "digest.h"
 +#include "fips.h"
  
- #if OPENSSL_VERSION_NUMBER >= 0x00907000L
- # if defined(HAVE_EVP_SHA256)
+ /* prototype */
+ static int kex_choose_conf(struct ssh *);
 @@ -105,6 +106,39 @@
  	{ NULL, -1, -1, -1},
  };
@@ -375,8 +326,8 @@ diff --git a/mac.c b/mac.c
  
  struct macalg {
 @@ -86,25 +87,44 @@ struct {
- 	{ "hmac-ripemd160-etm@openssh.com",	SSH_DIGEST, SSH_DIGEST_RIPEMD160, 0, 0, 0, 1 },
- #endif
+ 	{ "hmac-md5-etm@openssh.com",		SSH_DIGEST, SSH_DIGEST_MD5, 0, 0, 0, 1 },
+ 	{ "hmac-md5-96-etm@openssh.com",	SSH_DIGEST, SSH_DIGEST_MD5, 96, 0, 0, 1 },
  	{ "umac-64-etm@openssh.com",		SSH_UMAC, 0, 0, 128, 64, 1 },
  	{ "umac-128-etm@openssh.com",		SSH_UMAC128, 0, 0, 128, 128, 1 },
  
@@ -442,7 +393,7 @@ diff --git a/mac.c b/mac.c
 diff --git a/myproposal.h b/myproposal.h
 --- a/myproposal.h
 +++ b/myproposal.h
-@@ -90,50 +90,84 @@
+@@ -90,49 +90,83 @@
  	KEX_SHA2_GROUP14 \
  	"diffie-hellman-group14-sha1" \
  
@@ -489,12 +440,11 @@ diff --git a/myproposal.h b/myproposal.h
  	"aes128-ctr,aes192-ctr,aes256-ctr" \
  	AESGCM_CIPHER_MODES
  
- #define KEX_CLIENT_ENCRYPT KEX_SERVER_ENCRYPT "," \
- 	"aes128-cbc,aes192-cbc,aes256-cbc"
+ #define KEX_CLIENT_ENCRYPT KEX_SERVER_ENCRYPT
  
 +#define	KEX_FIPS_140_2_SERVER_ENCRYPT \
 +	"aes128-ctr,aes192-ctr,aes256-ctr," \
-+	"aes128-cbc,aes192-cbc,aes256-cbc"
++	AESGCM_CIPHER_MODES
 +
 +#define	KEX_FIPS_140_2_CLIENT_ENCRYPT KEX_FIPS_140_2_SERVER_ENCRYPT
 +
@@ -635,88 +585,6 @@ diff --git a/openbsd-compat/arc4random.c b/openbsd-compat/arc4random.c
  /* arc4random_buf() that uses platform arc4random() */
  #if !defined(HAVE_ARC4RANDOM_BUF) && defined(HAVE_ARC4RANDOM)
  void
-diff --git a/ssh.c b/ssh.c
---- a/ssh.c
-+++ b/ssh.c
-@@ -99,16 +99,17 @@
- #include "sshpty.h"
- #include "match.h"
- #include "msg.h"
- #include "uidswap.h"
- #include "version.h"
- #include "ssherr.h"
- #include "myproposal.h"
- #include "utf8.h"
-+#include "fips.h"
- 
- #ifdef ENABLE_PKCS11
- #include "ssh-pkcs11.h"
- #endif
- 
- extern char *__progname;
- 
- /* Saves a copy of argv for setproctitle emulation */
-@@ -453,16 +454,18 @@ main(int ac, char **av)
- 	logfile = NULL;
- 	argv0 = av[0];
- 
-  again:
- 	while ((opt = getopt(ac, av, "1246ab:c:e:fgi:kl:m:no:p:qstvx"
- 	    "ACD:E:F:GI:J:KL:MNO:PQ:R:S:TVw:W:XYy")) != -1) {
- 		switch (opt) {
- 		case '1':
-+			if (fips_mode())
-+				fatal("Protocol 1 not allowed in the FIPS mode.");
- 			options.protocol = SSH_PROTO_1;
- 			break;
- 		case '2':
- 			options.protocol = SSH_PROTO_2;
- 			break;
- 		case '4':
- 			options.address_family = AF_INET;
- 			break;
-@@ -809,16 +812,18 @@
- 				fprintf(stderr, "Unknown cipher type '%s'\n",
- 				    optarg);
- 				exit(255);
- 			}
- 			if (options.cipher == SSH_CIPHER_3DES)
- 				options.ciphers = xstrdup("3des-cbc");
- 			else if (options.cipher == SSH_CIPHER_BLOWFISH)
- 				options.ciphers = xstrdup("blowfish-cbc");
-+			else if (fips_mode())
-+				options.ciphers = xstrdup(KEX_FIPS_140_2_CLIENT_ENCRYPT);
- 			else
- 				options.ciphers = xstrdup(KEX_CLIENT_ENCRYPT);
- 			break;
- 		case 'm':
- 			if (mac_valid(optarg)) {
- 				free(options.macs);
- 				options.macs = xstrdup(optarg);
- 			} else {
-@@ -959,16 +964,22 @@ main(int ac, char **av)
- 		debug2("resolving \"%s\" port %d", host, options.port);
- 		if ((addrs = resolve_host(host, options.port, 1,
- 		    cname, sizeof(cname))) == NULL)
- 			cleanup_exit(255); /* resolve_host logs the error */
- 	}
- 
- 	timeout_ms = options.connection_timeout * 1000;
- 
-+	if (fips_mode()) {
-+		options.protocol &= SSH_PROTO_2;
-+		if (options.protocol == 0)
-+			fatal("Protocol 2 disabled by configuration but required in the FIPS mode");
-+	}
-+
- 	/* Open a connection to the remote host. */
- 	if (ssh_connect(host, addrs, &hostaddr, options.port,
- 	    options.address_family, options.connection_attempts,
- 	    &timeout_ms, options.tcp_keep_alive,
- 	    options.use_privileged_port) != 0)
-  		exit(255);
- 
- 	if (addrs != NULL)
 diff --git a/sshconnect2.c b/sshconnect2.c
 index 7751031..4dec07c 100644
 --- a/sshconnect2.c
@@ -974,8 +842,8 @@ diff --git a/ssh-rsa.c b/ssh-rsa.c
  		return "ssh-rsa";
  	case SSH_DIGEST_SHA256:
  		return "rsa-sha2-256";
-@@ -77,56 +75,69 @@ rsa_hash_alg_nid(int type)
- 	}
+@@ -77,57 +75,70 @@ rsa_hash_alg_nid(int type)
+ 	return r;
  }
  
  /* RSASSA-PKCS1-v1_5 (PKCS #1 v2.0 signature) with SHA1 */
@@ -1005,9 +873,10 @@ diff --git a/ssh-rsa.c b/ssh-rsa.c
  	else
  		hash_alg = rsa_hash_alg_from_ident(alg_ident);
  	if (key == NULL || key->rsa == NULL || hash_alg == -1 ||
- 	    sshkey_type_plain(key->type) != KEY_RSA ||
- 	    BN_num_bits(key->rsa->n) < SSH_RSA_MINIMUM_MODULUS_SIZE)
+ 	    sshkey_type_plain(key->type) != KEY_RSA)
  		return SSH_ERR_INVALID_ARGUMENT;
+ 	if (BN_num_bits(key->rsa->n) < SSH_RSA_MINIMUM_MODULUS_SIZE)
+ 		return SSH_ERR_KEY_LENGTH;
 -	slen = RSA_size(key->rsa);
 -	if (slen <= 0 || slen > SSHBUF_MAX_BIGNUM)
 -		return SSH_ERR_INVALID_ARGUMENT;
@@ -1092,11 +961,11 @@ diff --git a/ssh-rsa.c b/ssh-rsa.c
  
  	if (key == NULL || key->rsa == NULL ||
  	    sshkey_type_plain(key->type) != KEY_RSA ||
- 	    BN_num_bits(key->rsa->n) < SSH_RSA_MINIMUM_MODULUS_SIZE ||
  	    sig == NULL || siglen == 0)
  		return SSH_ERR_INVALID_ARGUMENT;
+ 	if (BN_num_bits(key->rsa->n) < SSH_RSA_MINIMUM_MODULUS_SIZE)
+ 		return SSH_ERR_KEY_LENGTH;
  
- 	if ((b = sshbuf_from(sig, siglen)) == NULL)
 @@ -205,151 +218,44 @@ ssh_rsa_verify(const struct sshkey *key,
  			sigblob = osigblob; /* put it back for clear/free */
  			ret = SSH_ERR_ALLOC_FAIL;
@@ -1389,9 +1258,9 @@ index dbb16e2..9508b8f 100644
  				 */
 -				for (kt = keytypes; kt->type != -1; kt++) {
 +				for (kt = fips_select_keytypes(); kt->type != -1; kt++) {
- 					if (kt->type == KEY_RSA1)
- 						continue;
  					if (match_pattern_list(kt->name,
+ 					    p, 0) != 0)
+ 						break;
 @@ -1663,6 +1703,10 @@ sshkey_generate(int type, u_int bits, struct sshkey **keyp)
  		return SSH_ERR_ALLOC_FAIL;
  	switch (type) {

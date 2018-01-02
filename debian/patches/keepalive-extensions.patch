@@ -34,7 +34,7 @@ index bcd8cad..6409937 100644
  	oFingerprintHash, oUpdateHostkeys, oHostbasedKeyTypes,
  	oPubkeyAcceptedKeyTypes, oProxyJump,
 +	oProtocolKeepAlives, oSetupTimeOut,
- 	oIgnoredUnknownOption, oDeprecated, oUnsupported
+ 	oIgnore, oIgnoredUnknownOption, oDeprecated, oUnsupported
  } OpCodes;
  
 @@ -274,6 +275,8 @@ static struct {

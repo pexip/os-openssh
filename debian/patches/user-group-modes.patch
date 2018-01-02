@@ -65,26 +65,6 @@ index 9a36f1d..0c45f09 100644
  			logit("Authentication refused for %.100s: "
  			    "bad owner or modes for %.200s",
  			    pw->pw_name, user_hostfile);
-@@ -470,8 +469,7 @@ auth_secure_path(const char *name, struct stat *stp, const char *pw_dir,
- 		snprintf(err, errlen, "%s is not a regular file", buf);
- 		return -1;
- 	}
--	if ((!platform_sys_dir_uid(stp->st_uid) && stp->st_uid != uid) ||
--	    (stp->st_mode & 022) != 0) {
-+	if (!secure_permissions(stp, uid)) {
- 		snprintf(err, errlen, "bad ownership or modes for file %s",
- 		    buf);
- 		return -1;
-@@ -486,8 +484,7 @@ auth_secure_path(const char *name, struct stat *stp, const char *pw_dir,
- 		strlcpy(buf, cp, sizeof(buf));
- 
- 		if (stat(buf, &st) < 0 ||
--		    (!platform_sys_dir_uid(st.st_uid) && st.st_uid != uid) ||
--		    (st.st_mode & 022) != 0) {
-+		    !secure_permissions(&st, uid)) {
- 			snprintf(err, errlen,
- 			    "bad ownership or modes for directory %s", buf);
- 			return -1;
 diff --git a/misc.c b/misc.c
 index e4c8c32..4e756b0 100644
 --- a/misc.c
@@ -100,15 +80,7 @@ index e4c8c32..4e756b0 100644
  #ifdef SSH_TUN_OPENBSD
  #include <net/if.h>
  #endif
-@@ -59,6 +60,7 @@
- #include "misc.h"
- #include "log.h"
- #include "ssh.h"
-+#include "platform.h"
- 
- /* remove newline at end of string */
- char *
-@@ -643,6 +645,71 @@ read_keyfile_line(FILE *f, const char *filename, char *buf, size_t bufsz,
+@@ -643,6 +644,71 @@ read_keyfile_line(FILE *f, const char *filename, char *buf, size_t bufsz,
  	return -1;
  }
  
@@ -193,30 +165,6 @@ index d4df619..ceb173b 100644
  #define MINIMUM(a, b)	(((a) < (b)) ? (a) : (b))
  #define MAXIMUM(a, b)	(((a) > (b)) ? (a) : (b))
  #define ROUNDUP(x, y)   ((((x)+((y)-1))/(y))*(y))
-diff --git a/platform.c b/platform.c
-index 4aab9a9..f99de7f 100644
---- a/platform.c
-+++ b/platform.c
-@@ -196,19 +196,3 @@ platform_krb5_get_principal_name(const char *pw_name)
- 	return NULL;
- #endif
- }
--
--/*
-- * return 1 if the specified uid is a uid that may own a system directory
-- * otherwise 0.
-- */
--int
--platform_sys_dir_uid(uid_t uid)
--{
--	if (uid == 0)
--		return 1;
--#ifdef PLATFORM_SYS_DIR_UID
--	if (uid == PLATFORM_SYS_DIR_UID)
--		return 1;
--#endif
--	return 0;
--}
 diff --git a/readconf.c b/readconf.c
 index 6409937..32c4b42 100644
 --- a/readconf.c

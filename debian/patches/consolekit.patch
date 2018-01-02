@@ -656,9 +656,9 @@ index 6848df4..9d43fc3 100644
 --- a/session.c
 +++ b/session.c
 @@ -92,6 +92,7 @@
- #include "kex.h"
  #include "monitor_wrap.h"
  #include "sftp.h"
+ #include "atomicio.h"
 +#include "consolekit.h"
  
  #if defined(KRB5) && defined(USE_AFS)
@@ -719,4 +719,4 @@ index ef6593c..a6b6983 100644
 +#endif /* USE_CONSOLEKIT */
  };
  
- void	 do_authenticated(Authctxt *);
+ void	 do_authenticated(struct ssh *, Authctxt *);

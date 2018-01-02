@@ -39,16 +39,16 @@ index 124e597..79e4ea5 100644
  	struct passwd	*pw;		/* set if 'valid' */
  	char		*style;
 +	char		*role;
- 	void		*kbdintctxt;
- 	char		*info;		/* Extra info for next auth_log */
- #ifdef BSD_AUTH
+ 
+ 	/* Method lists for multiple authentication */
+ 	char		**auth_methods;	/* modified from server config */
 diff --git a/auth2.c b/auth2.c
 index fbe3e1b..70f2925 100644
 --- a/auth2.c
 +++ b/auth2.c
 @@ -216,7 +216,7 @@ input_userauth_request(int type, u_int32_t seq, void *ctxt)
- 	struct ssh *ssh = active_state;	/* XXX */
- 	Authctxt *authctxt = ctxt;
+ {
+ 	Authctxt *authctxt = ssh->authctxt;
  	Authmethod *m = NULL;
 -	char *user, *service, *method, *style = NULL;
 +	char *user, *service, *method, *style = NULL, *role = NULL;
@@ -223,9 +223,9 @@ index a4e9d24..9c2ee49 100644
 --- a/monitor_wrap.h
 +++ b/monitor_wrap.h
 @@ -41,7 +41,8 @@ void mm_log_handler(LogLevel, const char *, void *);
- int mm_is_monitor(void);
  DH *mm_choose_dh(int, int, int);
- int mm_key_sign(Key *, u_char **, u_int *, const u_char *, u_int, const char *);
+ int mm_key_sign(struct sshkey *, u_char **, u_int *, const u_char *, u_int,
+     const char *);
 -void mm_inform_authserv(char *, char *);
 +void mm_inform_authserv(char *, char *, char *);
 +void mm_inform_authrole(char *);
@@ -391,7 +391,7 @@ index 2bcf818..6848df4 100644
  	if (s->authctxt->force_pwchange) {
 -		do_setusercontext(pw);
 +		do_setusercontext(pw, s->authctxt->role);
- 		child_close_fds();
+ 		child_close_fds(ssh);
  		do_pwchange(s);
  		exit(1);
 @@ -1706,7 +1706,7 @@ do_child(Session *s, const char *command)
@@ -419,11 +419,11 @@ index 6a2f35e..ef6593c 100644
 @@ -77,7 +77,7 @@ void	 session_pty_cleanup2(Session *);
  Session	*session_new(void);
  Session	*session_by_tty(char *);
- void	 session_close(Session *);
+ void	 session_close(struct ssh *, Session *);
 -void	 do_setusercontext(struct passwd *);
 +void	 do_setusercontext(struct passwd *, const char *);
- void	 child_set_env(char ***envp, u_int *envsizep, const char *name,
- 		       const char *value);
+ 
+ const char	*session_get_remote_name_or_ip(struct ssh *, u_int, int);
  
 diff --git a/sshd.c b/sshd.c
 index d787fea..e343d90 100644

@@ -1,3 +1,24 @@
+openssh (1:7.6p1-0pexip1) pexip; urgency=low
+
+  * New upstream release
+  * debian/patches/auth-log-verbosity.patch,
+    debian/patches/consolekit.patch,
+    debian/patches/debian-banner.patch,
+    debian/patches/debian-config.patch,
+    debian/patches/keepalive-extensions.patch,
+    debian/patches/mention-ssh-keygen-on-keychange.patch,
+    debian/patches/openbsd-docs.patch,
+    debian/patches/openssh-6.5p1-fips.patch,
+    debian/patches/package-versioning.patch,
+    debian/patches/selinux-role.patch,
+    debian/patches/user-group-modes.patch:
+    Rebase
+  * debian/patches/quieter-signals.patch,
+    debian/patches/ssh1-keepalive.patch:
+    Drop
+
+ -- John-Mark Bell <jmb@pexip.com>  Tue, 02 Jan 2018 16:40:12 +0000
+
 openssh (1:7.5p1-0pexip2) pexip; urgency=low
 
   * debian/openssh-server.postinst: Remove deprecated config option:

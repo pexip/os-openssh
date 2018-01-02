@@ -59,9 +59,9 @@ index 228e5ab..c9386aa 100644
  #   ForwardAgent no
  #   ForwardX11 no
 +#   ForwardX11Trusted yes
- #   RhostsRSAAuthentication no
- #   RSAAuthentication yes
  #   PasswordAuthentication yes
+ #   HostbasedAuthentication no
+ #   GSSAPIAuthentication no
 @@ -48,3 +49,7 @@
  #   VisualHostKey no
  #   ProxyCommand ssh -q -W %h:%p gateway.example.com
