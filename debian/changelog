@@ -1,3 +1,10 @@
+openssh (1:7.6p1-0pexip2) pexip; urgency=low
+
+  * Reinstate systemd support
+  * Use RuntimeDirectory instead of tmpfiles.d to create /run/sshd
+
+ -- John-Mark Bell <jmb@pexip.com>  Tue, 24 Apr 2018 18:05:28 +0100
+
 openssh (1:7.6p1-0pexip1) pexip; urgency=low
 
   * New upstream release
