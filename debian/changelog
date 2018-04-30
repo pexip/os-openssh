@@ -1,3 +1,9 @@
+openssh (1:7.6p1-0pexip3) pexip; urgency=low
+
+  * Drop SSH_EXTRAVERSION
+
+ -- John-Mark Bell <jmb@pexip.com>  Mon, 30 Apr 2018 17:52:28 +0100
+
 openssh (1:7.6p1-0pexip2) pexip; urgency=low
 
   * Reinstate systemd support

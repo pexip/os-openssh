@@ -43,7 +43,6 @@ endif
 
 # Change the version string to reflect distribution
 DISTRIBUTION := $(shell dpkg-vendor --query vendor)
-SSH_EXTRAVERSION := $(DISTRIBUTION)-$(shell dpkg-parsechangelog | sed -n -e '/^Version:/s/Version: //p' | sed -e 's/[^-]*-//')
 
 DISTRIBUTOR := $(shell if dpkg-vendor --derives-from Ubuntu 2>/dev/null; then echo Ubuntu; else echo Debian; fi)
 ifeq ($(DISTRIBUTOR),Ubuntu)
@@ -107,9 +106,7 @@ export DEB_BUILD_MAINT_OPTIONS := hardening=+all
 default_cflags := $(shell dpkg-buildflags --get CPPFLAGS) $(shell dpkg-buildflags --get CFLAGS)
 cflags := $(default_cflags) -I/usr/lib/ssl/fips-2.0/include
 cflags += -DLOGIN_PROGRAM=\"/bin/login\" -DLOGIN_NO_ENDOPT
-cflags += -DSSH_EXTRAVERSION=\"$(SSH_EXTRAVERSION)\"
 cflags_udeb := -Os -I/usr/lib/ssl/fips-2.0/include
-cflags_udeb += -DSSH_EXTRAVERSION=\"$(SSH_EXTRAVERSION)\"
 confflags += --with-cflags='$(cflags)'
 confflags_udeb += --with-cflags='$(cflags_udeb)'
 
