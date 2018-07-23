@@ -1,3 +1,9 @@
+openssh (1:7.6p1-0pexip4) pexip; urgency=low
+
+  * Build-Depend on libssl 1.0.x
+
+ -- John-Mark Bell <jmb@pexip.com>  Mon, 23 Jul 2018 15:06:22 +0100
+
 openssh (1:7.6p1-0pexip3) pexip; urgency=low
 
   * Drop SSH_EXTRAVERSION
