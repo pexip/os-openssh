@@ -1,4 +1,4 @@
-/* $OpenBSD: packet.c,v 1.264 2017/09/12 06:32:07 djm Exp $ */
+/* $OpenBSD: packet.c,v 1.277 2018/07/16 03:09:13 djm Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -61,10 +61,19 @@
 #include <signal.h>
 #include <time.h>
 
-#include <zlib.h>
+/*
+ * Explicitly include OpenSSL before zlib as some versions of OpenSSL have
+ * "free_func" in their headers, which zlib typedefs.
+ */
+#ifdef WITH_OPENSSL
+# include <openssl/bn.h>
+# include <openssl/evp.h>
+# ifdef OPENSSL_HAS_ECC
+#  include <openssl/ec.h>
+# endif
+#endif
 
-#include "buffer.h"	/* typedefs XXX */
-#include "key.h"	/* typedefs XXX */
+#include <zlib.h>
 
 #include "xmalloc.h"
 #include "crc32.h"
@@ -146,12 +155,6 @@ struct session_state {
 	int compression_out_started;
 	int compression_in_failures;
 	int compression_out_failures;
-
-	/*
-	 * Flag indicating whether packet compression/decompression is
-	 * enabled.
-	 */
-	int packet_compression;
 
 	/* default maximum packet size */
 	u_int max_packet_size;
@@ -418,13 +421,16 @@ ssh_packet_start_discard(struct ssh *ssh, struct sshenc *enc,
 int
 ssh_packet_connection_is_on_socket(struct ssh *ssh)
 {
-	struct session_state *state = ssh->state;
+	struct session_state *state;
 	struct sockaddr_storage from, to;
 	socklen_t fromlen, tolen;
 
-	if (state->connection_in == -1 || state->connection_out == -1)
+	if (ssh == NULL || ssh->state == NULL)
 		return 0;
 
+	state = ssh->state;
+	if (state->connection_in == -1 || state->connection_out == -1)
+		return 0;
 	/* filedescriptors in and out are the same, so it's a socket */
 	if (state->connection_in == state->connection_out)
 		return 1;
@@ -508,11 +514,12 @@ ssh_packet_get_connection_out(struct ssh *ssh)
 const char *
 ssh_remote_ipaddr(struct ssh *ssh)
 {
-	const int sock = ssh->state->connection_in;
+	int sock;
 
 	/* Check whether we have cached the ipaddr. */
 	if (ssh->remote_ipaddr == NULL) {
 		if (ssh_packet_connection_is_on_socket(ssh)) {
+			sock = ssh->state->connection_in;
 			ssh->remote_ipaddr = get_peer_ipaddr(sock);
 			ssh->remote_port = get_peer_port(sock);
 			ssh->local_ipaddr = get_local_ipaddr(sock);
@@ -557,6 +564,18 @@ ssh_local_port(struct ssh *ssh)
 	return ssh->local_port;
 }
 
+/* Returns the routing domain of the input socket, or NULL if unavailable */
+const char *
+ssh_packet_rdomain_in(struct ssh *ssh)
+{
+	if (ssh->rdomain_in != NULL)
+		return ssh->rdomain_in;
+	if (!ssh_packet_connection_is_on_socket(ssh))
+		return NULL;
+	ssh->rdomain_in = get_rdomain(ssh->state->connection_in);
+	return ssh->rdomain_in;
+}
+
 /* Closes the connection and clears and frees internal data structures. */
 
 static void
@@ -585,7 +604,7 @@ ssh_packet_close_internal(struct ssh *ssh, int do_close)
 		state->newkeys[mode] = NULL;
 		ssh_clear_newkeys(ssh, mode);		/* next keys */
 	}
-	/* comression state is in shared mem, so we can only release it once */
+	/* compression state is in shared mem, so we can only release it once */
 	if (do_close && state->compression_buffer) {
 		sshbuf_free(state->compression_buffer);
 		if (state->compression_out_started) {
@@ -615,6 +634,8 @@ ssh_packet_close_internal(struct ssh *ssh, int do_close)
 	cipher_free(state->receive_context);
 	state->send_context = state->receive_context = NULL;
 	if (do_close) {
+		free(ssh->local_ipaddr);
+		ssh->local_ipaddr = NULL;
 		free(ssh->remote_ipaddr);
 		ssh->remote_ipaddr = NULL;
 		free(ssh->state);
@@ -698,21 +719,6 @@ start_compression_in(struct ssh *ssh)
 	default:
 		return SSH_ERR_INTERNAL_ERROR;
 	}
-	return 0;
-}
-
-int
-ssh_packet_start_compression(struct ssh *ssh, int level)
-{
-	int r;
-
-	if (ssh->state->packet_compression)
-		return SSH_ERR_INTERNAL_ERROR;
-	ssh->state->packet_compression = 1;
-	if ((r = ssh_packet_init_compression(ssh)) != 0 ||
-	    (r = start_compression_in(ssh)) != 0 ||
-	    (r = start_compression_out(ssh, level)) != 0)
-		return r;
 	return 0;
 }
 
@@ -953,7 +959,7 @@ ssh_packet_need_rekeying(struct ssh *ssh, u_int outbound_packet_len)
 	    state->p_read.packets > MAX_PACKETS)
 		return 1;
 
-	/* Rekey after (cipher-specific) maxiumum blocks */
+	/* Rekey after (cipher-specific) maximum blocks */
 	out_blocks = ROUNDUP(outbound_packet_len,
 	    state->newkeys[MODE_OUT]->enc.block_size);
 	return (state->max_blocks_out &&
@@ -1320,14 +1326,16 @@ ssh_packet_read_seqnr(struct ssh *ssh, u_char *typep, u_int32_t *seqnr_p)
 		for (;;) {
 			if (state->packet_timeout_ms != -1) {
 				ms_to_timeval(&timeout, ms_remain);
-				gettimeofday(&start, NULL);
+				monotime_tv(&start);
 			}
 			if ((r = select(state->connection_in + 1, setp,
 			    NULL, NULL, timeoutp)) >= 0)
 				break;
 			if (errno != EAGAIN && errno != EINTR &&
-			    errno != EWOULDBLOCK)
-				break;
+			    errno != EWOULDBLOCK) {
+				r = SSH_ERR_SYSTEM_ERROR;
+				goto out;
+			}
 			if (state->packet_timeout_ms == -1)
 				continue;
 			ms_subtract_diff(&start, &ms_remain);
@@ -1774,6 +1782,8 @@ ssh_packet_send_debug(struct ssh *ssh, const char *fmt,...)
 	vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
 
+	debug3("sending debug message: %s", buf);
+
 	if ((r = sshpkt_start(ssh, SSH2_MSG_DEBUG)) != 0 ||
 	    (r = sshpkt_put_u8(ssh, 0)) != 0 || /* always display */
 	    (r = sshpkt_put_cstring(ssh, buf)) != 0 ||
@@ -1783,8 +1793,8 @@ ssh_packet_send_debug(struct ssh *ssh, const char *fmt,...)
 		fatal("%s: %s", __func__, ssh_err(r));
 }
 
-static void
-fmt_connection_id(struct ssh *ssh, char *s, size_t l)
+void
+sshpkt_fmt_connection_id(struct ssh *ssh, char *s, size_t l)
 {
 	snprintf(s, l, "%.200s%s%s port %d",
 	    ssh->log_preamble ? ssh->log_preamble : "",
@@ -1800,7 +1810,7 @@ sshpkt_fatal(struct ssh *ssh, const char *tag, int r)
 {
 	char remote_id[512];
 
-	fmt_connection_id(ssh, remote_id, sizeof(remote_id));
+	sshpkt_fmt_connection_id(ssh, remote_id, sizeof(remote_id));
 
 	switch (r) {
 	case SSH_ERR_CONN_CLOSED:
@@ -1862,7 +1872,7 @@ ssh_packet_disconnect(struct ssh *ssh, const char *fmt,...)
 	 * Format the message.  Note that the caller must make sure the
 	 * message is of limited size.
 	 */
-	fmt_connection_id(ssh, remote_id, sizeof(remote_id));
+	sshpkt_fmt_connection_id(ssh, remote_id, sizeof(remote_id));
 	va_start(args, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
@@ -1945,7 +1955,7 @@ ssh_packet_write_wait(struct ssh *ssh)
 		for (;;) {
 			if (state->packet_timeout_ms != -1) {
 				ms_to_timeval(&timeout, ms_remain);
-				gettimeofday(&start, NULL);
+				monotime_tv(&start);
 			}
 			if ((ret = select(state->connection_out + 1,
 			    NULL, setp, NULL, timeoutp)) >= 0)
@@ -2159,7 +2169,9 @@ kex_to_blob(struct sshbuf *m, struct kex *kex)
 	if ((r = sshbuf_put_string(m, kex->session_id,
 	    kex->session_id_len)) != 0 ||
 	    (r = sshbuf_put_u32(m, kex->we_need)) != 0 ||
+	    (r = sshbuf_put_cstring(m, kex->hostkey_alg)) != 0 ||
 	    (r = sshbuf_put_u32(m, kex->hostkey_type)) != 0 ||
+	    (r = sshbuf_put_u32(m, kex->hostkey_nid)) != 0 ||
 	    (r = sshbuf_put_u32(m, kex->kex_type)) != 0 ||
 	    (r = sshbuf_put_stringb(m, kex->my)) != 0 ||
 	    (r = sshbuf_put_stringb(m, kex->peer)) != 0 ||
@@ -2323,7 +2335,9 @@ kex_from_blob(struct sshbuf *m, struct kex **kexp)
 	}
 	if ((r = sshbuf_get_string(m, &kex->session_id, &kex->session_id_len)) != 0 ||
 	    (r = sshbuf_get_u32(m, &kex->we_need)) != 0 ||
+	    (r = sshbuf_get_cstring(m, &kex->hostkey_alg, NULL)) != 0 ||
 	    (r = sshbuf_get_u32(m, (u_int *)&kex->hostkey_type)) != 0 ||
+	    (r = sshbuf_get_u32(m, (u_int *)&kex->hostkey_nid)) != 0 ||
 	    (r = sshbuf_get_u32(m, &kex->kex_type)) != 0 ||
 	    (r = sshbuf_get_stringb(m, kex->my)) != 0 ||
 	    (r = sshbuf_get_stringb(m, kex->peer)) != 0 ||

@@ -1,4 +1,4 @@
-/* 	$OpenBSD: test_sshkey.c,v 1.12 2017/05/08 06:08:42 djm Exp $ */
+/* 	$OpenBSD: test_sshkey.c,v 1.14 2018/07/13 02:13:19 djm Exp $ */
 /*
  * Regress test for sshkey.h key management API
  *
@@ -121,11 +121,11 @@ signature_test(struct sshkey *k, struct sshkey *bad, const char *sig_alg,
 	ASSERT_INT_EQ(sshkey_sign(k, &sig, &len, d, l, sig_alg, 0), 0);
 	ASSERT_SIZE_T_GT(len, 8);
 	ASSERT_PTR_NE(sig, NULL);
-	ASSERT_INT_EQ(sshkey_verify(k, sig, len, d, l, 0), 0);
-	ASSERT_INT_NE(sshkey_verify(bad, sig, len, d, l, 0), 0);
+	ASSERT_INT_EQ(sshkey_verify(k, sig, len, d, l, NULL, 0), 0);
+	ASSERT_INT_NE(sshkey_verify(bad, sig, len, d, l, NULL, 0), 0);
 	/* Fuzz test is more comprehensive, this is just a smoke test */
 	sig[len - 5] ^= 0x10;
-	ASSERT_INT_NE(sshkey_verify(k, sig, len, d, l, 0), 0);
+	ASSERT_INT_NE(sshkey_verify(k, sig, len, d, l, NULL, 0), 0);
 	free(sig);
 }
 
@@ -434,10 +434,13 @@ sshkey_tests(void)
 	ASSERT_PTR_NE(k1->cert->principals[1], NULL);
 	ASSERT_PTR_NE(k1->cert->principals[2], NULL);
 	ASSERT_PTR_NE(k1->cert->principals[3], NULL);
+	k1->cert->nprincipals = 4;
 	k1->cert->valid_after = 0;
 	k1->cert->valid_before = (u_int64_t)-1;
+	sshbuf_free(k1->cert->critical);
 	k1->cert->critical = sshbuf_new();
 	ASSERT_PTR_NE(k1->cert->critical, NULL);
+	sshbuf_free(k1->cert->extensions);
 	k1->cert->extensions = sshbuf_new();
 	ASSERT_PTR_NE(k1->cert->extensions, NULL);
 	put_opt(k1->cert->critical, "force-command", "/usr/bin/true");
