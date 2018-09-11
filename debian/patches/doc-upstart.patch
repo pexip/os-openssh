@@ -11,11 +11,11 @@ Patch-Name: doc-upstart.patch
  sshd.8 | 5 ++++-
  1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/sshd.8 b/sshd.8
-index b016e90..cba168a 100644
---- a/sshd.8
-+++ b/sshd.8
-@@ -70,7 +70,10 @@ over an insecure network.
+Index: openssh/sshd.8
+===================================================================
+--- openssh.orig/sshd.8
++++ openssh/sshd.8
+@@ -65,7 +65,10 @@ over an insecure network.
  .Nm
  listens for connections from clients.
  It is normally started at boot from

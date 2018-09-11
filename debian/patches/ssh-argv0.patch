@@ -17,11 +17,11 @@ Patch-Name: ssh-argv0.patch
  ssh.1 | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/ssh.1 b/ssh.1
-index 67b4f44..9868025 100644
---- a/ssh.1
-+++ b/ssh.1
-@@ -1468,6 +1468,7 @@ if an error occurred.
+Index: openssh/ssh.1
+===================================================================
+--- openssh.orig/ssh.1
++++ openssh/ssh.1
+@@ -1575,6 +1575,7 @@ if an error occurred.
  .Xr sftp 1 ,
  .Xr ssh-add 1 ,
  .Xr ssh-agent 1 ,

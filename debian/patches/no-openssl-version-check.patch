@@ -16,11 +16,11 @@ Patch-Name: no-openssl-version-check.patch
  entropy.c | 12 ------------
  1 file changed, 12 deletions(-)
 
-diff --git a/entropy.c b/entropy.c
-index 2d483b3..2aee2d9 100644
---- a/entropy.c
-+++ b/entropy.c
-@@ -209,9 +209,6 @@ seed_rng(void)
+Index: openssh/entropy.c
+===================================================================
+--- openssh.orig/entropy.c
++++ openssh/entropy.c
+@@ -219,9 +219,6 @@ seed_rng(void)
  #ifndef OPENSSL_PRNG_ONLY
  	unsigned char buf[RANDOM_SEED_SIZE];
  #endif

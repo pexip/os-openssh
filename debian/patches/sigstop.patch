@@ -12,11 +12,11 @@ Patch-Name: sigstop.patch
  sshd.c | 10 ++++++++++
  1 file changed, 10 insertions(+)
 
-diff --git a/sshd.c b/sshd.c
-index 665c0b9..0964491 100644
---- a/sshd.c
-+++ b/sshd.c
-@@ -1931,6 +1931,16 @@ main(int ac, char **av)
+Index: openssh/sshd.c
+===================================================================
+--- openssh.orig/sshd.c
++++ openssh/sshd.c
+@@ -1977,6 +1977,16 @@ main(int ac, char **av)
  			}
  		}
  

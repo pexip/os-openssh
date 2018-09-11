@@ -12,11 +12,11 @@ Patch-Name: mention-ssh-keygen-on-keychange.patch
  sshconnect.c | 7 ++++++-
  1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/sshconnect.c b/sshconnect.c
-index 9e02837..e0a5db9 100644
---- a/sshconnect.c
-+++ b/sshconnect.c
-@@ -1065,9 +1065,12 @@ check_host_key(char *hostname, struct sockaddr *hostaddr, u_short port,
+Index: openssh/sshconnect.c
+===================================================================
+--- openssh.orig/sshconnect.c
++++ openssh/sshconnect.c
+@@ -1112,9 +1112,12 @@ check_host_key(char *hostname, struct so
  			error("%s. This could either mean that", key_msg);
  			error("DNS SPOOFING is happening or the IP address for the host");
  			error("and its host key have changed at the same time.");
@@ -30,7 +30,7 @@ index 9e02837..e0a5db9 100644
  		}
  		/* The host key has changed. */
  		warn_changed_key(host_key);
-@@ -1075,6 +1078,8 @@ check_host_key(char *hostname, struct sockaddr *hostaddr, u_short port,
+@@ -1123,6 +1126,8 @@ check_host_key(char *hostname, struct so
  		error("Offending %s key in %s:%lu",
  		    sshkey_type(host_found->key),
  		    host_found->file, host_found->line);

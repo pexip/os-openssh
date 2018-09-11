@@ -16,11 +16,11 @@ Patch-Name: scp-quoting.patch
  scp.c | 12 ++++++++++--
  1 file changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/scp.c b/scp.c
-index 18d3b1d..0669d02 100644
---- a/scp.c
-+++ b/scp.c
-@@ -189,8 +189,16 @@ do_local_cmd(arglist *a)
+Index: openssh/scp.c
+===================================================================
+--- openssh.orig/scp.c
++++ openssh/scp.c
+@@ -198,8 +198,16 @@ do_local_cmd(arglist *a)
  
  	if (verbose_mode) {
  		fprintf(stderr, "Executing:");

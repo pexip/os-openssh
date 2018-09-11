@@ -12,11 +12,11 @@ Patch-Name: ssh-agent-setgid.patch
  ssh-agent.1 | 15 +++++++++++++++
  1 file changed, 15 insertions(+)
 
-diff --git a/ssh-agent.1 b/ssh-agent.1
-index 281ecbd..38fd540 100644
---- a/ssh-agent.1
-+++ b/ssh-agent.1
-@@ -183,6 +183,21 @@ environment variable holds the agent's process ID.
+Index: openssh/ssh-agent.1
+===================================================================
+--- openssh.orig/ssh-agent.1
++++ openssh/ssh-agent.1
+@@ -206,6 +206,21 @@ environment variable holds the agent's p
  .Pp
  The agent exits automatically when the command given on the command
  line terminates.

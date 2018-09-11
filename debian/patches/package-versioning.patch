@@ -18,11 +18,11 @@ Patch-Name: package-versioning.patch
  version.h    | 7 ++++++-
  3 files changed, 9 insertions(+), 4 deletions(-)
 
-diff --git a/sshconnect.c b/sshconnect.c
-index e0a5db9..87c3770 100644
---- a/sshconnect.c
-+++ b/sshconnect.c
-@@ -520,7 +520,7 @@ send_client_banner(int connection_out, int minor1)
+Index: openssh/sshconnect.c
+===================================================================
+--- openssh.orig/sshconnect.c
++++ openssh/sshconnect.c
+@@ -609,7 +609,7 @@ send_client_banner(int connection_out, i
  {
  	/* Send our own protocol version identification. */
  	xasprintf(&client_version_string, "SSH-%d.%d-%.100s\r\n",
@@ -31,11 +31,11 @@ index e0a5db9..87c3770 100644
  	if (atomicio(vwrite, connection_out, client_version_string,
  	    strlen(client_version_string)) != strlen(client_version_string))
  		fatal("write: %.100s", strerror(errno));
-diff --git a/sshd.c b/sshd.c
-index e343d90..af9b8f1 100644
---- a/sshd.c
-+++ b/sshd.c
-@@ -440,7 +440,7 @@ sshd_exchange_identification(int sock_in, int sock_out)
+Index: openssh/sshd.c
+===================================================================
+--- openssh.orig/sshd.c
++++ openssh/sshd.c
+@@ -373,7 +373,7 @@ sshd_exchange_identification(struct ssh
  	char remote_version[256];	/* Must be at least as big as buf. */
  
  	xasprintf(&server_version_string, "SSH-%d.%d-%.100s%s%s\r\n",
@@ -44,12 +44,12 @@ index e343d90..af9b8f1 100644
  	    *options.version_addendum == '\0' ? "" : " ",
  	    options.version_addendum);
  
-diff --git a/version.h b/version.h
-index a1579ac..a97c337 100644
---- a/version.h
-+++ b/version.h
+Index: openssh/version.h
+===================================================================
+--- openssh.orig/version.h
++++ openssh/version.h
 @@ -3,4 +3,9 @@
- #define SSH_VERSION	"OpenSSH_7.6"
+ #define SSH_VERSION	"OpenSSH_7.8"
  
  #define SSH_PORTABLE	"p1"
 -#define SSH_RELEASE	SSH_VERSION SSH_PORTABLE

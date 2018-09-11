@@ -23,25 +23,25 @@ Patch-Name: consolekit.patch
  create mode 100644 consolekit.c
  create mode 100644 consolekit.h
 
-diff --git a/Makefile.in b/Makefile.in
-index ee1d2c3..3d96c05 100644
---- a/Makefile.in
-+++ b/Makefile.in
-@@ -97,7 +97,8 @@ SSHDOBJS=sshd.o auth-rhosts.o auth-passwd.o auth-rsa.o auth-rh-rsa.o \
+Index: openssh/Makefile.in
+===================================================================
+--- openssh.orig/Makefile.in
++++ openssh/Makefile.in
+@@ -118,7 +118,8 @@ SSHDOBJS=sshd.o auth-rhosts.o auth-passw
  	sftp-server.o sftp-common.o \
  	sandbox-null.o sandbox-rlimit.o sandbox-systrace.o sandbox-darwin.o \
  	sandbox-seccomp-filter.o sandbox-capsicum.o sandbox-pledge.o \
--	sandbox-solaris.o
-+	sandbox-solaris.o \
+-	sandbox-solaris.o uidswap.o
++	sandbox-solaris.o uidswap.o \
 +	consolekit.o
  
  MANPAGES	= moduli.5.out scp.1.out ssh-add.1.out ssh-agent.1.out ssh-keygen.1.out ssh-keyscan.1.out ssh.1.out sshd.8.out sftp-server.8.out sftp.1.out ssh-keysign.8.out ssh-pkcs11-helper.8.out sshd_config.5.out ssh_config.5.out
  MANPAGES_IN	= moduli.5 scp.1 ssh-add.1 ssh-agent.1 ssh-keygen.1 ssh-keyscan.1 ssh.1 sshd.8 sftp-server.8 sftp.1 ssh-keysign.8 ssh-pkcs11-helper.8 sshd_config.5 ssh_config.5
-diff --git a/configure b/configure
-index b6b5b6d..e2f12cd 100755
---- a/configure
-+++ b/configure
-@@ -1432,6 +1433,7 @@ Optional Packages:
+Index: openssh/configure
+===================================================================
+--- openssh.orig/configure
++++ openssh/configure
+@@ -1461,6 +1461,7 @@ Optional Packages:
    --with-sandbox=style    Specify privilege separation sandbox (no, capsicum, darwin, rlimit, seccomp_filter, systrace, pledge)
    --with-selinux          Enable SELinux support
    --with-kerberos5=PATH   Enable Kerberos 5 support
@@ -49,7 +49,7 @@ index b6b5b6d..e2f12cd 100755
    --with-privsep-path=xxx Path for privilege separation chroot (default=/var/empty)
    --with-xauth=PATH       Specify path to xauth program
    --with-maildir=/path/to/mail    Specify your system mail directory
-@@ -17217,6 +17219,135 @@ fi
+@@ -18463,6 +18464,135 @@ fi
  
  
  
@@ -185,7 +185,7 @@ index b6b5b6d..e2f12cd 100755
  # Looking for programs, paths and files
  
  PRIVSEP_PATH=/var/empty
-@@ -19746,6 +19877,7 @@ echo "              MD5 password support: $MD5_MSG"
+@@ -20993,6 +21123,7 @@ echo "                   libldns support
  echo "  Solaris process contract support: $SPC_MSG"
  echo "           Solaris project support: $SP_MSG"
  echo "         Solaris privilege support: $SPP_MSG"
@@ -193,11 +193,11 @@ index b6b5b6d..e2f12cd 100755
  echo "       IP address in \$DISPLAY hack: $DISPLAY_HACK_MSG"
  echo "           Translate v4 in v6 hack: $IPV4_IN6_HACK_MSG"
  echo "                  BSD Auth support: $BSD_AUTH_MSG"
-diff --git a/configure.ac b/configure.ac
-index d235fb0..8669271 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -4072,6 +4072,30 @@ AC_ARG_WITH([kerberos5],
+Index: openssh/configure.ac
+===================================================================
+--- openssh.orig/configure.ac
++++ openssh/configure.ac
+@@ -4378,6 +4378,30 @@ AC_ARG_WITH([kerberos5],
  AC_SUBST([GSSLIBS])
  AC_SUBST([K5LIBS])
  
@@ -228,7 +228,7 @@ index d235fb0..8669271 100644
  # Looking for programs, paths and files
  
  PRIVSEP_PATH=/var/empty
-@@ -4873,6 +4897,7 @@ echo "              MD5 password support: $MD5_MSG"
+@@ -5183,6 +5207,7 @@ echo "                   libldns support
  echo "  Solaris process contract support: $SPC_MSG"
  echo "           Solaris project support: $SP_MSG"
  echo "         Solaris privilege support: $SPP_MSG"
@@ -236,11 +236,10 @@ index d235fb0..8669271 100644
  echo "       IP address in \$DISPLAY hack: $DISPLAY_HACK_MSG"
  echo "           Translate v4 in v6 hack: $IPV4_IN6_HACK_MSG"
  echo "                  BSD Auth support: $BSD_AUTH_MSG"
-diff --git a/consolekit.c b/consolekit.c
-new file mode 100644
-index 0000000..f1039e6
+Index: openssh/consolekit.c
+===================================================================
 --- /dev/null
-+++ b/consolekit.c
++++ openssh/consolekit.c
 @@ -0,0 +1,240 @@
 +/*
 + * Copyright (c) 2008 Colin Watson.  All rights reserved.
@@ -482,11 +481,10 @@ index 0000000..f1039e6
 +}
 +
 +#endif /* USE_CONSOLEKIT */
-diff --git a/consolekit.h b/consolekit.h
-new file mode 100644
-index 0000000..8ce3716
+Index: openssh/consolekit.h
+===================================================================
 --- /dev/null
-+++ b/consolekit.h
++++ openssh/consolekit.h
 @@ -0,0 +1,24 @@
 +/*
 + * Copyright (c) 2008 Colin Watson.  All rights reserved.
@@ -512,11 +510,11 @@ index 0000000..8ce3716
 +void	 consolekit_unregister(struct Session *);
 +
 +#endif /* USE_CONSOLEKIT */
-diff --git a/monitor.c b/monitor.c
-index 11eac63..7c105e6 100644
---- a/monitor.c
-+++ b/monitor.c
-@@ -97,6 +97,9 @@
+Index: openssh/monitor.c
+===================================================================
+--- openssh.orig/monitor.c
++++ openssh/monitor.c
+@@ -93,6 +93,9 @@
  #include "authfd.h"
  #include "match.h"
  #include "ssherr.h"
@@ -526,7 +524,7 @@ index 11eac63..7c105e6 100644
  
  #ifdef GSSAPI
  static Gssctxt *gsscontext = NULL;
-@@ -187,6 +190,10 @@ int mm_answer_audit_command(int, Buffer *);
+@@ -153,6 +156,10 @@ int mm_answer_audit_command(int, struct
  
  static int monitor_read_log(struct monitor *);
  
@@ -537,7 +535,7 @@ index 11eac63..7c105e6 100644
  static Authctxt *authctxt;
  
  /* local state for key verify */
-@@ -272,6 +279,9 @@ struct mon_table mon_dispatch_postauth20[] = {
+@@ -231,6 +238,9 @@ struct mon_table mon_dispatch_postauth20
      {MONITOR_REQ_AUDIT_EVENT, MON_PERMIT, mm_answer_audit_event},
      {MONITOR_REQ_AUDIT_COMMAND, MON_PERMIT, mm_answer_audit_command},
  #endif
@@ -547,7 +545,7 @@ index 11eac63..7c105e6 100644
      {0, 0, NULL}
  };
  
-@@ -492,6 +505,9 @@ monitor_child_postauth(struct monitor *pmonitor)
+@@ -406,6 +416,9 @@ monitor_child_postauth(struct monitor *p
  		monitor_permit(mon_dispatch, MONITOR_REQ_PTY, 1);
  		monitor_permit(mon_dispatch, MONITOR_REQ_PTYCLEANUP, 1);
  	}
@@ -557,7 +555,7 @@ index 11eac63..7c105e6 100644
  
  	for (;;)
  		monitor_read(pmonitor, mon_dispatch, NULL);
-@@ -2269,3 +2285,29 @@ mm_answer_gss_updatecreds(int socket, Buffer *m) {
+@@ -1898,3 +1911,29 @@ mm_answer_gss_userok(int sock, struct ss
  }
  #endif /* GSSAPI */
  
@@ -587,11 +585,11 @@ index 11eac63..7c105e6 100644
 +	return (0);
 +}
 +#endif /* USE_CONSOLEKIT */
-diff --git a/monitor.h b/monitor.h
-index 4d5e8fa..10ba59e 100644
---- a/monitor.h
-+++ b/monitor.h
-@@ -70,6 +70,8 @@ enum monitor_reqtype {
+Index: openssh/monitor.h
+===================================================================
+--- openssh.orig/monitor.h
++++ openssh/monitor.h
+@@ -65,6 +65,8 @@ enum monitor_reqtype {
  
  	MONITOR_REQ_AUTHROLE = 154,
  
@@ -600,35 +598,40 @@ index 4d5e8fa..10ba59e 100644
  };
  
  struct monitor {
-diff --git a/monitor_wrap.c b/monitor_wrap.c
-index f75dc9d..a8fb07b 100644
---- a/monitor_wrap.c
-+++ b/monitor_wrap.c
-@@ -1353,3 +1353,33 @@ mm_ssh_gssapi_update_creds(ssh_gssapi_ccache *store)
+Index: openssh/monitor_wrap.c
+===================================================================
+--- openssh.orig/monitor_wrap.c
++++ openssh/monitor_wrap.c
+@@ -1025,3 +1025,38 @@ mm_ssh_gssapi_userok(char *user)
+ 	return (authenticated);
  }
  #endif /* GSSAPI */
- 
++
 +#ifdef USE_CONSOLEKIT
 +char *
 +mm_consolekit_register(Session *s, const char *display)
 +{
-+	Buffer m;
++	struct sshbuf *m;
 +	char *cookie;
++	int r;
 +
 +	debug3("%s entering", __func__);
 +
 +	if (s->ttyfd == -1)
 +		return NULL;
-+	buffer_init(&m);
-+	buffer_put_cstring(&m, s->tty);
-+	buffer_put_cstring(&m, display != NULL ? display : "");
-+	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_CONSOLEKIT_REGISTER, &m);
-+	buffer_clear(&m);
 +
-+	mm_request_receive_expect(pmonitor->m_recvfd,
-+	    MONITOR_ANS_CONSOLEKIT_REGISTER, &m);
-+	cookie = buffer_get_string(&m, NULL);
-+	buffer_free(&m);
++	if ((m = sshbuf_new()) == NULL)
++		fatal("%s: sshbuf_new failed", __func__);
++	if ((r = sshbuf_put_cstring(m, s->tty)) != 0 ||
++	    (r = sshbuf_put_cstring(m, display != NULL ? display : "")) != 0)
++		fatal("%s: buffer error: %s", __func__, ssh_err(r));
++
++	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_CONSOLEKIT_REGISTER, m);
++
++	mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_CONSOLEKIT_REGISTER, m);
++	if ((r = sshbuf_get_cstring(m, &cookie, NULL)) != 0)
++		fatal("%s: buffer error: %s", __func__, ssh_err(r));
++	sshbuf_free(m);
 +
 +	/* treat empty cookie as missing cookie */
 +	if (strlen(cookie) == 0) {
@@ -638,24 +641,24 @@ index f75dc9d..a8fb07b 100644
 +	return (cookie);
 +}
 +#endif /* USE_CONSOLEKIT */
-diff --git a/monitor_wrap.h b/monitor_wrap.h
-index 9c2ee49..00e93fe 100644
---- a/monitor_wrap.h
-+++ b/monitor_wrap.h
-@@ -111,4 +111,8 @@ void *mm_zalloc(struct mm_master *, u_int, u_int);
- int mm_skey_query(void *, char **, char **, u_int *, char ***, u_int **);
- int mm_skey_respond(void *, u_int, char **);
+Index: openssh/monitor_wrap.h
+===================================================================
+--- openssh.orig/monitor_wrap.h
++++ openssh/monitor_wrap.h
+@@ -98,4 +98,8 @@ void mm_send_keystate(struct monitor*);
+ int mm_bsdauth_query(void *, char **, char **, u_int *, char ***, u_int **);
+ int mm_bsdauth_respond(void *, u_int, char **);
  
 +#ifdef USE_CONSOLEKIT
 +char *mm_consolekit_register(struct Session *, const char *);
 +#endif /* USE_CONSOLEKIT */
 +
  #endif /* _MM_WRAP_H_ */
-diff --git a/session.c b/session.c
-index 6848df4..9d43fc3 100644
---- a/session.c
-+++ b/session.c
-@@ -92,6 +92,7 @@
+Index: openssh/session.c
+===================================================================
+--- openssh.orig/session.c
++++ openssh/session.c
+@@ -96,6 +96,7 @@
  #include "monitor_wrap.h"
  #include "sftp.h"
  #include "atomicio.h"
@@ -663,7 +666,7 @@ index 6848df4..9d43fc3 100644
  
  #if defined(KRB5) && defined(USE_AFS)
  #include <kafs.h>
-@@ -1160,6 +1161,9 @@ do_setup_env(Session *s, const char *shell)
+@@ -1019,6 +1020,9 @@ do_setup_env(struct ssh *ssh, Session *s
  #if !defined (HAVE_LOGIN_CAP) && !defined (HAVE_CYGWIN)
  	char *path = NULL;
  #endif
@@ -673,7 +676,7 @@ index 6848df4..9d43fc3 100644
  
  	/* Initialize the environment. */
  	envsize = 100;
-@@ -1304,6 +1308,11 @@ do_setup_env(Session *s, const char *shell)
+@@ -1120,6 +1124,12 @@ do_setup_env(struct ssh *ssh, Session *s
  		child_set_env(&env, &envsize, "KRB5CCNAME",
  		    s->authctxt->krb5_ccname);
  #endif
@@ -682,10 +685,11 @@ index 6848df4..9d43fc3 100644
 +	if (ckcookie)
 +		child_set_env(&env, &envsize, "XDG_SESSION_COOKIE", ckcookie);
 +#endif /* USE_CONSOLEKIT */
- #ifdef USE_PAM
- 	/*
- 	 * Pull in any environment variables that may have
-@@ -2353,6 +2362,10 @@ session_pty_cleanup2(Session *s)
++
+ 	if (auth_sock_name != NULL)
+ 		child_set_env(&env, &envsize, SSH_AUTHSOCKET_ENV_NAME,
+ 		    auth_sock_name);
+@@ -2194,6 +2204,10 @@ session_pty_cleanup2(Session *s)
  
  	debug("session_pty_cleanup: session %d release %s", s->self, s->tty);
  
@@ -696,10 +700,10 @@ index 6848df4..9d43fc3 100644
  	/* Record that the user has logged out. */
  	if (s->pid != 0)
  		record_logout(s->pid, s->tty, s->pw->pw_name);
-diff --git a/session.h b/session.h
-index ef6593c..a6b6983 100644
---- a/session.h
-+++ b/session.h
+Index: openssh/session.h
+===================================================================
+--- openssh.orig/session.h
++++ openssh/session.h
 @@ -26,6 +26,8 @@
  #ifndef SESSION_H
  #define SESSION_H
@@ -709,7 +713,7 @@ index ef6593c..a6b6983 100644
  #define TTYSZ 64
  typedef struct Session Session;
  struct Session {
-@@ -61,6 +63,10 @@ struct Session {
+@@ -60,6 +62,10 @@ struct Session {
  		char	*name;
  		char	*val;
  	} *env;
