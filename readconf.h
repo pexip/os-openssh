@@ -1,4 +1,4 @@
-/* $OpenBSD: readconf.h,v 1.123 2017/09/03 23:33:13 djm Exp $ */
+/* $OpenBSD: readconf.h,v 1.127 2018/07/19 10:28:47 dtucker Exp $ */
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -18,7 +18,6 @@
 
 /* Data structure for representing option data. */
 
-#define MAX_SEND_ENV		256
 #define SSH_MAX_HOSTS_FILES	32
 #define MAX_CANON_DOMAINS	32
 #define PATH_MAX_SUN		(sizeof((struct sockaddr_un *)0)->sun_path)
@@ -36,7 +35,6 @@ typedef struct {
 	int     exit_on_forward_failure;	/* Exit if bind(2) fails for -L/-R */
 	char   *xauth_location;	/* Location for xauth program */
 	struct ForwardOptions fwd_opts;	/* forwarding options */
-	int     use_privileged_port;	/* Don't use privileged port if false. */
 	int     pubkey_authentication;	/* Try ssh2 pubkey authentication. */
 	int     hostbased_authentication;	/* ssh2's rhosts_rsa */
 	int     challenge_response_authentication;
@@ -81,6 +79,7 @@ typedef struct {
 	char   *user_hostfiles[SSH_MAX_HOSTS_FILES];
 	char   *preferred_authentications;
 	char   *bind_address;	/* local socket address for connection to sshd */
+	char   *bind_interface;	/* local interface for bind address */
 	char   *pkcs11_provider; /* PKCS#11 provider */
 	int	verify_host_key_dns;	/* Verify host key using DNS */
 
@@ -119,7 +118,9 @@ typedef struct {
 	int	server_alive_count_max;
 
 	int     num_send_env;
-	char   *send_env[MAX_SEND_ENV];
+	char   **send_env;
+	int     num_setenv;
+	char   **setenv;
 
 	char	*control_path;
 	int	control_master;
@@ -204,6 +205,7 @@ int	 read_config_file(const char *, struct passwd *, const char *,
     const char *, Options *, int);
 int	 parse_forward(struct Forward *, const char *, int, int);
 int	 parse_jump(const char *, Options *, int);
+int	 parse_ssh_uri(const char *, char **, char **, int *);
 int	 default_ssh_port(void);
 int	 option_clear_or_none(const char *);
 void	 dump_client_config(Options *o, const char *host);

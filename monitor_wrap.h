@@ -1,4 +1,4 @@
-/* $OpenBSD: monitor_wrap.h,v 1.35 2017/05/31 08:09:45 markus Exp $ */
+/* $OpenBSD: monitor_wrap.h,v 1.38 2018/07/11 18:53:29 markus Exp $ */
 
 /*
  * Copyright 2002 Niels Provos <provos@citi.umich.edu>
@@ -35,23 +35,26 @@ enum mm_keytype { MM_NOKEY, MM_HOSTKEY, MM_USERKEY };
 
 struct monitor;
 struct Authctxt;
+struct sshkey;
+struct sshauthopt;
 
 void mm_log_handler(LogLevel, const char *, void *);
 int mm_is_monitor(void);
 DH *mm_choose_dh(int, int, int);
-int mm_key_sign(struct sshkey *, u_char **, u_int *, const u_char *, u_int,
-    const char *);
+int mm_sshkey_sign(struct sshkey *, u_char **, size_t *, const u_char *, size_t,
+    const char *, u_int compat);
 void mm_inform_authserv(char *, char *);
 struct passwd *mm_getpwnamallow(const char *);
 char *mm_auth2_read_banner(void);
-int mm_auth_password(struct Authctxt *, char *);
+int mm_auth_password(struct ssh *, char *);
 int mm_key_allowed(enum mm_keytype, const char *, const char *, struct sshkey *,
-    int);
-int mm_user_key_allowed(struct passwd *, struct sshkey *, int);
+    int, struct sshauthopt **);
+int mm_user_key_allowed(struct ssh *, struct passwd *, struct sshkey *, int,
+    struct sshauthopt **);
 int mm_hostbased_key_allowed(struct passwd *, const char *,
     const char *, struct sshkey *);
 int mm_sshkey_verify(const struct sshkey *, const u_char *, size_t,
-    const u_char *, size_t, u_int);
+    const u_char *, size_t, const char *, u_int);
 
 #ifdef GSSAPI
 OM_uint32 mm_ssh_gssapi_server_ctx(Gssctxt **, gss_OID);
@@ -93,9 +96,5 @@ void mm_send_keystate(struct monitor*);
 /* bsdauth */
 int mm_bsdauth_query(void *, char **, char **, u_int *, char ***, u_int **);
 int mm_bsdauth_respond(void *, u_int, char **);
-
-/* skey */
-int mm_skey_query(void *, char **, char **, u_int *, char ***, u_int **);
-int mm_skey_respond(void *, u_int, char **);
 
 #endif /* _MM_WRAP_H_ */
