@@ -4,10 +4,11 @@
 # HG changeset patch
 # Parent 6536ed881743cbf05afe962021b985f9b1eab495
 
-diff --git a/Makefile.in b/Makefile.in
---- a/Makefile.in
-+++ b/Makefile.in
-@@ -77,7 +77,8 @@ LIBSSH_OBJS=authfd.o authfile.o bufaux.o
+Index: openssh/Makefile.in
+===================================================================
+--- openssh.orig/Makefile.in
++++ openssh/Makefile.in
+@@ -100,7 +100,8 @@ LIBSSH_OBJS=${LIBOPENSSH_OBJS} \
  	kex.o kexdh.o kexgex.o kexecdh.o kexc25519.o \
  	kexdhc.o kexgexc.o kexecdhc.o kexc25519c.o \
  	kexdhs.o kexgexs.o kexecdhs.o kexc25519s.o \
@@ -17,15 +18,11 @@ diff --git a/Makefile.in b/Makefile.in
  
  SSHOBJS= ssh.o readconf.o clientloop.o sshtty.o \
  	sshconnect.o sshconnect2.o mux.o
-diff --git a/cipher-ctr.c b/cipher-ctr.c
---- a/cipher-ctr.c
-+++ b/cipher-ctr.c
-@@ -21,16 +21,17 @@
- 
- #include <stdarg.h>
- #include <string.h>
- 
- #include <openssl/evp.h>
+Index: openssh/cipher-ctr.c
+===================================================================
+--- openssh.orig/cipher-ctr.c
++++ openssh/cipher-ctr.c
+@@ -26,6 +26,7 @@
  
  #include "xmalloc.h"
  #include "log.h"
@@ -33,17 +30,7 @@ diff --git a/cipher-ctr.c b/cipher-ctr.c
  
  /* compatibility with old or broken OpenSSL versions */
  #include "openbsd-compat/openssl-compat.h"
- 
- #ifndef USE_BUILTIN_RIJNDAEL
- #include <openssl/aes.h>
- #endif
- 
-@@ -134,13 +135,15 @@ evp_aes_128_ctr(void)
- 	aes_ctr.iv_len = AES_BLOCK_SIZE;
- 	aes_ctr.key_len = 16;
- 	aes_ctr.init = ssh_aes_ctr_init;
- 	aes_ctr.cleanup = ssh_aes_ctr_cleanup;
- 	aes_ctr.do_cipher = ssh_aes_ctr;
+@@ -139,6 +140,8 @@ evp_aes_128_ctr(void)
  #ifndef SSH_OLD_EVP
  	aes_ctr.flags = EVP_CIPH_CBC_MODE | EVP_CIPH_VARIABLE_LENGTH |
  	    EVP_CIPH_ALWAYS_CALL_INIT | EVP_CIPH_CUSTOM_IV;
@@ -52,17 +39,11 @@ diff --git a/cipher-ctr.c b/cipher-ctr.c
  #endif
  	return (&aes_ctr);
  }
- 
- #endif /* defined(WITH_OPENSSL) && !defined(OPENSSL_HAVE_EVPCTR) */
-diff --git a/cipher.c b/cipher.c
---- a/cipher.c
-+++ b/cipher.c
-@@ -46,16 +46,17 @@
- #include <stdarg.h>
- #include <stdio.h>
- 
- #include "cipher.h"
- #include "misc.h"
+Index: openssh/cipher.c
+===================================================================
+--- openssh.orig/cipher.c
++++ openssh/cipher.c
+@@ -48,6 +48,7 @@
  #include "sshbuf.h"
  #include "ssherr.h"
  #include "digest.h"
@@ -70,17 +51,7 @@ diff --git a/cipher.c b/cipher.c
  
  #include "openbsd-compat/openssl-compat.h"
  
- 
- struct sshcipher_ctx {
- 	int	plaintext;
- 	int	encrypt;
- 	EVP_CIPHER_CTX *evp;
-@@ -99,27 +100,58 @@ struct Cipher ciphers[] = {
- #endif
- 	{ "chacha20-poly1305@openssh.com",
- 				8, 64, 0, 16, CFLAG_CHACHAPOLY, NULL },
- 	{ "none",		8, 0, 0, 0, CFLAG_NONE, NULL },
- 
+@@ -111,8 +112,39 @@ static const struct sshcipher ciphers[]
  	{ NULL,			0, 0, 0, 0, 0, NULL }
  };
  
@@ -120,8 +91,7 @@ diff --git a/cipher.c b/cipher.c
  /* Returns a comma-separated list of supported ciphers. */
  char *
  cipher_alg_list(char sep, int auth_only)
- {
- 	char *tmp, *ret = NULL;
+@@ -121,7 +153,7 @@ cipher_alg_list(char sep, int auth_only)
  	size_t nlen, rlen = 0;
  	const struct sshcipher *c;
  
@@ -130,17 +100,7 @@ diff --git a/cipher.c b/cipher.c
  		if ((c->flags & CFLAG_INTERNAL) != 0)
  			continue;
  		if (auth_only && c->auth_len == 0)
- 			continue;
- 		if (ret != NULL)
- 			ret[rlen++] = sep;
- 		nlen = strlen(c->name);
- 		if ((tmp = realloc(ret, rlen + nlen + 2)) == NULL) {
-@@ -189,17 +220,17 @@ cipher_ctx_is_plaintext(struct sshcipher_ctx *cc)
- {
- 	return cc->plaintext;
- }
- 
- const struct sshcipher *
+@@ -193,7 +225,7 @@ const struct sshcipher *
  cipher_by_name(const char *name)
  {
  	const struct sshcipher *c;
@@ -149,15 +109,10 @@ diff --git a/cipher.c b/cipher.c
  		if (strcmp(c->name, name) == 0)
  			return c;
  	return NULL;
- }
- 
- #define	CIPHER_SEP	","
- int
- ciphers_valid(const char *names)
-diff --git a/fips.c b/fips.c
-new file mode 100644
+Index: openssh/fips.c
+===================================================================
 --- /dev/null
-+++ b/fips.c
++++ openssh/fips.c
 @@ -0,0 +1,41 @@
 +/*
 + * Copyright (c) 2012 Petr Cerny.  All rights reserved.
@@ -200,10 +155,10 @@ new file mode 100644
 +	}
 +	return fips_state;
 +}
-diff --git a/fips.h b/fips.h
-new file mode 100644
+Index: openssh/fips.h
+===================================================================
 --- /dev/null
-+++ b/fips.h
++++ openssh/fips.h
 @@ -0,0 +1,30 @@
 +/*
 + * Copyright (c) 2012 Petr Cerny.  All rights reserved.
@@ -235,10 +190,11 @@ new file mode 100644
 +
 +#endif
 +
-diff --git a/kex.c b/kex.c
---- a/kex.c
-+++ b/kex.c
-@@ -50,6 +50,7 @@
+Index: openssh/kex.c
+===================================================================
+--- openssh.orig/kex.c
++++ openssh/kex.c
+@@ -53,6 +53,7 @@
  #include "ssherr.h"
  #include "sshbuf.h"
  #include "digest.h"
@@ -246,7 +202,7 @@ diff --git a/kex.c b/kex.c
  
  /* prototype */
  static int kex_choose_conf(struct ssh *);
-@@ -105,6 +106,39 @@
+@@ -106,6 +107,39 @@ static const struct kexalg kexalgs[] = {
  	{ NULL, -1, -1, -1},
  };
  
@@ -286,7 +242,7 @@ diff --git a/kex.c b/kex.c
  char *
  kex_alg_list(char sep)
  {
-@@ -112,7 +143,7 @@
+@@ -113,7 +147,7 @@ kex_alg_list(char sep)
  	size_t nlen, rlen = 0;
  	const struct kexalg *k;
  
@@ -295,7 +251,7 @@ diff --git a/kex.c b/kex.c
  		if (ret != NULL)
  			ret[rlen++] = sep;
  		nlen = strlen(k->name);
-@@ -128,7 +159,7 @@
+@@ -133,7 +167,7 @@ kex_alg_by_name(const char *name)
  {
  	const struct kexalg *k;
  
@@ -304,15 +260,11 @@ diff --git a/kex.c b/kex.c
  		if (strcmp(k->name, name) == 0)
  			return k;
  	}
-diff --git a/mac.c b/mac.c
---- a/mac.c
-+++ b/mac.c
-@@ -36,16 +36,17 @@
- 
- #include "digest.h"
- #include "hmac.h"
- #include "umac.h"
- #include "mac.h"
+Index: openssh/mac.c
+===================================================================
+--- openssh.orig/mac.c
++++ openssh/mac.c
+@@ -37,6 +37,7 @@
  #include "misc.h"
  #include "ssherr.h"
  #include "sshbuf.h"
@@ -320,17 +272,7 @@ diff --git a/mac.c b/mac.c
  
  #include "openbsd-compat/openssl-compat.h"
  
- #define SSH_DIGEST	1	/* SSH_DIGEST_XXX */
- #define SSH_UMAC	2	/* UMAC (not integrated with OpenSSL) */
- #define SSH_UMAC128	3
- 
- struct macalg {
-@@ -86,25 +87,44 @@ struct {
- 	{ "hmac-md5-etm@openssh.com",		SSH_DIGEST, SSH_DIGEST_MD5, 0, 0, 0, 1 },
- 	{ "hmac-md5-96-etm@openssh.com",	SSH_DIGEST, SSH_DIGEST_MD5, 96, 0, 0, 1 },
- 	{ "umac-64-etm@openssh.com",		SSH_UMAC, 0, 0, 128, 64, 1 },
- 	{ "umac-128-etm@openssh.com",		SSH_UMAC128, 0, 0, 128, 128, 1 },
- 
+@@ -82,6 +83,25 @@ static const struct macalg macs[] = {
  	{ NULL,					0, 0, 0, 0, 0, 0 }
  };
  
@@ -356,8 +298,7 @@ diff --git a/mac.c b/mac.c
  /* Returns a list of supported MACs separated by the specified char. */
  char *
  mac_alg_list(char sep)
- {
- 	char *ret = NULL, *tmp;
+@@ -90,7 +110,7 @@ mac_alg_list(char sep)
  	size_t nlen, rlen = 0;
  	const struct macalg *m;
  
@@ -366,17 +307,7 @@ diff --git a/mac.c b/mac.c
  		if (ret != NULL)
  			ret[rlen++] = sep;
  		nlen = strlen(m->name);
- 		if ((tmp = realloc(ret, rlen + nlen + 2)) == NULL) {
- 			free(ret);
- 			return NULL;
- 		}
- 		ret = tmp;
-@@ -131,17 +151,17 @@ mac_setup_by_alg(Mac *mac, const struct macalg *macalg)
- 	return 0;
- }
- 
- int
- mac_setup(struct sshmac *mac, char *name)
+@@ -129,7 +149,7 @@ mac_setup(struct sshmac *mac, char *name
  {
  	const struct macalg *m;
  
@@ -385,20 +316,11 @@ diff --git a/mac.c b/mac.c
  		if (strcmp(name, m->name) != 0)
  			continue;
  		if (mac != NULL)
- 			return mac_setup_by_alg(mac, m);
- 		return 0;
- 	}
- 	return SSH_ERR_INVALID_ARGUMENT;
- }
-diff --git a/myproposal.h b/myproposal.h
---- a/myproposal.h
-+++ b/myproposal.h
-@@ -90,49 +90,83 @@
- 	KEX_SHA2_GROUP14 \
- 	"diffie-hellman-group14-sha1" \
- 
- #define KEX_CLIENT_KEX KEX_COMMON_KEX \
- 	"diffie-hellman-group-exchange-sha1," \
+Index: openssh/myproposal.h
+===================================================================
+--- openssh.orig/myproposal.h
++++ openssh/myproposal.h
+@@ -104,6 +104,19 @@
  	KEX_SHA2_GROUP14 \
  	"diffie-hellman-group14-sha1"
  
@@ -418,10 +340,7 @@ diff --git a/myproposal.h b/myproposal.h
  #define	KEX_DEFAULT_PK_ALG	\
  	HOSTKEY_ECDSA_CERT_METHODS \
  	"ssh-ed25519-cert-v01@openssh.com," \
- 	"ssh-rsa-cert-v01@openssh.com," \
- 	HOSTKEY_ECDSA_METHODS \
- 	"ssh-ed25519," \
- 	"rsa-sha2-512," \
+@@ -116,6 +129,14 @@
  	"rsa-sha2-256," \
  	"ssh-rsa"
  
@@ -436,33 +355,26 @@ diff --git a/myproposal.h b/myproposal.h
  /* the actual algorithms */
  
  #define KEX_SERVER_ENCRYPT \
- 	"chacha20-poly1305@openssh.com," \
- 	"aes128-ctr,aes192-ctr,aes256-ctr" \
- 	AESGCM_CIPHER_MODES
+@@ -125,7 +146,13 @@
  
  #define KEX_CLIENT_ENCRYPT KEX_SERVER_ENCRYPT
  
+-#define KEX_SERVER_MAC \
 +#define	KEX_FIPS_140_2_SERVER_ENCRYPT \
 +	"aes128-ctr,aes192-ctr,aes256-ctr," \
 +	AESGCM_CIPHER_MODES
 +
 +#define	KEX_FIPS_140_2_CLIENT_ENCRYPT KEX_FIPS_140_2_SERVER_ENCRYPT
 +
- #define KEX_SERVER_MAC \
++#define KEX_SERVER_MAC		   \
  	"umac-64-etm@openssh.com," \
  	"umac-128-etm@openssh.com," \
  	"hmac-sha2-256-etm@openssh.com," \
- 	"hmac-sha2-512-etm@openssh.com," \
- 	"hmac-sha1-etm@openssh.com," \
- 	"umac-64@openssh.com," \
- 	"umac-128@openssh.com," \
- 	"hmac-sha2-256," \
- 	"hmac-sha2-512," \
- 	"hmac-sha1"
+@@ -139,6 +166,13 @@
  
  #define KEX_CLIENT_MAC KEX_SERVER_MAC
  
-+#define	KEX_FIPS_140_2_SERVER_MAC \
++#define	KEX_FIPS_140_2_SERVER_MAC		\
 +	"hmac-sha2-256," \
 +	"hmac-sha2-512," \
 +	"hmac-sha1"
@@ -472,20 +384,11 @@ diff --git a/myproposal.h b/myproposal.h
  #else /* WITH_OPENSSL */
  
  #define KEX_SERVER_KEX		\
- 	"curve25519-sha256," \
- 	"curve25519-sha256@libssh.org"
- #define	KEX_DEFAULT_PK_ALG	\
- 	"ssh-ed25519-cert-v01@openssh.com," \
- 	"ssh-ed25519"
-diff --git a/openbsd-compat/arc4random.c b/openbsd-compat/arc4random.c
---- a/openbsd-compat/arc4random.c
-+++ b/openbsd-compat/arc4random.c
-@@ -32,16 +32,17 @@
- #ifndef HAVE_ARC4RANDOM
- 
- #ifdef WITH_OPENSSL
- #include <openssl/rand.h>
- #include <openssl/err.h>
+Index: openssh/openbsd-compat/arc4random.c
+===================================================================
+--- openssh.orig/openbsd-compat/arc4random.c
++++ openssh/openbsd-compat/arc4random.c
+@@ -45,6 +45,7 @@
  #endif
  
  #include "log.h"
@@ -493,17 +396,7 @@ diff --git a/openbsd-compat/arc4random.c b/openbsd-compat/arc4random.c
  
  #define KEYSTREAM_ONLY
  #include "chacha_private.h"
- 
- #ifdef __GNUC__
- #define inline __inline
- #else				/* !__GNUC__ */
- #define inline
-@@ -161,59 +162,71 @@
- 	memset(rs_buf + RSBUFSZ - rs_have, 0, sizeof(*val));
- 	rs_have -= sizeof(*val);
- 	return;
- }
- 
+@@ -210,26 +211,30 @@ _rs_random_u32(u_int32_t *val)
  void
  arc4random_stir(void)
  {
@@ -547,8 +440,7 @@ diff --git a/openbsd-compat/arc4random.c b/openbsd-compat/arc4random.c
  }
  
  u_int32_t
- arc4random(void)
- {
+@@ -238,7 +243,11 @@ arc4random(void)
  	u_int32_t val;
  
  	_ARC4_LOCK();
@@ -561,13 +453,7 @@ diff --git a/openbsd-compat/arc4random.c b/openbsd-compat/arc4random.c
  	_ARC4_UNLOCK();
  	return val;
  }
- 
- /*
-  * If we are providing arc4random, then we can provide a more efficient 
-  * arc4random_buf().
-  */
- # ifndef HAVE_ARC4RANDOM_BUF
- void
+@@ -252,7 +261,11 @@ void
  arc4random_buf(void *buf, size_t n)
  {
  	_ARC4_LOCK();
@@ -580,16 +466,11 @@ diff --git a/openbsd-compat/arc4random.c b/openbsd-compat/arc4random.c
  	_ARC4_UNLOCK();
  }
  # endif /* !HAVE_ARC4RANDOM_BUF */
- #endif /* !HAVE_ARC4RANDOM */
- 
- /* arc4random_buf() that uses platform arc4random() */
- #if !defined(HAVE_ARC4RANDOM_BUF) && defined(HAVE_ARC4RANDOM)
- void
-diff --git a/sshconnect2.c b/sshconnect2.c
-index 7751031..4dec07c 100644
---- a/sshconnect2.c
-+++ b/sshconnect2.c
-@@ -71,6 +71,7 @@
+Index: openssh/sshconnect2.c
+===================================================================
+--- openssh.orig/sshconnect2.c
++++ openssh/sshconnect2.c
+@@ -72,6 +72,7 @@
  #include "hostfile.h"
  #include "ssherr.h"
  #include "utf8.h"
@@ -597,7 +478,7 @@ index 7751031..4dec07c 100644
  
  #ifdef GSSAPI
  #include "ssh-gss.h"
-@@ -116,7 +117,7 @@ order_hostkeyalgs(char *host, struct sockaddr *hostaddr, u_short port)
+@@ -117,7 +118,7 @@ order_hostkeyalgs(char *host, struct soc
  	for (i = 0; i < options.num_system_hostfiles; i++)
  		load_hostkeys(hostkeys, hostname, options.system_hostfiles[i]);
  
@@ -606,14 +487,14 @@ index 7751031..4dec07c 100644
  	maxlen = strlen(avail) + 1;
  	first = xmalloc(maxlen);
  	last = xmalloc(maxlen);
-@@ -179,14 +180,14 @@ ssh_kex2(char *host, struct sockaddr *hostaddr, u_short port)
- 	myproposal[PROPOSAL_MAC_ALGS_CTOS] =
- 	    myproposal[PROPOSAL_MAC_ALGS_STOC] = options.macs;
+@@ -180,14 +181,14 @@ ssh_kex2(char *host, struct sockaddr *ho
  	if (options.hostkeyalgorithms != NULL) {
--		if (kex_assemble_names(KEX_DEFAULT_PK_ALG,
-+		if (kex_assemble_names(fips_mode() ? KEX_FIPS_140_2_PK_ALG : KEX_DEFAULT_PK_ALG,
- 		    &options.hostkeyalgorithms) != 0)
+ 		all_key = sshkey_alg_list(0, 0, 1, ',');
+ 		if (kex_assemble_names(&options.hostkeyalgorithms,
+-		    KEX_DEFAULT_PK_ALG, all_key) != 0)
++		    fips_mode() ? KEX_FIPS_140_2_PK_ALG : KEX_DEFAULT_PK_ALG, all_key) != 0)
  			fatal("%s: kex_assemble_namelist", __func__);
+ 		free(all_key);
  		myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] =
  		    compat_pkalg_proposal(options.hostkeyalgorithms);
  	} else {
@@ -623,15 +504,11 @@ index 7751031..4dec07c 100644
  		/* Prefer algorithms that we already have keys for */
  		myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] =
  		    compat_pkalg_proposal(
-diff --git a/ssh-dss.c b/ssh-dss.c
---- a/ssh-dss.c
-+++ b/ssh-dss.c
-@@ -42,41 +42,74 @@
- 
- #define INTBLOB_LEN	20
- #define SIGBLOB_LEN	(2*INTBLOB_LEN)
- 
- int
+Index: openssh/ssh-dss.c
+===================================================================
+--- openssh.orig/ssh-dss.c
++++ openssh/ssh-dss.c
+@@ -50,9 +50,16 @@ int
  ssh_dss_sign(const struct sshkey *key, u_char **sigp, size_t *lenp,
      const u_char *data, size_t datalen, u_int compat)
  {
@@ -650,11 +527,7 @@ diff --git a/ssh-dss.c b/ssh-dss.c
  	struct sshbuf *b = NULL;
  	int ret = SSH_ERR_INVALID_ARGUMENT;
  
- 	if (lenp != NULL)
- 		*lenp = 0;
- 	if (sigp != NULL)
- 		*sigp = NULL;
- 
+@@ -64,18 +71,44 @@ ssh_dss_sign(const struct sshkey *key, u
  	if (key == NULL || key->dsa == NULL ||
  	    sshkey_type_plain(key->type) != KEY_DSA)
  		return SSH_ERR_INVALID_ARGUMENT;
@@ -663,7 +536,6 @@ diff --git a/ssh-dss.c b/ssh-dss.c
  
 -	if ((ret = ssh_digest_memory(SSH_DIGEST_SHA1, data, datalen,
 -	    digest, sizeof(digest))) != 0)
--		goto out;
 +	pkey = EVP_PKEY_new();
 +	if (pkey == NULL) {
 +		ret = SSH_ERR_LIBCRYPTO_ERROR;
@@ -675,7 +547,7 @@ diff --git a/ssh-dss.c b/ssh-dss.c
 +	if ((psig = tsig = malloc(slen)) == NULL) {
 +		EVP_PKEY_free(pkey);
 +		ret = SSH_ERR_ALLOC_FAIL;
-+		goto out;
+ 		goto out;
 +	}
 +
 +	EVP_MD_CTX_init(&md);
@@ -685,17 +557,14 @@ diff --git a/ssh-dss.c b/ssh-dss.c
 +	}
 +	EVP_MD_CTX_cleanup(&md);
 +	EVP_PKEY_free(pkey);
-+
-+	if (signature_ok != 1) {
-+		free(tsig);
-+		ret = SSH_ERR_LIBCRYPTO_ERROR;
-+		goto out;
-+	}
  
 -	if ((sig = DSA_do_sign(digest, dlen, key->dsa)) == NULL) {
--		ret = SSH_ERR_LIBCRYPTO_ERROR;
--		goto out;
--	}
++	if (signature_ok != 1) {
++		free(tsig);
+ 		ret = SSH_ERR_LIBCRYPTO_ERROR;
+ 		goto out;
+ 	}
+ 
 +	/* Output of EVP_SignFinal() is encoded, convert to DSA_SIG */
 +	sig = d2i_DSA_SIG(NULL, &psig, len);
 +	explicit_bzero(tsig, len);
@@ -704,32 +573,19 @@ diff --git a/ssh-dss.c b/ssh-dss.c
 +		ret = SSH_ERR_LIBCRYPTO_ERROR;
 +		goto out;
 + 	}
- 
++
  	rlen = BN_num_bytes(sig->r);
  	slen = BN_num_bytes(sig->s);
  	if (rlen > INTBLOB_LEN || slen > INTBLOB_LEN) {
- 		ret = SSH_ERR_INTERNAL_ERROR;
- 		goto out;
- 	}
- 	explicit_bzero(sigblob, SIGBLOB_LEN);
-@@ -106,41 +139,42 @@
- 			}
- 			memcpy(*sigp, sshbuf_ptr(b), len);
- 		}
- 		if (lenp != NULL)
- 			*lenp = len;
- 		ret = 0;
- 	}
+@@ -106,7 +139,6 @@ ssh_dss_sign(const struct sshkey *key, u
+ 		*lenp = len;
+ 	ret = 0;
   out:
 -	explicit_bzero(digest, sizeof(digest));
- 	if (sig != NULL)
- 		DSA_SIG_free(sig);
+ 	DSA_SIG_free(sig);
  	sshbuf_free(b);
  	return ret;
- }
- 
- int
- ssh_dss_verify(const struct sshkey *key,
+@@ -117,9 +149,13 @@ ssh_dss_verify(const struct sshkey *key,
      const u_char *signature, size_t signaturelen,
      const u_char *data, size_t datalen, u_int compat)
  {
@@ -745,8 +601,7 @@ diff --git a/ssh-dss.c b/ssh-dss.c
  	int ret = SSH_ERR_INTERNAL_ERROR;
  	struct sshbuf *b = NULL;
  	char *ktype = NULL;
- 
- 	if (key == NULL || key->dsa == NULL ||
+@@ -128,8 +164,6 @@ ssh_dss_verify(const struct sshkey *key,
  	    sshkey_type_plain(key->type) != KEY_DSA ||
  	    signature == NULL || signaturelen == 0)
  		return SSH_ERR_INVALID_ARGUMENT;
@@ -754,33 +609,23 @@ diff --git a/ssh-dss.c b/ssh-dss.c
 -		return SSH_ERR_INTERNAL_ERROR;
  
  	/* fetch signature */
- 	if (compat & SSH_BUG_SIGBLOB) {
- 		if ((sigblob = malloc(signaturelen)) == NULL)
- 			return SSH_ERR_ALLOC_FAIL;
- 		memcpy(sigblob, signature, signaturelen);
- 		len = signaturelen;
- 	} else {
-@@ -167,35 +200,53 @@
- 		goto out;
- 	}
- 	if ((BN_bin2bn(sigblob, INTBLOB_LEN, sig->r) == NULL) ||
- 	    (BN_bin2bn(sigblob+ INTBLOB_LEN, INTBLOB_LEN, sig->s) == NULL)) {
- 		ret = SSH_ERR_LIBCRYPTO_ERROR;
+ 	if ((b = sshbuf_from(signature, signaturelen)) == NULL)
+@@ -166,12 +200,31 @@ ssh_dss_verify(const struct sshkey *key,
  		goto out;
  	}
  
 -	/* sha1 the data */
 -	if ((ret = ssh_digest_memory(SSH_DIGEST_SHA1, data, datalen,
 -	    digest, sizeof(digest))) != 0)
--		goto out;
 +	/* Sig is a DSA_SIG structure; convert to encoded buffer */
 +	len = i2d_DSA_SIG(sig, NULL);
 +	if ((psig = tsig = malloc(len)) == NULL) {
 +		ret = SSH_ERR_ALLOC_FAIL;
-+		goto out;
+ 		goto out;
 +	}
 +	i2d_DSA_SIG(sig, &psig);
-+
+ 
+-	switch (DSA_do_verify(digest, dlen, sig, key->dsa)) {
 +	/* Verify the signature */
 +	pkey = EVP_PKEY_new();
 +	if (pkey != NULL) {
@@ -796,58 +641,33 @@ diff --git a/ssh-dss.c b/ssh-dss.c
 +	}
 +	explicit_bzero(tsig, len);
 +	free(tsig);
- 
--	switch (DSA_do_verify(digest, dlen, sig, key->dsa)) {
++ 
 +	switch (ret) {
  	case 1:
  		ret = 0;
  		break;
- 	case 0:
- 		ret = SSH_ERR_SIGNATURE_INVALID;
- 		goto out;
- 	default:
- 		ret = SSH_ERR_LIBCRYPTO_ERROR;
- 		goto out;
+@@ -184,7 +237,6 @@ ssh_dss_verify(const struct sshkey *key,
  	}
  
   out:
 -	explicit_bzero(digest, sizeof(digest));
- 	if (sig != NULL)
- 		DSA_SIG_free(sig);
+ 	DSA_SIG_free(sig);
  	sshbuf_free(b);
  	free(ktype);
- 	if (sigblob != NULL) {
- 		explicit_bzero(sigblob, len);
- 		free(sigblob);
- 	}
-diff --git a/ssh-rsa.c b/ssh-rsa.c
---- a/ssh-rsa.c
-+++ b/ssh-rsa.c
-@@ -29,18 +29,16 @@
- 
- #include "sshbuf.h"
- #include "compat.h"
- #include "ssherr.h"
- #define SSHKEY_INTERNAL
- #include "sshkey.h"
+Index: openssh/ssh-rsa.c
+===================================================================
+--- openssh.orig/ssh-rsa.c
++++ openssh/ssh-rsa.c
+@@ -35,8 +35,6 @@
  #include "digest.h"
+ #include "log.h"
  
 -static int openssh_RSA_verify(int, u_char *, size_t, u_char *, size_t, RSA *);
 -
  static const char *
  rsa_hash_alg_ident(int hash_alg)
  {
- 	switch (hash_alg) {
- 	case SSH_DIGEST_SHA1:
- 		return "ssh-rsa";
- 	case SSH_DIGEST_SHA256:
- 		return "rsa-sha2-256";
-@@ -77,57 +75,70 @@ rsa_hash_alg_nid(int type)
- 	return r;
- }
- 
- /* RSASSA-PKCS1-v1_5 (PKCS #1 v2.0 signature) with SHA1 */
- int
+@@ -145,10 +143,13 @@ int
  ssh_rsa_sign(const struct sshkey *key, u_char **sigp, size_t *lenp,
      const u_char *data, size_t datalen, const char *alg_ident)
  {
@@ -856,7 +676,7 @@ diff --git a/ssh-rsa.c b/ssh-rsa.c
 +	EVP_MD_CTX md;
 +	EVP_PKEY *pkey;
 +	u_char *sig = NULL;
- 	size_t slen;
+ 	size_t slen = 0;
 -	u_int dlen, len;
 -	int nid, hash_alg, ret = SSH_ERR_INTERNAL_ERROR;
 +	u_int len = 0;
@@ -864,16 +684,7 @@ diff --git a/ssh-rsa.c b/ssh-rsa.c
  	struct sshbuf *b = NULL;
  
  	if (lenp != NULL)
- 		*lenp = 0;
- 	if (sigp != NULL)
- 		*sigp = NULL;
- 
- 	if (alg_ident == NULL || strlen(alg_ident) == 0)
- 		hash_alg = SSH_DIGEST_SHA1;
- 	else
- 		hash_alg = rsa_hash_alg_from_ident(alg_ident);
- 	if (key == NULL || key->rsa == NULL || hash_alg == -1 ||
- 	    sshkey_type_plain(key->type) != KEY_RSA)
+@@ -165,27 +166,37 @@ ssh_rsa_sign(const struct sshkey *key, u
  		return SSH_ERR_INVALID_ARGUMENT;
  	if (BN_num_bits(key->rsa->n) < SSH_RSA_MINIMUM_MODULUS_SIZE)
  		return SSH_ERR_KEY_LENGTH;
@@ -921,57 +732,32 @@ diff --git a/ssh-rsa.c b/ssh-rsa.c
  	if (len < slen) {
  		size_t diff = slen - len;
  		memmove(sig + diff, sig, len);
- 		explicit_bzero(sig, diff);
- 	} else if (len > slen) {
- 		ret = SSH_ERR_INTERNAL_ERROR;
- 		goto out;
- 	}
-@@ -146,34 +157,36 @@ ssh_rsa_sign(const struct sshkey *key, u_char **sigp, size_t *lenp,
- 			goto out;
- 		}
- 		memcpy(*sigp, sshbuf_ptr(b), len);
- 	}
- 	if (lenp != NULL)
+@@ -214,7 +225,6 @@ ssh_rsa_sign(const struct sshkey *key, u
  		*lenp = len;
  	ret = 0;
   out:
 -	explicit_bzero(digest, sizeof(digest));
- 	if (sig != NULL) {
- 		explicit_bzero(sig, slen);
- 		free(sig);
- 	}
+ 	freezero(sig, slen);
  	sshbuf_free(b);
  	return ret;
- }
- 
- int
- ssh_rsa_verify(const struct sshkey *key,
-     const u_char *sig, size_t siglen, const u_char *data, size_t datalen)
+@@ -225,11 +235,14 @@ ssh_rsa_verify(const struct sshkey *key,
+     const u_char *sig, size_t siglen, const u_char *data, size_t datalen,
+     const char *alg)
  {
 +	const EVP_MD *evp_md;
 +	EVP_MD_CTX md;
 +	EVP_PKEY *pkey;
- 	char *ktype = NULL;
- 	int hash_alg, ret = SSH_ERR_INTERNAL_ERROR;
--	size_t len, diff, modlen, dlen;
-+	size_t len, diff, modlen;
+ 	char *sigtype = NULL;
+ 	int hash_alg, want_alg, ret = SSH_ERR_INTERNAL_ERROR;
+-	size_t len = 0, diff, modlen, dlen;
++	size_t len = 0, diff, modlen;
  	struct sshbuf *b = NULL;
 -	u_char digest[SSH_DIGEST_MAX_LENGTH], *osigblob, *sigblob = NULL;
 +	u_char *osigblob, *sigblob = NULL;
  
  	if (key == NULL || key->rsa == NULL ||
  	    sshkey_type_plain(key->type) != KEY_RSA ||
- 	    sig == NULL || siglen == 0)
- 		return SSH_ERR_INVALID_ARGUMENT;
- 	if (BN_num_bits(key->rsa->n) < SSH_RSA_MINIMUM_MODULUS_SIZE)
- 		return SSH_ERR_KEY_LENGTH;
- 
-@@ -205,151 +218,44 @@ ssh_rsa_verify(const struct sshkey *key,
- 			sigblob = osigblob; /* put it back for clear/free */
- 			ret = SSH_ERR_ALLOC_FAIL;
- 			goto out;
- 		}
- 		memmove(sigblob + diff, sigblob, len);
+@@ -287,140 +300,36 @@ ssh_rsa_verify(const struct sshkey *key,
  		explicit_bzero(sigblob, diff);
  		len = modlen;
  	}
@@ -1010,11 +796,8 @@ diff --git a/ssh-rsa.c b/ssh-rsa.c
 -	ret = openssh_RSA_verify(hash_alg, digest, dlen, sigblob, len,
 -	    key->rsa);
   out:
- 	if (sigblob != NULL) {
- 		explicit_bzero(sigblob, len);
- 		free(sigblob);
- 	}
- 	free(ktype);
+ 	freezero(sigblob, len);
+ 	free(sigtype);
  	sshbuf_free(b);
 -	explicit_bzero(digest, sizeof(digest));
 -	return ret;
@@ -1135,27 +918,24 @@ diff --git a/ssh-rsa.c b/ssh-rsa.c
 -	}
 -	ret = 0;
 -done:
--	if (decrypted) {
--		explicit_bzero(decrypted, rsasize);
--		free(decrypted);
--	}
+-	freezero(decrypted, rsasize);
  	return ret;
  }
  #endif /* WITH_OPENSSL */
-diff --git a/sshkey.c b/sshkey.c
-index dbb16e2..9508b8f 100644
---- a/sshkey.c
-+++ b/sshkey.c
-@@ -58,6 +58,7 @@
- #define SSHKEY_INTERNAL
+Index: openssh/sshkey.c
+===================================================================
+--- openssh.orig/sshkey.c
++++ openssh/sshkey.c
+@@ -57,6 +57,7 @@
  #include "sshkey.h"
+ #include "sshkey-xmss.h"
  #include "match.h"
 +#include "fips.h"
  
- /* openssh private key file format */
- #define MARK_BEGIN		"-----BEGIN OPENSSH PRIVATE KEY-----\n"
-@@ -115,12 +116,51 @@ static const struct keytype keytypes[] = {
- 	{ NULL, NULL, -1, -1, 0, 0 }
+ #include "xmss_fast.h"
+ 
+@@ -143,12 +144,51 @@ static const struct keytype keytypes[] =
+ 	{ NULL, NULL, NULL, -1, -1, 0, 0 }
  };
  
 +static const struct keytype keytypes_fips140_2[] = {
@@ -1207,7 +987,7 @@ index dbb16e2..9508b8f 100644
  		if (kt->type == k->type)
  			return kt->shortname;
  	}
-@@ -132,7 +172,7 @@ sshkey_ssh_name_from_type_nid(int type, int nid)
+@@ -160,7 +200,7 @@ sshkey_ssh_name_from_type_nid(int type,
  {
  	const struct keytype *kt;
  
@@ -1216,7 +996,7 @@ index dbb16e2..9508b8f 100644
  		if (kt->type == type && (kt->nid == 0 || kt->nid == nid))
  			return kt->name;
  	}
-@@ -144,7 +184,7 @@ sshkey_type_is_cert(int type)
+@@ -172,7 +212,7 @@ sshkey_type_is_cert(int type)
  {
  	const struct keytype *kt;
  
@@ -1225,7 +1005,7 @@ index dbb16e2..9508b8f 100644
  		if (kt->type == type)
  			return kt->cert;
  	}
-@@ -169,7 +209,7 @@ sshkey_type_from_name(const char *name)
+@@ -197,7 +237,7 @@ sshkey_type_from_name(const char *name)
  {
  	const struct keytype *kt;
  
@@ -1234,7 +1014,7 @@ index dbb16e2..9508b8f 100644
  		/* Only allow shortname matches for plain key types */
  		if ((kt->name != NULL && strcmp(name, kt->name) == 0) ||
  		    (!kt->cert && strcasecmp(kt->shortname, name) == 0))
-@@ -183,7 +223,7 @@ sshkey_ecdsa_nid_from_name(const char *name)
+@@ -211,7 +251,7 @@ sshkey_ecdsa_nid_from_name(const char *n
  {
  	const struct keytype *kt;
  
@@ -1243,7 +1023,7 @@ index dbb16e2..9508b8f 100644
  		if (kt->type != KEY_ECDSA && kt->type != KEY_ECDSA_CERT)
  			continue;
  		if (kt->name != NULL && strcmp(name, kt->name) == 0)
-@@ -199,7 +239,7 @@ key_alg_list(int certs_only, int plain_only)
+@@ -227,7 +267,7 @@ sshkey_alg_list(int certs_only, int plai
  	size_t nlen, rlen = 0;
  	const struct keytype *kt;
  
@@ -1252,7 +1032,7 @@ index dbb16e2..9508b8f 100644
  		if (kt->name == NULL)
  			continue;
  		if (!include_sigonly && kt->sigonly)
-@@ -243,7 +283,7 @@ sshkey_names_valid2(const char *names, int allow_wildcard)
+@@ -269,7 +309,7 @@ sshkey_names_valid2(const char *names, i
  				 * If any has a positive or negative match then
  				 * the component is accepted.
  				 */
@@ -1261,7 +1041,7 @@ index dbb16e2..9508b8f 100644
  					if (match_pattern_list(kt->name,
  					    p, 0) != 0)
  						break;
-@@ -1663,6 +1703,10 @@ sshkey_generate(int type, u_int bits, struct sshkey **keyp)
+@@ -1651,6 +1691,10 @@ sshkey_generate(int type, u_int bits, st
  		return SSH_ERR_ALLOC_FAIL;
  	switch (type) {
  	case KEY_ED25519:
@@ -1272,7 +1052,7 @@ index dbb16e2..9508b8f 100644
  		if ((k->ed25519_pk = malloc(ED25519_PK_SZ)) == NULL ||
  		    (k->ed25519_sk = malloc(ED25519_SK_SZ)) == NULL) {
  			ret = SSH_ERR_ALLOC_FAIL;
-@@ -3538,7 +3582,7 @@ sshkey_private_to_fileblob(struct sshkey *key, struct sshbuf *blob,
+@@ -3730,7 +3774,7 @@ sshkey_private_to_fileblob(struct sshkey
  	case KEY_DSA:
  	case KEY_ECDSA:
  	case KEY_RSA:
@@ -1281,10 +1061,10 @@ index dbb16e2..9508b8f 100644
  			return sshkey_private_to_blob2(key, blob, passphrase,
  			    comment, new_format_cipher, new_format_rounds);
  		}
-@@ -3546,6 +3590,10 @@ sshkey_private_to_fileblob(struct sshkey *key, struct sshbuf *blob,
- 		    passphrase, comment);
- #endif /* WITH_OPENSSL */
- 	case KEY_ED25519:
+@@ -3741,6 +3785,10 @@ sshkey_private_to_fileblob(struct sshkey
+ #ifdef WITH_XMSS
+ 	case KEY_XMSS:
+ #endif /* WITH_XMSS */
 +		if (fips_mode()) {
 +			/* ED25519 not supported in FIPS mode */
 +			return SSH_ERR_KEY_TYPE_UNKNOWN;
@@ -1292,10 +1072,10 @@ index dbb16e2..9508b8f 100644
  		return sshkey_private_to_blob2(key, blob, passphrase,
  		    comment, new_format_cipher, new_format_rounds);
  	default:
-@@ -3854,11 +3902,17 @@ sshkey_parse_private_fileblob_type(struct sshbuf *blob, int type,
- 		    passphrase, keyp);
- #endif /* WITH_OPENSSL */
- 	case KEY_ED25519:
+@@ -3927,11 +3975,17 @@ sshkey_parse_private_fileblob_type(struc
+ #ifdef WITH_XMSS
+ 	case KEY_XMSS:
+ #endif /* WITH_XMSS */
 +		if (fips_mode()) {
 +			/* ED25519 keys unavailable in FIPS mode */
 +			return SSH_ERR_INVALID_FORMAT;
@@ -1312,11 +1092,11 @@ index dbb16e2..9508b8f 100644
  		/* Do not fallback to PEM parser if only passphrase is wrong. */
  		if (r == 0 || r == SSH_ERR_KEY_WRONG_PASSPHRASE)
  			return r;
-diff --git a/readconf.c b/readconf.c
-index 1d03bdf..2bde149 100644
---- a/readconf.c
-+++ b/readconf.c
-@@ -61,6 +61,7 @@
+Index: openssh/readconf.c
+===================================================================
+--- openssh.orig/readconf.c
++++ openssh/readconf.c
+@@ -69,6 +69,7 @@
  #include "uidswap.h"
  #include "myproposal.h"
  #include "digest.h"
@@ -1324,58 +1104,81 @@ index 1d03bdf..2bde149 100644
  
  /* Format of the configuration file:
  
-@@ -1855,12 +1856,12 @@ fill_default_options(Options * options)
+@@ -2083,7 +2084,7 @@ fill_default_options(Options * options)
  		options->fingerprint_hash = SSH_FP_HASH_DEFAULT;
  	if (options->update_hostkeys == -1)
  		options->update_hostkeys = 0;
--	if (kex_assemble_names(KEX_CLIENT_ENCRYPT, &options->ciphers) != 0 ||
--	    kex_assemble_names(KEX_CLIENT_MAC, &options->macs) != 0 ||
--	    kex_assemble_names(KEX_CLIENT_KEX, &options->kex_algorithms) != 0 ||
--	    kex_assemble_names(KEX_DEFAULT_PK_ALG,
-+	if (kex_assemble_names(fips_mode() ? KEX_FIPS_140_2_CLIENT_ENCRYPT : KEX_CLIENT_ENCRYPT, &options->ciphers) != 0 ||
-+	    kex_assemble_names(fips_mode() ? KEX_FIPS_140_2_CLIENT_MAC : KEX_CLIENT_MAC, &options->macs) != 0 ||
-+	    kex_assemble_names(fips_mode() ? KEX_FIPS_140_2_CLIENT_KEX : KEX_CLIENT_KEX, &options->kex_algorithms) != 0 ||
-+	    kex_assemble_names(fips_mode() ? KEX_FIPS_140_2_PK_ALG : KEX_DEFAULT_PK_ALG,
- 	    &options->hostbased_key_types) != 0 ||
--	    kex_assemble_names(KEX_DEFAULT_PK_ALG,
-+	    kex_assemble_names(fips_mode() ? KEX_FIPS_140_2_PK_ALG : KEX_DEFAULT_PK_ALG,
- 	    &options->pubkey_key_types) != 0)
- 		fatal("%s: kex_assemble_names failed", __func__);
- 
-diff --git a/servconf.c b/servconf.c
---- a/servconf.c
-+++ b/servconf.c
-@@ -57,6 +57,7 @@
+-
++	    
+ 	/* Expand KEX name lists */
+ 	all_cipher = cipher_alg_list(',', 0);
+ 	all_mac = mac_alg_list(',');
+@@ -2095,11 +2096,19 @@ fill_default_options(Options * options)
+ 		    defaults, all)) != 0) \
+ 			fatal("%s: %s: %s", __func__, #what, ssh_err(r)); \
+ 	} while (0)
+-	ASSEMBLE(ciphers, KEX_SERVER_ENCRYPT, all_cipher);
+-	ASSEMBLE(macs, KEX_SERVER_MAC, all_mac);
+-	ASSEMBLE(kex_algorithms, KEX_SERVER_KEX, all_kex);
+-	ASSEMBLE(hostbased_key_types, KEX_DEFAULT_PK_ALG, all_key);
+-	ASSEMBLE(pubkey_key_types, KEX_DEFAULT_PK_ALG, all_key);
++	if (fips_mode()) {
++	  ASSEMBLE(ciphers, KEX_FIPS_140_2_CLIENT_ENCRYPT, all_cipher);
++	  ASSEMBLE(macs, KEX_FIPS_140_2_CLIENT_MAC, all_mac);
++	  ASSEMBLE(kex_algorithms, KEX_FIPS_140_2_CLIENT_KEX, all_kex);
++	  ASSEMBLE(hostbased_key_types, KEX_FIPS_140_2_PK_ALG, all_key);
++	  ASSEMBLE(pubkey_key_types, KEX_FIPS_140_2_PK_ALG, all_key);
++	} else {
++	  ASSEMBLE(ciphers, KEX_SERVER_ENCRYPT, all_cipher);
++	  ASSEMBLE(macs, KEX_SERVER_MAC, all_mac);
++	  ASSEMBLE(kex_algorithms, KEX_SERVER_KEX, all_kex);
++	  ASSEMBLE(hostbased_key_types, KEX_DEFAULT_PK_ALG, all_key);
++	  ASSEMBLE(pubkey_key_types, KEX_DEFAULT_PK_ALG, all_key);
++	}
+ #undef ASSEMBLE
+ 	free(all_cipher);
+ 	free(all_mac);
+Index: openssh/servconf.c
+===================================================================
+--- openssh.orig/servconf.c
++++ openssh/servconf.c
+@@ -64,6 +64,7 @@
  #include "auth.h"
  #include "myproposal.h"
  #include "digest.h"
 +#include "fips.h"
  
- static void add_listen_addr(ServerOptions *, char *, int);
- static void add_one_listen_addr(ServerOptions *, char *, int);
-@@ -181,14 +182,15 @@ option_clear_or_none(const char *o)
- static void
- assemble_algorithms(ServerOptions *o)
- {
--	if (kex_assemble_names(KEX_SERVER_ENCRYPT, &o->ciphers) != 0 ||
--	    kex_assemble_names(KEX_SERVER_MAC, &o->macs) != 0 ||
--	    kex_assemble_names(KEX_SERVER_KEX, &o->kex_algorithms) != 0 ||
--	    kex_assemble_names(KEX_DEFAULT_PK_ALG,
-+	if (kex_assemble_names(fips_mode() ? KEX_FIPS_140_2_SERVER_ENCRYPT : KEX_SERVER_ENCRYPT, &o->ciphers) != 0 ||
-+	    kex_assemble_names(fips_mode() ? KEX_FIPS_140_2_SERVER_MAC : KEX_SERVER_MAC, &o->macs) != 0 ||
-+	    kex_assemble_names(fips_mode() ? KEX_FIPS_140_2_SERVER_KEX : KEX_SERVER_KEX, &o->kex_algorithms) != 0 ||
-+	    kex_assemble_names(fips_mode() ? KEX_FIPS_140_2_PK_ALG : KEX_DEFAULT_PK_ALG,
- 	    &o->hostkeyalgorithms) != 0 ||
--	    kex_assemble_names(KEX_DEFAULT_PK_ALG,
-+	    kex_assemble_names(fips_mode() ? KEX_FIPS_140_2_PK_ALG : KEX_DEFAULT_PK_ALG,
- 	    &o->hostbased_key_types) != 0 ||
--	    kex_assemble_names(KEX_DEFAULT_PK_ALG, &o->pubkey_key_types) != 0)
-+	    kex_assemble_names(fips_mode() ? KEX_FIPS_140_2_PK_ALG : KEX_DEFAULT_PK_ALG,
-+	    &o->pubkey_key_types) != 0)
- 		fatal("kex_assemble_names failed");
- }
- 
-@@ -1846,6 +1848,9 @@ process_server_config_line(ServerOptions *options, char *line,
+ static void add_listen_addr(ServerOptions *, const char *,
+     const char *, int);
+@@ -204,12 +205,21 @@ assemble_algorithms(ServerOptions *o)
+ 		if ((r = kex_assemble_names(&o->what, defaults, all)) != 0) \
+ 			fatal("%s: %s: %s", __func__, #what, ssh_err(r)); \
+ 	} while (0)
+-	ASSEMBLE(ciphers, KEX_SERVER_ENCRYPT, all_cipher);
+-	ASSEMBLE(macs, KEX_SERVER_MAC, all_mac);
+-	ASSEMBLE(kex_algorithms, KEX_SERVER_KEX, all_kex);
+-	ASSEMBLE(hostkeyalgorithms, KEX_DEFAULT_PK_ALG, all_key);
+-	ASSEMBLE(hostbased_key_types, KEX_DEFAULT_PK_ALG, all_key);
+-	ASSEMBLE(pubkey_key_types, KEX_DEFAULT_PK_ALG, all_key);
++	if (fips_mode()) {
++	  ASSEMBLE(ciphers, KEX_FIPS_140_2_SERVER_ENCRYPT, all_cipher);
++	  ASSEMBLE(macs, KEX_FIPS_140_2_SERVER_MAC, all_mac);
++	  ASSEMBLE(kex_algorithms, KEX_FIPS_140_2_SERVER_KEX, all_kex);
++	  ASSEMBLE(hostkeyalgorithms, KEX_FIPS_140_2_PK_ALG, all_key);
++	  ASSEMBLE(hostbased_key_types, KEX_FIPS_140_2_PK_ALG, all_key);
++	  ASSEMBLE(pubkey_key_types, KEX_FIPS_140_2_PK_ALG, all_key);
++	} else {
++	  ASSEMBLE(ciphers, KEX_SERVER_ENCRYPT, all_cipher);
++	  ASSEMBLE(macs, KEX_SERVER_MAC, all_mac);
++	  ASSEMBLE(kex_algorithms, KEX_SERVER_KEX, all_kex);
++	  ASSEMBLE(hostkeyalgorithms, KEX_DEFAULT_PK_ALG, all_key);
++	  ASSEMBLE(hostbased_key_types, KEX_DEFAULT_PK_ALG, all_key);
++	  ASSEMBLE(pubkey_key_types, KEX_DEFAULT_PK_ALG, all_key);
++	}
+ #undef ASSEMBLE
+ 	free(all_cipher);
+ 	free(all_mac);
+@@ -2123,6 +2133,9 @@ process_server_config_line(ServerOptions
  		if ((value = ssh_digest_alg_by_name(arg)) == -1)
  			fatal("%.200s line %d: Invalid hash algorithm \"%s\".",
  			    filename, linenum, arg);

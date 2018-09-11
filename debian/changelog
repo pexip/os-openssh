@@ -1,3 +1,9 @@
+openssh (1:7.8p1-0pexip1) pexip; urgency=medium
+
+  * New upstream release
+
+ -- Vincent Sanders <vince@pexip.com>  Tue, 11 Sep 2018 12:42:03 +0000
+
 openssh (1:7.6p1-0pexip4) pexip; urgency=low
 
   * Build-Depend on libssl 1.0.x

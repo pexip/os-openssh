@@ -20,11 +20,11 @@ Patch-Name: syslog-level-silent.patch
  ssh.c | 2 +-
  2 files changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/log.c b/log.c
-index 32e1d2e..53e7b65 100644
---- a/log.c
-+++ b/log.c
-@@ -94,6 +94,7 @@ static struct {
+Index: openssh/log.c
+===================================================================
+--- openssh.orig/log.c
++++ openssh/log.c
+@@ -93,6 +93,7 @@ static struct {
  	LogLevel val;
  } log_levels[] =
  {
@@ -32,11 +32,11 @@ index 32e1d2e..53e7b65 100644
  	{ "QUIET",	SYSLOG_LEVEL_QUIET },
  	{ "FATAL",	SYSLOG_LEVEL_FATAL },
  	{ "ERROR",	SYSLOG_LEVEL_ERROR },
-diff --git a/ssh.c b/ssh.c
-index 1e6cb90..3e63708 100644
---- a/ssh.c
-+++ b/ssh.c
-@@ -965,7 +965,7 @@ main(int ac, char **av)
+Index: openssh/ssh.c
+===================================================================
+--- openssh.orig/ssh.c
++++ openssh/ssh.c
+@@ -1252,7 +1252,7 @@ main(int ac, char **av)
  	/* Do not allocate a tty if stdin is not a tty. */
  	if ((!isatty(fileno(stdin)) || stdin_null_flag) &&
  	    options.request_tty != REQUEST_TTY_FORCE) {

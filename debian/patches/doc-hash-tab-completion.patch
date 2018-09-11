@@ -12,11 +12,11 @@ Patch-Name: doc-hash-tab-completion.patch
  ssh_config.5 | 3 +++
  1 file changed, 3 insertions(+)
 
-diff --git a/ssh_config.5 b/ssh_config.5
-index 4bf7cbb..1d500e9 100644
---- a/ssh_config.5
-+++ b/ssh_config.5
-@@ -740,6 +740,9 @@ Note that existing names and addresses in known hosts files
+Index: openssh/ssh_config.5
+===================================================================
+--- openssh.orig/ssh_config.5
++++ openssh/ssh_config.5
+@@ -743,6 +743,9 @@ Note that existing names and addresses i
  will not be converted automatically,
  but may be manually hashed using
  .Xr ssh-keygen 1 .
