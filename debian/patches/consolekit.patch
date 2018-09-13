@@ -602,7 +602,7 @@ Index: openssh/monitor_wrap.c
 ===================================================================
 --- openssh.orig/monitor_wrap.c
 +++ openssh/monitor_wrap.c
-@@ -1025,3 +1025,38 @@ mm_ssh_gssapi_userok(char *user)
+@@ -1025,3 +1025,39 @@ mm_ssh_gssapi_userok(char *user)
  	return (authenticated);
  }
  #endif /* GSSAPI */
@@ -627,6 +627,7 @@ Index: openssh/monitor_wrap.c
 +		fatal("%s: buffer error: %s", __func__, ssh_err(r));
 +
 +	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_CONSOLEKIT_REGISTER, m);
++	sshbuf_reset(m);
 +
 +	mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_CONSOLEKIT_REGISTER, m);
 +	if ((r = sshbuf_get_cstring(m, &cookie, NULL)) != 0)
