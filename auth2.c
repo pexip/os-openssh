@@ -1,4 +1,4 @@
-/* $OpenBSD: auth2.c,v 1.143 2017/06/24 06:34:38 djm Exp $ */
+/* $OpenBSD: auth2.c,v 1.149 2018/07/11 18:53:29 markus Exp $ */
 /*
  * Copyright (c) 2000 Markus Friedl.  All rights reserved.
  *
@@ -41,28 +41,30 @@
 #include "ssh2.h"
 #include "packet.h"
 #include "log.h"
-#include "buffer.h"
+#include "sshbuf.h"
 #include "misc.h"
 #include "servconf.h"
 #include "compat.h"
-#include "key.h"
+#include "sshkey.h"
 #include "hostfile.h"
 #include "auth.h"
 #include "dispatch.h"
 #include "pathnames.h"
-#include "buffer.h"
+#include "sshbuf.h"
+#include "ssherr.h"
 
 #ifdef GSSAPI
 #include "ssh-gss.h"
 #endif
 #include "monitor_wrap.h"
 #include "ssherr.h"
+#include "digest.h"
 
 /* import */
 extern ServerOptions options;
 extern u_char *session_id2;
 extern u_int session_id2_len;
-extern Buffer loginmsg;
+extern struct sshbuf *loginmsg;
 
 /* methods */
 
@@ -138,9 +140,6 @@ auth2_read_banner(void)
 void
 userauth_send_banner(const char *msg)
 {
-	if (datafellows & SSH_BUG_BANNER)
-		return;
-
 	packet_start(SSH2_MSG_USERAUTH_BANNER);
 	packet_put_cstring(msg);
 	packet_put_cstring("");		/* language, unused */
@@ -153,7 +152,7 @@ userauth_banner(void)
 {
 	char *banner = NULL;
 
-	if (options.banner == NULL || (datafellows & SSH_BUG_BANNER) != 0)
+	if (options.banner == NULL)
 		return;
 
 	if ((banner = PRIVSEP(auth2_read_banner())) == NULL)
@@ -213,6 +212,43 @@ input_service_request(int type, u_int32_t seq, struct ssh *ssh)
 	return 0;
 }
 
+#define MIN_FAIL_DELAY_SECONDS 0.005
+static double
+user_specific_delay(const char *user)
+{
+	char b[512];
+	size_t len = ssh_digest_bytes(SSH_DIGEST_SHA512);
+	u_char *hash = xmalloc(len);
+	double delay;
+
+	(void)snprintf(b, sizeof b, "%llu%s",
+	     (unsigned long long)options.timing_secret, user);
+	if (ssh_digest_memory(SSH_DIGEST_SHA512, b, strlen(b), hash, len) != 0)
+		fatal("%s: ssh_digest_memory", __func__);
+	/* 0-4.2 ms of delay */
+	delay = (double)PEEK_U32(hash) / 1000 / 1000 / 1000 / 1000;
+	freezero(hash, len);
+	debug3("%s: user specific delay %0.3lfms", __func__, delay/1000);
+	return MIN_FAIL_DELAY_SECONDS + delay;
+}
+
+static void
+ensure_minimum_time_since(double start, double seconds)
+{
+	struct timespec ts;
+	double elapsed = monotime_double() - start, req = seconds, remain;
+
+	/* if we've already passed the requested time, scale up */
+	while ((remain = seconds - elapsed) < 0.0)
+		seconds *= 2;
+
+	ts.tv_sec = remain;
+	ts.tv_nsec = (remain - ts.tv_sec) * 1000000000;
+	debug3("%s: elapsed %0.3lfms, delaying %0.3lfms (requested %0.3lfms)",
+	    __func__, elapsed*1000, remain*1000, req*1000);
+	nanosleep(&ts, NULL);
+}
+
 /*ARGSUSED*/
 static int
 input_userauth_request(int type, u_int32_t seq, struct ssh *ssh)
@@ -221,6 +257,7 @@ input_userauth_request(int type, u_int32_t seq, struct ssh *ssh)
 	Authmethod *m = NULL;
 	char *user, *service, *method, *style = NULL;
 	int authenticated = 0;
+	double tstart = monotime_double();
 
 	if (authctxt == NULL)
 		fatal("input_userauth_request: no authctxt");
@@ -289,6 +326,9 @@ input_userauth_request(int type, u_int32_t seq, struct ssh *ssh)
 		debug2("input_userauth_request: try method %s", method);
 		authenticated =	m->userauth(ssh);
 	}
+	if (!authctxt->authenticated)
+		ensure_minimum_time_since(tstart,
+		    user_specific_delay(authctxt->user));
 	userauth_finish(ssh, authenticated, method, NULL);
 
 	free(service);
@@ -313,7 +353,7 @@ userauth_finish(struct ssh *ssh, int authenticated, const char *method,
 
 	/* Special handling for root */
 	if (authenticated && authctxt->pw->pw_uid == 0 &&
-	    !auth_root_allowed(method)) {
+	    !auth_root_allowed(ssh, method)) {
 		authenticated = 0;
 #ifdef SSH_AUDIT_EVENTS
 		PRIVSEP(audit_event(SSH_LOGIN_ROOT_DENIED));
@@ -339,11 +379,15 @@ userauth_finish(struct ssh *ssh, int authenticated, const char *method,
 
 #ifdef USE_PAM
 	if (options.use_pam && authenticated) {
+		int r;
+
 		if (!PRIVSEP(do_pam_account())) {
 			/* if PAM returned a message, send it to the user */
-			if (buffer_len(&loginmsg) > 0) {
-				buffer_append(&loginmsg, "\0", 1);
-				userauth_send_banner(buffer_ptr(&loginmsg));
+			if (sshbuf_len(loginmsg) > 0) {
+				if ((r = sshbuf_put(loginmsg, "\0", 1)) != 0)
+					fatal("%s: buffer error: %s",
+					    __func__, ssh_err(r));
+				userauth_send_banner(sshbuf_ptr(loginmsg));
 				packet_write_wait();
 			}
 			fatal("Access denied for user %s by PAM account "
@@ -351,13 +395,6 @@ userauth_finish(struct ssh *ssh, int authenticated, const char *method,
 		}
 	}
 #endif
-
-#ifdef _UNICOS
-	if (authenticated && cray_access_denied(authctxt->user)) {
-		authenticated = 0;
-		fatal("Access denied for user %s.", authctxt->user);
-	}
-#endif /* _UNICOS */
 
 	if (authenticated == 1) {
 		/* turn off userauth */
@@ -369,7 +406,6 @@ userauth_finish(struct ssh *ssh, int authenticated, const char *method,
 		authctxt->success = 1;
 		ssh_packet_set_log_preamble(ssh, "user %s", authctxt->user);
 	} else {
-
 		/* Allow initial try of "none" auth without failure penalty */
 		if (!partial && !authctxt->server_caused_failure &&
 		    (authctxt->attempt > 1 || strcmp(method, "none") != 0))
@@ -420,11 +456,12 @@ auth2_method_allowed(Authctxt *authctxt, const char *method,
 static char *
 authmethods_get(Authctxt *authctxt)
 {
-	Buffer b;
+	struct sshbuf *b;
 	char *list;
-	u_int i;
+	int i, r;
 
-	buffer_init(&b);
+	if ((b = sshbuf_new()) == NULL)
+		fatal("%s: sshbuf_new failed", __func__);
 	for (i = 0; authmethods[i] != NULL; i++) {
 		if (strcmp(authmethods[i]->name, "none") == 0)
 			continue;
@@ -434,14 +471,13 @@ authmethods_get(Authctxt *authctxt)
 		if (!auth2_method_allowed(authctxt, authmethods[i]->name,
 		    NULL))
 			continue;
-		if (buffer_len(&b) > 0)
-			buffer_append(&b, ",", 1);
-		buffer_append(&b, authmethods[i]->name,
-		    strlen(authmethods[i]->name));
+		if ((r = sshbuf_putf(b, "%s%s", sshbuf_len(b) ? "," : "",
+		    authmethods[i]->name)) != 0)
+			fatal("%s: buffer error: %s", __func__, ssh_err(r));
 	}
-	if ((list = sshbuf_dup_string(&b)) == NULL)
+	if ((list = sshbuf_dup_string(b)) == NULL)
 		fatal("%s: sshbuf_dup_string failed", __func__);
-	buffer_free(&b);
+	sshbuf_free(b);
 	return list;
 }
 
