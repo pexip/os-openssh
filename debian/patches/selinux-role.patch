@@ -116,8 +116,9 @@ Index: openssh/monitor.c
 +	    (r = sshbuf_get_cstring(m, &authctxt->style, NULL)) != 0 ||
 +	    (r = sshbuf_get_cstring(m, &authctxt->role, NULL)) != 0)
  		fatal("%s: buffer error: %s", __func__, ssh_err(r));
- 	debug3("%s: service=%s, style=%s",
+-	debug3("%s: service=%s, style=%s",
 -	    __func__, authctxt->service, authctxt->style);
++	debug3("%s: service=%s, style=%s, role=%s",
 +	    __func__, authctxt->service, authctxt->style, authctxt->role);
  
  	if (strlen(authctxt->style) == 0) {
