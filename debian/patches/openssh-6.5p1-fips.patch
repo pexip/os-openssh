@@ -940,31 +940,31 @@ Index: openssh/sshkey.c
  
 +static const struct keytype keytypes_fips140_2[] = {
 +#ifdef WITH_OPENSSL
-+	{ "ssh-rsa", "RSA", KEY_RSA, 0, 0, 0 },
-+	{ "rsa-sha2-256", "RSA", KEY_RSA, 0, 0, 1 },
-+	{ "rsa-sha2-512", "RSA", KEY_RSA, 0, 0, 1 },
-+	{ "ssh-dss", "DSA", KEY_DSA, 0, 0, 0 },
++	{ "ssh-rsa", "RSA", NULL, KEY_RSA, 0, 0, 0 },
++	{ "rsa-sha2-256", "RSA", NULL, KEY_RSA, 0, 0, 1 },
++	{ "rsa-sha2-512", "RSA", NULL, KEY_RSA, 0, 0, 1 },
++	{ "ssh-dss", "DSA", NULL, KEY_DSA, 0, 0, 0 },
 +# ifdef OPENSSL_HAS_ECC
-+	{ "ecdsa-sha2-nistp256", "ECDSA", KEY_ECDSA, NID_X9_62_prime256v1, 0, 0 },
-+	{ "ecdsa-sha2-nistp384", "ECDSA", KEY_ECDSA, NID_secp384r1, 0, 0 },
++	{ "ecdsa-sha2-nistp256", "ECDSA", NULL, KEY_ECDSA, NID_X9_62_prime256v1, 0, 0 },
++	{ "ecdsa-sha2-nistp384", "ECDSA", NULL, KEY_ECDSA, NID_secp384r1, 0, 0 },
 +#  ifdef OPENSSL_HAS_NISTP521
-+	{ "ecdsa-sha2-nistp521", "ECDSA", KEY_ECDSA, NID_secp521r1, 0, 0 },
++	{ "ecdsa-sha2-nistp521", "ECDSA", NULL, KEY_ECDSA, NID_secp521r1, 0, 0 },
 +#  endif /* OPENSSL_HAS_NISTP521 */
 +# endif /* OPENSSL_HAS_ECC */
-+	{ "ssh-rsa-cert-v01@openssh.com", "RSA-CERT", KEY_RSA_CERT, 0, 1, 0 },
-+	{ "ssh-dss-cert-v01@openssh.com", "DSA-CERT", KEY_DSA_CERT, 0, 1, 0 },
++	{ "ssh-rsa-cert-v01@openssh.com", "RSA-CERT", NULL, KEY_RSA_CERT, 0, 1, 0 },
++	{ "ssh-dss-cert-v01@openssh.com", "DSA-CERT", NULL, KEY_DSA_CERT, 0, 1, 0 },
 +# ifdef OPENSSL_HAS_ECC
-+	{ "ecdsa-sha2-nistp256-cert-v01@openssh.com", "ECDSA-CERT",
++	{ "ecdsa-sha2-nistp256-cert-v01@openssh.com", "ECDSA-CERT", NULL,
 +	    KEY_ECDSA_CERT, NID_X9_62_prime256v1, 1, 0 },
-+	{ "ecdsa-sha2-nistp384-cert-v01@openssh.com", "ECDSA-CERT",
++	{ "ecdsa-sha2-nistp384-cert-v01@openssh.com", "ECDSA-CERT", NULL,
 +	    KEY_ECDSA_CERT, NID_secp384r1, 1, 0 },
 +#  ifdef OPENSSL_HAS_NISTP521
-+	{ "ecdsa-sha2-nistp521-cert-v01@openssh.com", "ECDSA-CERT",
++	{ "ecdsa-sha2-nistp521-cert-v01@openssh.com", "ECDSA-CERT", NULL,
 +	    KEY_ECDSA_CERT, NID_secp521r1, 1, 0 },
 +#  endif /* OPENSSL_HAS_NISTP521 */
 +# endif /* OPENSSL_HAS_ECC */
 +#endif /* WITH_OPENSSL */
-+	{ NULL, NULL, -1, -1, 0, 0 }
++	{ NULL, NULL, NULL, -1, -1, 0, 0 }
 +};
 +
 +static const struct keytype *

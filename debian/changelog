@@ -1,3 +1,10 @@
+openssh (1:7.8p1-0pexip2.1) pexip; urgency=medium
+
+  * FIPS: fix keytypes table
+  * selinux-role.patch: fix format string
+
+ -- John-Mark Bell <jmb@pexip.com>  Mon, 17 Sep 2018 18:14:46 +0100
+
 openssh (1:7.8p1-0pexip2) pexip; urgency=medium
 
   * Fix consolekit.patch rebase errors
