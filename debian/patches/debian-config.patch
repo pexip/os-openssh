@@ -1,4 +1,4 @@
-From df5c8d109fb3d9ec16a487107a44300ed3006849 Mon Sep 17 00:00:00 2001
+From a433d9baa031d7136a8cf3e3807ebff83a3a8634 Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:10:18 +0000
 Subject: Various Debian-specific configuration changes
@@ -11,33 +11,38 @@ ssh: Set 'SendEnv LANG LC_*' by default (http://bugs.debian.org/264024).
 ssh: Enable HashKnownHosts by default to try to limit the spread of ssh
 worms.
 
-ssh: Enable GSSAPIAuthentication and disable GSSAPIDelegateCredentials by
-default.
+ssh: Enable GSSAPIAuthentication by default.
 
-sshd: Refer to /usr/share/doc/openssh-server/README.Debian.gz alongside
-PermitRootLogin default.
+sshd: Enable PAM, disable ChallengeResponseAuthentication, and disable
+PrintMotd.
 
-Document all of this, along with several sshd defaults set in
-debian/openssh-server.postinst.
+sshd: Enable X11Forwarding.
+
+sshd: Set 'AcceptEnv LANG LC_*' by default.
+
+sshd: Change sftp subsystem path to /usr/lib/openssh/sftp-server.
+
+Document all of this.
 
 Author: Russ Allbery <rra@debian.org>
 Forwarded: not-needed
-Last-Update: 2014-02-12
+Last-Update: 2017-10-04
 
 Patch-Name: debian-config.patch
 ---
  readconf.c    |  2 +-
- ssh_config    |  7 ++++++-
+ ssh.1         | 21 +++++++++++++++++++++
+ ssh_config    |  6 +++++-
  ssh_config.5  | 19 ++++++++++++++++++-
- sshd_config   |  1 +
- sshd_config.5 | 25 +++++++++++++++++++++++++
- 5 files changed, 51 insertions(+), 3 deletions(-)
+ sshd_config   | 16 ++++++++++------
+ sshd_config.5 | 22 ++++++++++++++++++++++
+ 6 files changed, 77 insertions(+), 9 deletions(-)
 
 diff --git a/readconf.c b/readconf.c
-index 32c4b42..5429fc2 100644
+index 6b01f20d2..661b8bf40 100644
 --- a/readconf.c
 +++ b/readconf.c
-@@ -1640,7 +1640,7 @@ fill_default_options(Options * options)
+@@ -2000,7 +2000,7 @@ fill_default_options(Options * options)
  	if (options->forward_x11 == -1)
  		options->forward_x11 = 0;
  	if (options->forward_x11_trusted == -1)
@@ -45,9 +50,48 @@ index 32c4b42..5429fc2 100644
 +		options->forward_x11_trusted = 1;
  	if (options->forward_x11_timeout == -1)
  		options->forward_x11_timeout = 1200;
- 	if (options->exit_on_forward_failure == -1)
+ 	/*
+diff --git a/ssh.1 b/ssh.1
+index ad1ed0f86..1bcc8edab 100644
+--- a/ssh.1
++++ b/ssh.1
+@@ -782,6 +782,16 @@ directive in
+ .Xr ssh_config 5
+ for more information.
+ .Pp
++(Debian-specific: X11 forwarding is not subjected to X11 SECURITY extension
++restrictions by default, because too many programs currently crash in this
++mode.
++Set the
++.Cm ForwardX11Trusted
++option to
++.Dq no
++to restore the upstream behaviour.
++This may change in future depending on client-side improvements.)
++.Pp
+ .It Fl x
+ Disables X11 forwarding.
+ .Pp
+@@ -790,6 +800,17 @@ Enables trusted X11 forwarding.
+ Trusted X11 forwardings are not subjected to the X11 SECURITY extension
+ controls.
+ .Pp
++(Debian-specific: This option does nothing in the default configuration: it
++is equivalent to
++.Dq Cm ForwardX11Trusted No yes ,
++which is the default as described above.
++Set the
++.Cm ForwardX11Trusted
++option to
++.Dq no
++to restore the upstream behaviour.
++This may change in future depending on client-side improvements.)
++.Pp
+ .It Fl y
+ Send log information using the
+ .Xr syslog 3
 diff --git a/ssh_config b/ssh_config
-index 228e5ab..c9386aa 100644
+index bcb9f153d..1b676fb2c 100644
 --- a/ssh_config
 +++ b/ssh_config
 @@ -17,9 +17,10 @@
@@ -59,19 +103,18 @@ index 228e5ab..c9386aa 100644
  #   ForwardAgent no
  #   ForwardX11 no
 +#   ForwardX11Trusted yes
- #   RhostsRSAAuthentication no
- #   RSAAuthentication yes
  #   PasswordAuthentication yes
-@@ -48,3 +49,7 @@
+ #   HostbasedAuthentication no
+ #   GSSAPIAuthentication no
+@@ -46,3 +47,6 @@
  #   VisualHostKey no
  #   ProxyCommand ssh -q -W %h:%p gateway.example.com
  #   RekeyLimit 1G 1h
 +    SendEnv LANG LC_*
 +    HashKnownHosts yes
 +    GSSAPIAuthentication yes
-+    GSSAPIDelegateCredentials no
 diff --git a/ssh_config.5 b/ssh_config.5
-index 1d500e9..22e6372 100644
+index a91355726..1a8e24bd1 100644
 --- a/ssh_config.5
 +++ b/ssh_config.5
 @@ -71,6 +71,22 @@ Since the first obtained value for each parameter is used, more
@@ -94,36 +137,77 @@ index 1d500e9..22e6372 100644
 +.Cm GSSAPIAuthentication No yes
 +.El
 +.Pp
- The configuration file has the following format:
+ The file contains keyword-argument pairs, one per line.
+ Lines starting with
+ .Ql #
+@@ -699,11 +715,12 @@ elapsed.
+ .It Cm ForwardX11Trusted
+ If this option is set to
+ .Cm yes ,
++(the Debian-specific default),
+ remote X11 clients will have full access to the original X11 display.
  .Pp
- Empty lines and lines starting with
-@@ -654,7 +670,8 @@ token used for the session will be set to expire after 20 minutes.
- Remote clients will be refused access after this time.
- .Pp
- The default is
--.Dq no .
-+.Dq yes
-+(Debian-specific).
- .Pp
- See the X11 SECURITY extension specification for full details on
- the restrictions imposed on untrusted clients.
+ If this option is set to
+ .Cm no
+-(the default),
++(the upstream default),
+ remote X11 clients will be considered untrusted and prevented
+ from stealing or tampering with data belonging to trusted X11
+ clients.
 diff --git a/sshd_config b/sshd_config
-index d9b8594..4db32f5 100644
+index 2c48105f8..ed8272f6d 100644
 --- a/sshd_config
 +++ b/sshd_config
-@@ -41,6 +41,7 @@
- # Authentication:
+@@ -57,8 +57,9 @@ AuthorizedKeysFile	.ssh/authorized_keys
+ #PasswordAuthentication yes
+ #PermitEmptyPasswords no
  
- #LoginGraceTime 2m
-+# See /usr/share/doc/openssh-server/README.Debian.gz.
- #PermitRootLogin yes
- #StrictModes yes
- #MaxAuthTries 6
+-# Change to no to disable s/key passwords
+-#ChallengeResponseAuthentication yes
++# Change to yes to enable challenge-response passwords (beware issues with
++# some PAM modules and threads)
++ChallengeResponseAuthentication no
+ 
+ # Kerberos options
+ #KerberosAuthentication no
+@@ -81,16 +82,16 @@ AuthorizedKeysFile	.ssh/authorized_keys
+ # If you just want the PAM account and session checks to run without
+ # PAM authentication, then enable this but set PasswordAuthentication
+ # and ChallengeResponseAuthentication to 'no'.
+-#UsePAM no
++UsePAM yes
+ 
+ #AllowAgentForwarding yes
+ #AllowTcpForwarding yes
+ #GatewayPorts no
+-#X11Forwarding no
++X11Forwarding yes
+ #X11DisplayOffset 10
+ #X11UseLocalhost yes
+ #PermitTTY yes
+-#PrintMotd yes
++PrintMotd no
+ #PrintLastLog yes
+ #TCPKeepAlive yes
+ #PermitUserEnvironment no
+@@ -107,8 +108,11 @@ AuthorizedKeysFile	.ssh/authorized_keys
+ # no default banner path
+ #Banner none
+ 
++# Allow client to pass locale environment variables
++AcceptEnv LANG LC_*
++
+ # override default of no subsystems
+-Subsystem	sftp	/usr/libexec/sftp-server
++Subsystem	sftp	/usr/lib/openssh/sftp-server
+ 
+ # Example of overriding settings on a per-user basis
+ #Match User anoncvs
 diff --git a/sshd_config.5 b/sshd_config.5
-index 908e0bb..90fd3f4 100644
+index 23f71fd1d..ba50a30f1 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
-@@ -57,6 +57,31 @@ Arguments may optionally be enclosed in double quotes
+@@ -56,6 +56,28 @@ Arguments may optionally be enclosed in double quotes
  .Pq \&"
  in order to represent arguments containing spaces.
  .Pp
@@ -132,10 +216,7 @@ index 908e0bb..90fd3f4 100644
 +package sets several options as standard in
 +.Pa /etc/ssh/sshd_config
 +which are not the default in
-+.Xr sshd 8 .
-+The exact list depends on whether the package was installed fresh or
-+upgraded from various possible previous versions, but includes at least the
-+following:
++.Xr sshd 8 :
 +.Pp
 +.Bl -bullet -offset indent -compact
 +.It

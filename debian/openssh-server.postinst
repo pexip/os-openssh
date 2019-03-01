@@ -16,58 +16,10 @@ get_config_option() {
 	[ -f /etc/ssh/sshd_config ] || return
 
 	# TODO: actually only one '=' allowed after option
-	perl -lne 's/\s+/ /g; print if s/^\s*'"$option"'[[:space:]=]+//i' \
+	perl -lne '
+		s/[[:space:]]+/ /g; s/[[:space:]]+$//;
+		print if s/^[[:space:]]*'"$option"'[[:space:]=]+//i' \
 	   /etc/ssh/sshd_config
-}
-
-
-set_config_option() {
-	option="$1"
-	value="$2"
-
-	perl -le '
-		$option = $ARGV[0]; $value = $ARGV[1]; $done = 0;
-		while (<STDIN>) {
-			chomp;
-			(my $match = $_) =~ s/\s+/ /g;
-			if ($match =~ s/^\s*\Q$option\E\s+.*/$option $value/) {
-				$_ = $match;
-				$done = 1;
-			}
-			print;
-		}
-		print "$option $value" unless $done;' \
-		"$option" "$value" \
-		< /etc/ssh/sshd_config > /etc/ssh/sshd_config.dpkg-new
-	chown --reference /etc/ssh/sshd_config /etc/ssh/sshd_config.dpkg-new
-	chmod --reference /etc/ssh/sshd_config /etc/ssh/sshd_config.dpkg-new
-	mv /etc/ssh/sshd_config.dpkg-new /etc/ssh/sshd_config
-}
-
-
-rename_config_option() {
-	oldoption="$1"
-	newoption="$2"
-
-	value="$(get_config_option "$oldoption")"
-	[ "$value" ] || return 0
-
-	perl -le '
-		$oldoption = $ARGV[0]; $newoption = $ARGV[1];
-		while (<STDIN>) {
-			chomp;
-			(my $match = $_) =~ s/\s+/ /g;
-			# TODO: actually only one "=" allowed after option
-			if ($match =~ s/^(\s*)\Q$oldoption\E([[:space:]=]+)/$1$newoption$2/i) {
-				$_ = $match;
-			}
-			print;
-		}' \
-		"$oldoption" "$newoption" \
-		< /etc/ssh/sshd_config > /etc/ssh/sshd_config.dpkg-new
-	chown --reference /etc/ssh/sshd_config /etc/ssh/sshd_config.dpkg-new
-	chmod --reference /etc/ssh/sshd_config /etc/ssh/sshd_config.dpkg-new
-	mv /etc/ssh/sshd_config.dpkg-new /etc/ssh/sshd_config
 }
 
 
@@ -77,18 +29,10 @@ host_keys_required() {
 		echo "$hostkeys"
 	else
 		# No HostKey directives at all, so the server picks some
-		# defaults depending on the setting of Protocol.
-		protocol="$(get_config_option Protocol)"
-		[ "$protocol" ] || protocol=1,2
-		if echo "$protocol" | grep 1 >/dev/null; then
-			echo /etc/ssh/ssh_host_key
-		fi
-		if echo "$protocol" | grep 2 >/dev/null; then
-			echo /etc/ssh/ssh_host_rsa_key
-			echo /etc/ssh/ssh_host_dsa_key
-			echo /etc/ssh/ssh_host_ecdsa_key
-			echo /etc/ssh/ssh_host_ed25519_key
-		fi
+		# defaults.
+		echo /etc/ssh/ssh_host_rsa_key
+		echo /etc/ssh/ssh_host_ecdsa_key
+		echo /etc/ssh/ssh_host_ed25519_key
 	fi
 }
 
@@ -109,15 +53,13 @@ create_key() {
 		if which restorecon >/dev/null 2>&1; then
 			restorecon "$file" "$file.pub"
 		fi
+		ssh-keygen -l -f "$file.pub"
 	fi
 }
 
 
 create_keys() {
 	hostkeys="$(host_keys_required)"
-
-	create_key "Creating SSH1 key; this may take some time ..." \
-		"$hostkeys" /etc/ssh/ssh_host_key -t rsa1
 
 	create_key "Creating SSH2 RSA key; this may take some time ..." \
 		"$hostkeys" /etc/ssh/ssh_host_rsa_key -t rsa
@@ -130,148 +72,53 @@ create_keys() {
 }
 
 
-fix_loglevel_silent() {
-	if [ "$(get_config_option LogLevel)" = SILENT ]; then
-		set_config_option LogLevel QUIET
-	fi
-}
+new_config=
 
-
-update_server_key_bits() {
-	if [ "$(get_config_option ServerKeyBits)" = 768 ]; then
-		set_config_option ServerKeyBits 1024
+cleanup() {
+	if [ "$new_config" ]; then
+		rm -f "$new_config"
 	fi
 }
 
 
 create_sshdconfig() {
-	if [ -e /etc/ssh/sshd_config ] ; then
-	    # Upgrade an existing sshd configuration.
+	# XXX cjwatson 2016-12-24: This debconf template is very confusingly
+	# named; its description is "Disable SSH password authentication for
+	# root?", so true -> prohibit-password (the upstream default),
+	# false -> yes.
+	db_get openssh-server/permit-root-login
+	permit_root_login="$RET"
+	db_get openssh-server/password-authentication
+	password_authentication="$RET"
 
-	    # This option was renamed in 3.8p1, but we never took care
-	    # of adjusting the configuration file until now.
-	    if dpkg --compare-versions "$oldversion" lt 1:4.7p1-8; then
-		rename_config_option KeepAlive TCPKeepAlive
-	    fi
-
-	    # 'LogLevel SILENT' is now equivalent to QUIET.
-	    if dpkg --compare-versions "$oldversion" lt 1:5.4p1-1; then
-		fix_loglevel_silent
-	    fi
-
-	    # Changed upstream in 5.1p1, but we forgot to update the
-	    # package-generated configuration file until now.
-	    if dpkg --compare-versions "$oldversion" lt 1:6.4p1-2; then
-		update_server_key_bits
-	    fi
-
-	    return 0
+	trap cleanup EXIT
+	new_config="$(tempfile)"
+	cp -a /usr/share/openssh/sshd_config "$new_config"
+	if [ "$permit_root_login" != true ]; then
+		sed -i 's/^#*PermitRootLogin .*/PermitRootLogin yes/' \
+			"$new_config"
 	fi
-
-	cat <<EOF > /etc/ssh/sshd_config
-# Package generated configuration file
-# See the sshd_config(5) manpage for details
-
-# What ports, IPs and protocols we listen for
-Port 22
-# Use these options to restrict which interfaces/protocols sshd will bind to
-#ListenAddress ::
-#ListenAddress 0.0.0.0
-Protocol 2
-# HostKeys for protocol version 2
-HostKey /etc/ssh/ssh_host_rsa_key
-HostKey /etc/ssh/ssh_host_dsa_key
-HostKey /etc/ssh/ssh_host_ecdsa_key
-HostKey /etc/ssh/ssh_host_ed25519_key
-#Privilege Separation is turned on for security
-UsePrivilegeSeparation yes
-
-# Lifetime and size of ephemeral version 1 server key
-KeyRegenerationInterval 3600
-ServerKeyBits 1024
-
-# Logging
-SyslogFacility AUTH
-LogLevel INFO
-
-# Authentication:
-LoginGraceTime 120
-PermitRootLogin without-password
-StrictModes yes
-
-RSAAuthentication yes
-PubkeyAuthentication yes
-#AuthorizedKeysFile	%h/.ssh/authorized_keys
-
-# Don't read the user's ~/.rhosts and ~/.shosts files
-IgnoreRhosts yes
-# For this to work you will also need host keys in /etc/ssh_known_hosts
-RhostsRSAAuthentication no
-# similar for protocol version 2
-HostbasedAuthentication no
-# Uncomment if you don't trust ~/.ssh/known_hosts for RhostsRSAAuthentication
-#IgnoreUserKnownHosts yes
-
-# To enable empty passwords, change to yes (NOT RECOMMENDED)
-PermitEmptyPasswords no
-
-# Change to yes to enable challenge-response passwords (beware issues with
-# some PAM modules and threads)
-ChallengeResponseAuthentication no
-
-# Change to no to disable tunnelled clear text passwords
-#PasswordAuthentication yes
-
-# Kerberos options
-#KerberosAuthentication no
-#KerberosGetAFSToken no
-#KerberosOrLocalPasswd yes
-#KerberosTicketCleanup yes
-
-# GSSAPI options
-#GSSAPIAuthentication no
-#GSSAPICleanupCredentials yes
-
-X11Forwarding yes
-X11DisplayOffset 10
-PrintMotd no
-PrintLastLog yes
-TCPKeepAlive yes
-#UseLogin no
-
-#MaxStartups 10:30:60
-#Banner /etc/issue.net
-
-# Allow client to pass locale environment variables
-AcceptEnv LANG LC_*
-
-Subsystem sftp /usr/lib/openssh/sftp-server
-
-# Set this to 'yes' to enable PAM authentication, account processing,
-# and session processing. If this is enabled, PAM authentication will
-# be allowed through the ChallengeResponseAuthentication and
-# PasswordAuthentication.  Depending on your PAM configuration,
-# PAM authentication via ChallengeResponseAuthentication may bypass
-# the setting of "PermitRootLogin without-password".
-# If you just want the PAM account and session checks to run without
-# PAM authentication, then enable this but set PasswordAuthentication
-# and ChallengeResponseAuthentication to 'no'.
-UsePAM yes
-EOF
+	if [ "$password_authentication" != true ]; then
+		sed -i 's/^#PasswordAuthentication .*/PasswordAuthentication no/' \
+			"$new_config"
+	fi
+	mkdir -p /etc/ssh
+	ucf --three-way --debconf-ok \
+		--sum-file /usr/share/openssh/sshd_config.md5sum \
+		"$new_config" /etc/ssh/sshd_config
+	ucfr openssh-server /etc/ssh/sshd_config
 }
 
 fix_statoverride() {
 # Remove an erronous override for sshd (we should have overridden ssh)
-	if [ -x /usr/sbin/dpkg-statoverride ]; then
-		if dpkg-statoverride --list /usr/sbin/sshd >/dev/null ; then
-			dpkg-statoverride --remove /usr/sbin/sshd
-		fi
+	if dpkg-statoverride --list /usr/sbin/sshd >/dev/null; then
+		dpkg-statoverride --remove /usr/sbin/sshd
 	fi
 }
 
 setup_sshd_user() {
 	if ! getent passwd sshd >/dev/null; then
-		adduser --quiet --system --no-create-home --home /var/run/sshd --shell /usr/sbin/nologin sshd
+		adduser --quiet --system --no-create-home --home /run/sshd --shell /usr/sbin/nologin sshd
 	fi
 }
 
@@ -281,20 +128,13 @@ if [ "$action" = configure ]; then
 	fix_statoverride
 	setup_sshd_user
 	# Renamed to /etc/ssh/moduli in 2.9.9 (!)
-	if dpkg --compare-versions "$2" lt 1:4.7p1-1; then
+	if dpkg --compare-versions "$2" lt-nl 1:4.7p1-1; then
 	    rm -f /etc/ssh/primes
 	fi
-	if dpkg --compare-versions "$2" lt 1:5.5p1-6; then
-	    rm -f /var/run/sshd/.placeholder
+	if dpkg --compare-versions "$2" lt-nl 1:5.5p1-6; then
+	    rm -f /run/sshd/.placeholder
 	fi
-	if dpkg --compare-versions "$2" lt 1:6.2p2-3 && \
-	   which initctl >/dev/null && initctl version | grep -q upstart && \
-	   ! status ssh 2>/dev/null | grep -q ' start/'; then
-	    # We must stop the sysvinit-controlled sshd before we can
-	    # restart it under Upstart.
-	    start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/sshd.pid || true
-	fi
-	if dpkg --compare-versions "$2" lt 1:6.5p1-2 && \
+	if dpkg --compare-versions "$2" lt-nl 1:6.5p1-2 && \
 	   deb-systemd-helper debian-installed ssh.socket && \
 	   deb-systemd-helper --quiet was-enabled ssh.service && \
 	   deb-systemd-helper --quiet was-enabled ssh.socket; then
@@ -302,16 +142,21 @@ if [ "$action" = configure ]; then
 	    # enabled.
 	    deb-systemd-helper disable ssh.socket >/dev/null || true
 	fi
-	if dpkg --compare-versions "$2" lt 1:6.5p1-3 && \
+	if dpkg --compare-versions "$2" lt-nl 1:6.5p1-3 && \
 	   [ -d /run/systemd/system ]; then
 	    # We must stop the sysvinit-controlled sshd before we can
 	    # restart it under systemd.
-	    start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/sshd.pid --exec /usr/sbin/sshd || true
+	    start-stop-daemon --stop --quiet --oknodo --pidfile /run/sshd.pid --exec /usr/sbin/sshd || true
 	fi
-	if dpkg --compare-versions "$2" lt-nl 1:6.6p1-1 && \
-	   [ "$(get_config_option PermitRootLogin)" = yes ] &&
-	   db_get openssh-server/permit-root-login && [ "$RET" = true ]; then
-	    set_config_option PermitRootLogin without-password
+	if dpkg --compare-versions "$2" lt-nl 1:7.9p1-5 && \
+	   [ -f /etc/ssh/moduli.dpkg-bak ]; then
+	    # Handle /etc/ssh/moduli being moved from openssh-client to
+	    # openssh-server.  If there were no user modifications, then we
+	    # don't need to do anything special here; but if there were,
+	    # then the dpkg-maintscript-helper calls from openssh-client's
+	    # maintainer scripts will have saved the old file as .dpkg-bak,
+	    # which we now move back into place.
+	    mv /etc/ssh/moduli.dpkg-bak /etc/ssh/moduli
 	fi
 fi
 

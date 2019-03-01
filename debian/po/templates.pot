@@ -29,9 +29,9 @@ msgstr ""
 msgid ""
 "Previous versions of openssh-server permitted logging in as root over SSH "
 "using password authentication. The default for new installations is now "
-"\"PermitRootLogin without-password\", which disables password authentication "
-"for root without breaking systems that have explicitly configured SSH public "
-"key authentication for root."
+"\"PermitRootLogin prohibit-password\", which disables password "
+"authentication for root without breaking systems that have explicitly "
+"configured SSH public key authentication for root."
 msgstr ""
 
 #. Type: boolean

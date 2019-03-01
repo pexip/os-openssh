@@ -1,4 +1,4 @@
-From ae32d626ed3d15cfd7f432358b63c005961921df Mon Sep 17 00:00:00 2001
+From cf3f6ac19812e4d32874304b3854b055831c2124 Mon Sep 17 00:00:00 2001
 From: Manoj Srivastava <srivasta@debian.org>
 Date: Sun, 9 Feb 2014 16:09:49 +0000
 Subject: Handle SELinux authorisation roles
@@ -9,18 +9,17 @@ SELinux maintainer, so we'll keep it until we have something better.
 
 Bug: https://bugzilla.mindrot.org/show_bug.cgi?id=1641
 Bug-Debian: http://bugs.debian.org/394795
-Last-Update: 2013-09-14
+Last-Update: 2018-08-24
 
 Patch-Name: selinux-role.patch
 ---
  auth.h                      |  1 +
- auth1.c                     |  8 +++++++-
  auth2.c                     | 10 ++++++++--
- monitor.c                   | 32 +++++++++++++++++++++++++++++---
+ monitor.c                   | 37 +++++++++++++++++++++++++++++++++----
  monitor.h                   |  2 ++
- monitor_wrap.c              | 22 ++++++++++++++++++++--
+ monitor_wrap.c              | 27 ++++++++++++++++++++++++---
  monitor_wrap.h              |  3 ++-
- openbsd-compat/port-linux.c | 27 ++++++++++++++++++++-------
+ openbsd-compat/port-linux.c | 21 ++++++++++++++-------
  openbsd-compat/port-linux.h |  4 ++--
  platform.c                  |  4 ++--
  platform.h                  |  2 +-
@@ -29,65 +28,34 @@ Patch-Name: selinux-role.patch
  sshd.c                      |  2 +-
  sshpty.c                    |  4 ++--
  sshpty.h                    |  2 +-
- 16 files changed, 104 insertions(+), 31 deletions(-)
+ 15 files changed, 99 insertions(+), 32 deletions(-)
 
 diff --git a/auth.h b/auth.h
-index 124e597..79e4ea5 100644
+index 977562f0a..90802a5eb 100644
 --- a/auth.h
 +++ b/auth.h
-@@ -59,6 +59,7 @@ struct Authctxt {
+@@ -65,6 +65,7 @@ struct Authctxt {
  	char		*service;
  	struct passwd	*pw;		/* set if 'valid' */
  	char		*style;
 +	char		*role;
- 	void		*kbdintctxt;
- 	char		*info;		/* Extra info for next auth_log */
- #ifdef BSD_AUTH
-diff --git a/auth1.c b/auth1.c
-index 0f870b3..c707390 100644
---- a/auth1.c
-+++ b/auth1.c
-@@ -380,7 +380,7 @@ void
- do_authentication(Authctxt *authctxt)
- {
- 	u_int ulen;
--	char *user, *style = NULL;
-+	char *user, *style = NULL, *role = NULL;
  
- 	/* Get the name of the user that we wish to log in as. */
- 	packet_read_expect(SSH_CMSG_USER);
-@@ -389,11 +389,17 @@ do_authentication(Authctxt *authctxt)
- 	user = packet_get_cstring(&ulen);
- 	packet_check_eom();
- 
-+	if ((role = strchr(user, '/')) != NULL)
-+		*role++ = '\0';
-+
- 	if ((style = strchr(user, ':')) != NULL)
- 		*style++ = '\0';
-+	else if (role && (style = strchr(role, ':')) != NULL)
-+		*style++ = '\0';
- 
- 	authctxt->user = user;
- 	authctxt->style = style;
-+	authctxt->role = role;
- 
- 	/* Verify that the user is a valid user. */
- 	if ((authctxt->pw = PRIVSEP(getpwnamallow(user))) != NULL)
+ 	/* Method lists for multiple authentication */
+ 	char		**auth_methods;	/* modified from server config */
 diff --git a/auth2.c b/auth2.c
-index fbe3e1b..70f2925 100644
+index a77742819..3035926ba 100644
 --- a/auth2.c
 +++ b/auth2.c
-@@ -216,7 +216,7 @@ input_userauth_request(int type, u_int32_t seq, void *ctxt)
+@@ -257,7 +257,7 @@ input_userauth_request(int type, u_int32_t seq, struct ssh *ssh)
  {
- 	Authctxt *authctxt = ctxt;
+ 	Authctxt *authctxt = ssh->authctxt;
  	Authmethod *m = NULL;
 -	char *user, *service, *method, *style = NULL;
 +	char *user, *service, *method, *style = NULL, *role = NULL;
  	int authenticated = 0;
+ 	double tstart = monotime_double();
  
- 	if (authctxt == NULL)
-@@ -228,8 +228,13 @@ input_userauth_request(int type, u_int32_t seq, void *ctxt)
+@@ -270,8 +270,13 @@ input_userauth_request(int type, u_int32_t seq, struct ssh *ssh)
  	debug("userauth-request for user %s service %s method %s", user, service, method);
  	debug("attempt %d failures %d", authctxt->attempt, authctxt->failures);
  
@@ -101,7 +69,7 @@ index fbe3e1b..70f2925 100644
  
  	if (authctxt->attempt++ == 0) {
  		/* setup auth context */
-@@ -253,8 +258,9 @@ input_userauth_request(int type, u_int32_t seq, void *ctxt)
+@@ -298,8 +303,9 @@ input_userauth_request(int type, u_int32_t seq, struct ssh *ssh)
  		    use_privsep ? " [net]" : "");
  		authctxt->service = xstrdup(service);
  		authctxt->style = style ? xstrdup(style) : NULL;
@@ -113,18 +81,18 @@ index fbe3e1b..70f2925 100644
  		if (auth2_setup_methods_lists(authctxt) != 0)
  			packet_disconnect("no authentication methods enabled");
 diff --git a/monitor.c b/monitor.c
-index 2918814..11eac63 100644
+index eabc1e89b..08fddabd7 100644
 --- a/monitor.c
 +++ b/monitor.c
-@@ -145,6 +145,7 @@ int mm_answer_sign(int, Buffer *);
- int mm_answer_pwnamallow(int, Buffer *);
- int mm_answer_auth2_read_banner(int, Buffer *);
- int mm_answer_authserv(int, Buffer *);
-+int mm_answer_authrole(int, Buffer *);
- int mm_answer_authpassword(int, Buffer *);
- int mm_answer_bsdauthquery(int, Buffer *);
- int mm_answer_bsdauthrespond(int, Buffer *);
-@@ -221,6 +222,7 @@ struct mon_table mon_dispatch_proto20[] = {
+@@ -117,6 +117,7 @@ int mm_answer_sign(int, struct sshbuf *);
+ int mm_answer_pwnamallow(int, struct sshbuf *);
+ int mm_answer_auth2_read_banner(int, struct sshbuf *);
+ int mm_answer_authserv(int, struct sshbuf *);
++int mm_answer_authrole(int, struct sshbuf *);
+ int mm_answer_authpassword(int, struct sshbuf *);
+ int mm_answer_bsdauthquery(int, struct sshbuf *);
+ int mm_answer_bsdauthrespond(int, struct sshbuf *);
+@@ -193,6 +194,7 @@ struct mon_table mon_dispatch_proto20[] = {
      {MONITOR_REQ_SIGN, MON_ONCE, mm_answer_sign},
      {MONITOR_REQ_PWNAM, MON_ONCE, mm_answer_pwnamallow},
      {MONITOR_REQ_AUTHSERV, MON_ONCE, mm_answer_authserv},
@@ -132,21 +100,24 @@ index 2918814..11eac63 100644
      {MONITOR_REQ_AUTH2_READ_BANNER, MON_ONCE, mm_answer_auth2_read_banner},
      {MONITOR_REQ_AUTHPASSWORD, MON_AUTH, mm_answer_authpassword},
  #ifdef USE_PAM
-@@ -822,6 +824,7 @@ mm_answer_pwnamallow(int sock, Buffer *m)
- 	else {
- 		/* Allow service/style information on the auth context */
- 		monitor_permit(mon_dispatch, MONITOR_REQ_AUTHSERV, 1);
-+		monitor_permit(mon_dispatch, MONITOR_REQ_AUTHROLE, 1);
- 		monitor_permit(mon_dispatch, MONITOR_REQ_AUTH2_READ_BANNER, 1);
- 	}
- #ifdef USE_PAM
-@@ -852,14 +855,37 @@ mm_answer_authserv(int sock, Buffer *m)
+@@ -817,6 +819,7 @@ mm_answer_pwnamallow(int sock, struct sshbuf *m)
  
- 	authctxt->service = buffer_get_string(m, NULL);
- 	authctxt->style = buffer_get_string(m, NULL);
+ 	/* Allow service/style information on the auth context */
+ 	monitor_permit(mon_dispatch, MONITOR_REQ_AUTHSERV, 1);
++	monitor_permit(mon_dispatch, MONITOR_REQ_AUTHROLE, 1);
+ 	monitor_permit(mon_dispatch, MONITOR_REQ_AUTH2_READ_BANNER, 1);
+ 
+ #ifdef USE_PAM
+@@ -850,16 +853,42 @@ mm_answer_authserv(int sock, struct sshbuf *m)
+ 	monitor_permit_authentications(1);
+ 
+ 	if ((r = sshbuf_get_cstring(m, &authctxt->service, NULL)) != 0 ||
+-	    (r = sshbuf_get_cstring(m, &authctxt->style, NULL)) != 0)
++	    (r = sshbuf_get_cstring(m, &authctxt->style, NULL)) != 0 ||
++	    (r = sshbuf_get_cstring(m, &authctxt->role, NULL)) != 0)
+ 		fatal("%s: buffer error: %s", __func__, ssh_err(r));
 -	debug3("%s: service=%s, style=%s",
 -	    __func__, authctxt->service, authctxt->style);
-+	authctxt->role = buffer_get_string(m, NULL);
 +	debug3("%s: service=%s, style=%s, role=%s",
 +	    __func__, authctxt->service, authctxt->style, authctxt->role);
  
@@ -164,11 +135,14 @@ index 2918814..11eac63 100644
 +}
 +
 +int
-+mm_answer_authrole(int sock, Buffer *m)
++mm_answer_authrole(int sock, struct sshbuf *m)
 +{
++	int r;
++
 +	monitor_permit_authentications(1);
 +
-+	authctxt->role = buffer_get_string(m, NULL);
++	if ((r = sshbuf_get_cstring(m, &authctxt->role, NULL)) != 0)
++		fatal("%s: buffer error: %s", __func__, ssh_err(r));
 +	debug3("%s: role=%s",
 +	    __func__, authctxt->role);
 +
@@ -180,20 +154,20 @@ index 2918814..11eac63 100644
  	return (0);
  }
  
-@@ -1464,7 +1490,7 @@ mm_answer_pty(int sock, Buffer *m)
+@@ -1501,7 +1530,7 @@ mm_answer_pty(int sock, struct sshbuf *m)
  	res = pty_allocate(&s->ptyfd, &s->ttyfd, s->tty, sizeof(s->tty));
  	if (res == 0)
  		goto error;
 -	pty_setowner(authctxt->pw, s->tty);
 +	pty_setowner(authctxt->pw, s->tty, authctxt->role);
  
- 	buffer_put_int(m, 1);
- 	buffer_put_cstring(m, s->tty);
+ 	if ((r = sshbuf_put_u32(m, 1)) != 0 ||
+ 	    (r = sshbuf_put_cstring(m, s->tty)) != 0)
 diff --git a/monitor.h b/monitor.h
-index 7f32b0c..4d5e8fa 100644
+index 44fbed589..8f65e684d 100644
 --- a/monitor.h
 +++ b/monitor.h
-@@ -68,6 +68,8 @@ enum monitor_reqtype {
+@@ -66,6 +66,8 @@ enum monitor_reqtype {
  	MONITOR_REQ_GSSSIGN = 150, MONITOR_ANS_GSSSIGN = 151,
  	MONITOR_REQ_GSSUPCREDS = 152, MONITOR_ANS_GSSUPCREDS = 153,
  
@@ -201,12 +175,12 @@ index 7f32b0c..4d5e8fa 100644
 +
  };
  
- struct mm_master;
+ struct monitor {
 diff --git a/monitor_wrap.c b/monitor_wrap.c
-index 60b987d..f75dc9d 100644
+index 1865a122a..fd4d7eb3b 100644
 --- a/monitor_wrap.c
 +++ b/monitor_wrap.c
-@@ -318,10 +318,10 @@ mm_auth2_read_banner(void)
+@@ -369,10 +369,10 @@ mm_auth2_read_banner(void)
  	return (banner);
  }
  
@@ -217,17 +191,20 @@ index 60b987d..f75dc9d 100644
 -mm_inform_authserv(char *service, char *style)
 +mm_inform_authserv(char *service, char *style, char *role)
  {
- 	Buffer m;
+ 	struct sshbuf *m;
+ 	int r;
+@@ -382,7 +382,8 @@ mm_inform_authserv(char *service, char *style)
+ 	if ((m = sshbuf_new()) == NULL)
+ 		fatal("%s: sshbuf_new failed", __func__);
+ 	if ((r = sshbuf_put_cstring(m, service)) != 0 ||
+-	    (r = sshbuf_put_cstring(m, style ? style : "")) != 0)
++	    (r = sshbuf_put_cstring(m, style ? style : "")) != 0 ||
++	    (r = sshbuf_put_cstring(m, role ? role : "")) != 0)
+ 		fatal("%s: buffer error: %s", __func__, ssh_err(r));
  
-@@ -330,12 +330,30 @@ mm_inform_authserv(char *service, char *style)
- 	buffer_init(&m);
- 	buffer_put_cstring(&m, service);
- 	buffer_put_cstring(&m, style ? style : "");
-+	buffer_put_cstring(&m, role ? role : "");
- 
- 	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_AUTHSERV, &m);
- 
- 	buffer_free(&m);
+ 	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_AUTHSERV, m);
+@@ -390,6 +391,26 @@ mm_inform_authserv(char *service, char *style)
+ 	sshbuf_free(m);
  }
  
 +/* Inform the privileged process about role */
@@ -235,53 +212,43 @@ index 60b987d..f75dc9d 100644
 +void
 +mm_inform_authrole(char *role)
 +{
-+	Buffer m;
++	struct sshbuf *m;
++	int r;
 +
 +	debug3("%s entering", __func__);
 +
-+	buffer_init(&m);
-+	buffer_put_cstring(&m, role ? role : "");
++	if ((m = sshbuf_new()) == NULL)
++		fatal("%s: sshbuf_new failed", __func__);
++	if ((r = sshbuf_put_cstring(m, role ? role : "")) != 0)
++		fatal("%s: buffer error: %s", __func__, ssh_err(r));
 +
-+	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_AUTHROLE, &m);
++	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_AUTHROLE, m);
 +
-+	buffer_free(&m);
++	sshbuf_free(m);
 +}
 +
  /* Do the password authentication */
  int
- mm_auth_password(Authctxt *authctxt, char *password)
+ mm_auth_password(struct ssh *ssh, char *password)
 diff --git a/monitor_wrap.h b/monitor_wrap.h
-index a4e9d24..9c2ee49 100644
+index 7f93144ff..79e78cc90 100644
 --- a/monitor_wrap.h
 +++ b/monitor_wrap.h
-@@ -41,7 +41,8 @@ void mm_log_handler(LogLevel, const char *, void *);
- int mm_is_monitor(void);
+@@ -43,7 +43,8 @@ int mm_is_monitor(void);
  DH *mm_choose_dh(int, int, int);
- int mm_key_sign(Key *, u_char **, u_int *, u_char *, u_int);
+ int mm_sshkey_sign(struct sshkey *, u_char **, size_t *, const u_char *, size_t,
+     const char *, u_int compat);
 -void mm_inform_authserv(char *, char *);
 +void mm_inform_authserv(char *, char *, char *);
 +void mm_inform_authrole(char *);
  struct passwd *mm_getpwnamallow(const char *);
  char *mm_auth2_read_banner(void);
- int mm_auth_password(struct Authctxt *, char *);
+ int mm_auth_password(struct ssh *, char *);
 diff --git a/openbsd-compat/port-linux.c b/openbsd-compat/port-linux.c
-index 4637a7a..de6ad3f 100644
+index 622988822..3e6e07670 100644
 --- a/openbsd-compat/port-linux.c
 +++ b/openbsd-compat/port-linux.c
-@@ -29,6 +29,12 @@
- #include <string.h>
- #include <stdio.h>
- 
-+#ifdef WITH_SELINUX
-+#include "key.h"
-+#include "hostfile.h"
-+#include "auth.h"
-+#endif
-+
- #include "log.h"
- #include "xmalloc.h"
- #include "port-linux.h"
-@@ -58,7 +64,7 @@ ssh_selinux_enabled(void)
+@@ -56,7 +56,7 @@ ssh_selinux_enabled(void)
  
  /* Return the default security context for the given username */
  static security_context_t
@@ -290,7 +257,7 @@ index 4637a7a..de6ad3f 100644
  {
  	security_context_t sc = NULL;
  	char *sename = NULL, *lvl = NULL;
-@@ -73,9 +79,16 @@ ssh_selinux_getctxbyname(char *pwname)
+@@ -71,9 +71,16 @@ ssh_selinux_getctxbyname(char *pwname)
  #endif
  
  #ifdef HAVE_GET_DEFAULT_CONTEXT_WITH_LEVEL
@@ -309,7 +276,7 @@ index 4637a7a..de6ad3f 100644
  #endif
  
  	if (r != 0) {
-@@ -105,7 +118,7 @@ ssh_selinux_getctxbyname(char *pwname)
+@@ -103,7 +110,7 @@ ssh_selinux_getctxbyname(char *pwname)
  
  /* Set the execution context to the default for the specified user */
  void
@@ -318,7 +285,7 @@ index 4637a7a..de6ad3f 100644
  {
  	security_context_t user_ctx = NULL;
  
-@@ -114,7 +127,7 @@ ssh_selinux_setup_exec_context(char *pwname)
+@@ -112,7 +119,7 @@ ssh_selinux_setup_exec_context(char *pwname)
  
  	debug3("%s: setting execution context", __func__);
  
@@ -327,7 +294,7 @@ index 4637a7a..de6ad3f 100644
  	if (setexeccon(user_ctx) != 0) {
  		switch (security_getenforce()) {
  		case -1:
-@@ -136,7 +149,7 @@ ssh_selinux_setup_exec_context(char *pwname)
+@@ -134,7 +141,7 @@ ssh_selinux_setup_exec_context(char *pwname)
  
  /* Set the TTY context for the specified user */
  void
@@ -336,7 +303,7 @@ index 4637a7a..de6ad3f 100644
  {
  	security_context_t new_tty_ctx = NULL;
  	security_context_t user_ctx = NULL;
-@@ -147,7 +160,7 @@ ssh_selinux_setup_pty(char *pwname, const char *tty)
+@@ -146,7 +153,7 @@ ssh_selinux_setup_pty(char *pwname, const char *tty)
  
  	debug3("%s: setting TTY context on %s", __func__, tty);
  
@@ -346,10 +313,10 @@ index 4637a7a..de6ad3f 100644
  	/* XXX: should these calls fatal() upon failure in enforcing mode? */
  
 diff --git a/openbsd-compat/port-linux.h b/openbsd-compat/port-linux.h
-index e3d1004..80ce13a 100644
+index 3c22a854d..c88129428 100644
 --- a/openbsd-compat/port-linux.h
 +++ b/openbsd-compat/port-linux.h
-@@ -21,8 +21,8 @@
+@@ -19,8 +19,8 @@
  
  #ifdef WITH_SELINUX
  int ssh_selinux_enabled(void);
@@ -361,7 +328,7 @@ index e3d1004..80ce13a 100644
  void ssh_selinux_setfscreatecon(const char *);
  #endif
 diff --git a/platform.c b/platform.c
-index 30fc609..4aab9a9 100644
+index 41acc9370..35654ea51 100644
 --- a/platform.c
 +++ b/platform.c
 @@ -142,7 +142,7 @@ platform_setusercontext(struct passwd *pw)
@@ -383,10 +350,10 @@ index 30fc609..4aab9a9 100644
  }
  
 diff --git a/platform.h b/platform.h
-index 1c7a45d..436ae7c 100644
+index ea4f9c584..60d72ffe7 100644
 --- a/platform.h
 +++ b/platform.h
-@@ -27,7 +27,7 @@ void platform_post_fork_parent(pid_t child_pid);
+@@ -25,7 +25,7 @@ void platform_post_fork_parent(pid_t child_pid);
  void platform_post_fork_child(void);
  int  platform_privileged_uidswap(void);
  void platform_setusercontext(struct passwd *);
@@ -396,47 +363,47 @@ index 1c7a45d..436ae7c 100644
  char *platform_krb5_get_principal_name(const char *);
  int platform_sys_dir_uid(uid_t);
 diff --git a/session.c b/session.c
-index 2bcf818..6848df4 100644
+index 2d0958d11..19f38637e 100644
 --- a/session.c
 +++ b/session.c
-@@ -1502,7 +1502,7 @@ safely_chroot(const char *path, uid_t uid)
+@@ -1380,7 +1380,7 @@ safely_chroot(const char *path, uid_t uid)
  
  /* Set login name, uid, gid, and groups. */
  void
 -do_setusercontext(struct passwd *pw)
 +do_setusercontext(struct passwd *pw, const char *role)
  {
- 	char *chroot_path, *tmp;
+ 	char uidstr[32], *chroot_path, *tmp;
  
-@@ -1530,7 +1530,7 @@ do_setusercontext(struct passwd *pw)
+@@ -1408,7 +1408,7 @@ do_setusercontext(struct passwd *pw)
  		endgrent();
  #endif
  
 -		platform_setusercontext_post_groups(pw);
 +		platform_setusercontext_post_groups(pw, role);
  
- 		if (options.chroot_directory != NULL &&
+ 		if (!in_chroot && options.chroot_directory != NULL &&
  		    strcasecmp(options.chroot_directory, "none") != 0) {
-@@ -1679,7 +1679,7 @@ do_child(Session *s, const char *command)
+@@ -1547,7 +1547,7 @@ do_child(struct ssh *ssh, Session *s, const char *command)
  
  	/* Force a password change */
  	if (s->authctxt->force_pwchange) {
 -		do_setusercontext(pw);
 +		do_setusercontext(pw, s->authctxt->role);
- 		child_close_fds();
+ 		child_close_fds(ssh);
  		do_pwchange(s);
  		exit(1);
-@@ -1706,7 +1706,7 @@ do_child(Session *s, const char *command)
- 		/* When PAM is enabled we rely on it to do the nologin check */
- 		if (!options.use_pam)
- 			do_nologin(pw);
--		do_setusercontext(pw);
-+		do_setusercontext(pw, s->authctxt->role);
- 		/*
- 		 * PAM session modules in do_setusercontext may have
- 		 * generated messages, so if this in an interactive
-@@ -2117,7 +2117,7 @@ session_pty_req(Session *s)
- 	tty_parse_modes(s->ttyfd, &n_bytes);
+@@ -1565,7 +1565,7 @@ do_child(struct ssh *ssh, Session *s, const char *command)
+ 	/* When PAM is enabled we rely on it to do the nologin check */
+ 	if (!options.use_pam)
+ 		do_nologin(pw);
+-	do_setusercontext(pw);
++	do_setusercontext(pw, s->authctxt->role);
+ 	/*
+ 	 * PAM session modules in do_setusercontext may have
+ 	 * generated messages, so if this in an interactive
+@@ -1955,7 +1955,7 @@ session_pty_req(struct ssh *ssh, Session *s)
+ 	ssh_tty_parse_modes(ssh, s->ttyfd);
  
  	if (!use_privsep)
 -		pty_setowner(s->pw, s->tty);
@@ -445,24 +412,24 @@ index 2bcf818..6848df4 100644
  	/* Set window size from the packet. */
  	pty_change_window_size(s->ptyfd, s->row, s->col, s->xpixel, s->ypixel);
 diff --git a/session.h b/session.h
-index 6a2f35e..ef6593c 100644
+index ce59dabd9..675c91146 100644
 --- a/session.h
 +++ b/session.h
 @@ -77,7 +77,7 @@ void	 session_pty_cleanup2(Session *);
  Session	*session_new(void);
  Session	*session_by_tty(char *);
- void	 session_close(Session *);
+ void	 session_close(struct ssh *, Session *);
 -void	 do_setusercontext(struct passwd *);
 +void	 do_setusercontext(struct passwd *, const char *);
- void	 child_set_env(char ***envp, u_int *envsizep, const char *name,
- 		       const char *value);
+ 
+ const char	*session_get_remote_name_or_ip(struct ssh *, u_int, int);
  
 diff --git a/sshd.c b/sshd.c
-index d787fea..e343d90 100644
+index 673db87f6..2bc6679e5 100644
 --- a/sshd.c
 +++ b/sshd.c
-@@ -769,7 +769,7 @@ privsep_postauth(Authctxt *authctxt)
- 	explicit_bzero(rnd, sizeof(rnd));
+@@ -683,7 +683,7 @@ privsep_postauth(Authctxt *authctxt)
+ 	reseed_prngs();
  
  	/* Drop privileges */
 -	do_setusercontext(authctxt->pw);
@@ -471,10 +438,10 @@ index d787fea..e343d90 100644
   skip:
  	/* It is safe now to apply the key state */
 diff --git a/sshpty.c b/sshpty.c
-index bbbc0fe..8cc26a2 100644
+index 4da84d05f..676ade50e 100644
 --- a/sshpty.c
 +++ b/sshpty.c
-@@ -200,7 +200,7 @@ pty_change_window_size(int ptyfd, u_int row, u_int col,
+@@ -162,7 +162,7 @@ pty_change_window_size(int ptyfd, u_int row, u_int col,
  }
  
  void
@@ -483,7 +450,7 @@ index bbbc0fe..8cc26a2 100644
  {
  	struct group *grp;
  	gid_t gid;
-@@ -227,7 +227,7 @@ pty_setowner(struct passwd *pw, const char *tty)
+@@ -184,7 +184,7 @@ pty_setowner(struct passwd *pw, const char *tty)
  		    strerror(errno));
  
  #ifdef WITH_SELINUX
@@ -493,12 +460,13 @@ index bbbc0fe..8cc26a2 100644
  
  	if (st.st_uid != pw->pw_uid || st.st_gid != gid) {
 diff --git a/sshpty.h b/sshpty.h
-index cfa3224..edf2436 100644
+index 9ec7e9a15..de7e000ae 100644
 --- a/sshpty.h
 +++ b/sshpty.h
-@@ -24,4 +24,4 @@ int	 pty_allocate(int *, int *, char *, size_t);
+@@ -24,5 +24,5 @@ int	 pty_allocate(int *, int *, char *, size_t);
  void	 pty_release(const char *);
  void	 pty_make_controlling_tty(int *, const char *);
  void	 pty_change_window_size(int, u_int, u_int, u_int, u_int);
 -void	 pty_setowner(struct passwd *, const char *);
 +void	 pty_setowner(struct passwd *, const char *, const char *);
+ void	 disconnect_controlling_tty(void);

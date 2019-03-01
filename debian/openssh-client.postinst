@@ -28,8 +28,7 @@ set_ssh_agent_permissions() {
 	if ! getent group ssh >/dev/null; then
 		addgroup --system --quiet ssh
 	fi
-	if ! [ -x /usr/sbin/dpkg-statoverride ] || \
-	    ! dpkg-statoverride --list /usr/bin/ssh-agent >/dev/null ; then
+	if ! dpkg-statoverride --list /usr/bin/ssh-agent >/dev/null; then
 		chgrp ssh /usr/bin/ssh-agent
 		chmod 2755 /usr/bin/ssh-agent
 	fi

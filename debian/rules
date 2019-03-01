@@ -1,5 +1,9 @@
 #!/usr/bin/make -f
 
+export DEB_BUILD_MAINT_OPTIONS := hardening=+all
+
+include /usr/share/dpkg/default.mk
+
 # Uncomment this to turn on verbose mode.
 # export DH_VERBOSE=1
 
@@ -19,9 +23,6 @@ else
 	-j$(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
 endif
 
-DEB_HOST_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
-DEB_BUILD_GNU_TYPE ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
-
 ifeq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
   CC := gcc
   PKG_CONFIG = pkg-config
@@ -31,29 +32,18 @@ else
   RUN_TESTS :=
 endif
 
-DEB_HOST_ARCH_OS := $(shell dpkg-architecture -qDEB_HOST_ARCH_OS 2>/dev/null)
-
-# Take account of old dpkg-architecture output.
-ifeq ($(DEB_HOST_ARCH_OS),)
-  DEB_HOST_ARCH_OS := $(subst -gnu,,$(shell dpkg-architecture -qDEB_HOST_GNU_SYSTEM))
-  ifeq ($(DEB_HOST_ARCH_OS),gnu)
-    DEB_HOST_ARCH_OS := hurd
-  endif
-endif
-
 # Change the version string to reflect distribution
-DISTRIBUTION := $(shell dpkg-vendor --query vendor)
-SSH_EXTRAVERSION := $(DISTRIBUTION)-$(shell dpkg-parsechangelog | sed -n -e '/^Version:/s/Version: //p' | sed -e 's/[^-]*-//')
+SSH_EXTRAVERSION := $(DEB_VENDOR)-$(shell echo '$(DEB_VERSION)' | sed -e 's/.*-//')
 
-DISTRIBUTOR := $(shell if dpkg-vendor --derives-from Ubuntu 2>/dev/null; then echo Ubuntu; else echo Debian; fi)
-ifeq ($(DISTRIBUTOR),Ubuntu)
+UBUNTU := $(shell $(call dpkg_vendor_derives_from,Ubuntu))
+ifeq ($(UBUNTU),yes)
 DEFAULT_PATH := /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games
 else
 DEFAULT_PATH := /usr/local/bin:/usr/bin:/bin:/usr/games
 endif
 SUPERUSER_PATH := /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-ifeq ($(DISTRIBUTOR),Ubuntu)
+ifeq ($(UBUNTU),yes)
 server_recommends := ssh-import-id
 else
 server_recommends :=
@@ -61,12 +51,14 @@ endif
 
 # Common path configuration.
 confflags += --sysconfdir=/etc/ssh
+confflags += --libexecdir=\$${prefix}/lib/openssh
 
 # Common build options.
 confflags += --disable-strip
 confflags += --with-mantype=doc
 confflags += --with-4in6
-confflags += --with-privsep-path=/var/run/sshd
+confflags += --with-privsep-path=/run/sshd
+confflags += --with-pid-dir=/run
 
 # The Hurd needs libcrypt for res_query et al.
 ifeq ($(DEB_HOST_ARCH_OS),hurd)
@@ -89,9 +81,8 @@ confflags += --with-kerberos5=/usr
 confflags += --with-ssl-engine
 ifeq ($(DEB_HOST_ARCH_OS),linux)
 confflags += --with-selinux
-endif
-ifeq ($(DISTRIBUTOR),Ubuntu)
-confflags += --with-consolekit
+confflags += --with-audit=linux
+confflags += --with-systemd
 endif
 
 # The deb build wants xauth; the udeb build doesn't.
@@ -103,10 +94,7 @@ confflags += --with-default-path=$(DEFAULT_PATH) --with-superuser-path=$(SUPERUS
 confflags_udeb += --with-default-path=/usr/local/bin:/usr/bin:/bin --with-superuser-path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 # Compiler flags.
-export DEB_BUILD_MAINT_OPTIONS := hardening=+all
-default_cflags := $(shell dpkg-buildflags --get CPPFLAGS) $(shell dpkg-buildflags --get CFLAGS)
-cflags := $(default_cflags)
-cflags += -DLOGIN_PROGRAM=\"/bin/login\" -DLOGIN_NO_ENDOPT
+cflags := $(CPPFLAGS) $(CFLAGS)
 cflags += -DSSH_EXTRAVERSION=\"$(SSH_EXTRAVERSION)\"
 cflags_udeb := -Os
 cflags_udeb += -DSSH_EXTRAVERSION=\"$(SSH_EXTRAVERSION)\"
@@ -114,8 +102,7 @@ confflags += --with-cflags='$(cflags)'
 confflags_udeb += --with-cflags='$(cflags_udeb)'
 
 # Linker flags.
-default_ldflags := $(shell dpkg-buildflags --get LDFLAGS)
-confflags += --with-ldflags='$(strip -Wl,--as-needed $(default_ldflags))'
+confflags += --with-ldflags='$(strip -Wl,--as-needed $(LDFLAGS))'
 confflags_udeb += --with-ldflags='-Wl,--as-needed'
 
 %:
@@ -125,69 +112,85 @@ autoreconf:
 	autoreconf -f -i
 	cp -f /usr/share/misc/config.guess /usr/share/misc/config.sub ./
 
-override_dh_autoreconf:
+override_dh_autoreconf-arch:
 	dh_autoreconf debian/rules -- autoreconf
 
-override_dh_auto_configure:
-	dh_auto_configure -Bbuild-deb -- $(confflags)
-	dh_auto_configure -Bbuild-udeb -- $(confflags_udeb)
+override_dh_autoreconf-indep:
 
-override_dh_auto_build:
+override_dh_auto_configure-arch:
+	dh_auto_configure -Bdebian/build-deb -- $(confflags)
+ifeq ($(filter noudeb,$(DEB_BUILD_PROFILES)),)
+	dh_auto_configure -Bdebian/build-udeb -- $(confflags_udeb)
 	# Avoid libnsl linkage. Ugh.
-	perl -pi -e 's/ +-lnsl//' build-udeb/config.status
-	cd build-udeb && ./config.status
-
-	$(MAKE) -C build-deb $(PARALLEL) ASKPASS_PROGRAM='/usr/bin/ssh-askpass'
-	$(MAKE) -C build-udeb $(PARALLEL) ASKPASS_PROGRAM='/usr/bin/ssh-askpass' ssh scp sftp sshd ssh-keygen
-
-	$(MAKE) -C contrib gnome-ssh-askpass2 CC='$(CC) $(default_cflags) -Wall -Wl,--as-needed $(default_ldflags)' PKG_CONFIG=$(PKG_CONFIG)
-
-override_dh_auto_test:
-ifeq ($(RUN_TESTS),yes)
-	$(MAKE) -C debian/tests
+	perl -pi -e 's/ +-lnsl//' debian/build-udeb/config.status
+	cd debian/build-udeb && ./config.status
 endif
+
+override_dh_auto_configure-indep:
+
+override_dh_auto_build-arch:
+	$(MAKE) -C debian/build-deb $(PARALLEL) ASKPASS_PROGRAM='/usr/bin/ssh-askpass'
+	$(MAKE) -C debian/build-deb regress-prep
+	$(MAKE) -C debian/build-deb $(PARALLEL) regress-binaries
+ifeq ($(filter noudeb,$(DEB_BUILD_PROFILES)),)
+	$(MAKE) -C debian/build-udeb $(PARALLEL) ASKPASS_PROGRAM='/usr/bin/ssh-askpass' ssh scp sftp sshd ssh-keygen
+endif
+
+ifeq ($(filter pkg.openssh.nognome,$(DEB_BUILD_PROFILES)),)
+	$(MAKE) -C contrib gnome-ssh-askpass3 CC='$(CC) $(CPPFLAGS) $(CFLAGS) -Wall -Wl,--as-needed $(LDFLAGS)' PKG_CONFIG=$(PKG_CONFIG)
+endif
+
+override_dh_auto_build-indep:
+
+override_dh_auto_test-arch:
+ifeq ($(RUN_TESTS),yes)
+	$(MAKE) -C debian/build-deb/regress \
+		.OBJDIR="$(CURDIR)/debian/build-deb/regress" \
+		.CURDIR="$(CURDIR)/regress" \
+		unit
+	$(MAKE) -C debian/build-deb compat-tests
+	$(MAKE) -C debian/keygen-test
+endif
+
+override_dh_auto_test-indep:
 
 override_dh_auto_clean:
-	rm -rf build-deb build-udeb
+	rm -rf debian/build-deb debian/build-udeb
 ifeq ($(RUN_TESTS),yes)
-	$(MAKE) -C debian/tests clean
+	$(MAKE) -C debian/keygen-test clean
 endif
 	$(MAKE) -C contrib clean
-	(cat debian/copyright.head; iconv -f ISO-8859-1 -t UTF-8 LICENCE) \
-		> debian/copyright
 
-override_dh_auto_install:
-	$(MAKE) -C build-deb DESTDIR=`pwd`/debian/tmp install-nokeys
+override_dh_auto_install-arch:
+	$(MAKE) -C debian/build-deb DESTDIR=`pwd`/debian/tmp install-nokeys
 
-override_dh_install:
+override_dh_auto_install-indep:
+
+override_dh_install-arch:
 	rm -f debian/tmp/etc/ssh/sshd_config
 
 	dh_install -Nopenssh-client-udeb -Nopenssh-server-udeb --fail-missing
+ifeq ($(filter noudeb,$(DEB_BUILD_PROFILES)),)
 	dh_install -popenssh-client-udeb -popenssh-server-udeb \
-		--sourcedir=build-udeb
-
-	install -o root -g root -m 755 contrib/gnome-ssh-askpass2 debian/ssh-askpass-gnome/usr/lib/openssh/gnome-ssh-askpass
-
-	install -o root -g root debian/openssh-server.if-up debian/openssh-server/etc/network/if-up.d/openssh-server
-	install -o root -g root -m 644 debian/openssh-server.ufw.profile debian/openssh-server/etc/ufw/applications.d/openssh-server
+		--sourcedir=debian/build-udeb
+endif
 
 	# Remove version control tags to avoid unnecessary conffile
 	# resolution steps for administrators.
 	sed -i '/\$$OpenBSD:/d' \
-		debian/openssh-client/etc/ssh/moduli \
+		debian/openssh-server/etc/ssh/moduli \
 		debian/openssh-client/etc/ssh/ssh_config
 
-	# dh_apport would be neater, but at the time of writing it isn't in
-	# unstable yet.
-	install -p -m 644 debian/openssh-client.apport debian/openssh-client/usr/share/apport/package-hooks/openssh-client.py
-	install -p -m 644 debian/openssh-server.apport debian/openssh-server/usr/share/apport/package-hooks/openssh-server.py
-
-	# Upstart user job (only used under user sessions)
-	install -p -m 644 -D debian/ssh-agent.user-session.upstart debian/openssh-client/usr/share/upstart/sessions/ssh-agent.conf
+# We'd like to use dh_install --fail-missing here, but that doesn't work
+# well in combination with dh-exec: it complains that files generated by
+# dh-exec for architecture-dependent packages aren't installed.
+override_dh_install-indep:
+	rm -f debian/tmp/etc/ssh/sshd_config
+	dh_install
 
 override_dh_installdocs:
-	dh_installdocs -Nopenssh-server -Nopenssh-sftp-server -Nssh
-	dh_installdocs -popenssh-server -popenssh-sftp-server -pssh \
+	dh_installdocs -Nopenssh-server -Nopenssh-sftp-server
+	dh_installdocs -popenssh-server -popenssh-sftp-server \
 		--link-doc=openssh-client
 	# Avoid breaking dh_installexamples later.
 	mkdir -p debian/openssh-server/usr/share/doc/openssh-client
@@ -199,10 +202,17 @@ override_dh_systemd_enable:
 override_dh_installinit:
 	dh_installinit -R --name ssh
 
-override_dh_installpam:
+debian/openssh-server.sshd.pam: debian/openssh-server.sshd.pam.in
+ifeq ($(DEB_HOST_ARCH_OS),linux)
+	sed 's/^@IF_KEYINIT@//' $< > $@
+else
+	sed '/^@IF_KEYINIT@/d' $< > $@
+endif
+
+override_dh_installpam: debian/openssh-server.sshd.pam
 	dh_installpam --name sshd
 
-override_dh_fixperms:
+override_dh_fixperms-arch:
 	dh_fixperms
 	chmod u+s debian/openssh-client/usr/lib/openssh/ssh-keysign
 
@@ -214,10 +224,7 @@ override_dh_shlibdeps:
 override_dh_gencontrol:
 	dh_gencontrol -- -V'openssh-server:Recommends=$(server_recommends)'
 
-override_dh_builddeb:
-	dh_builddeb -- -Zxz
-
 debian/faq.html:
-	wget -O - http://www.openssh.org/faq.html | \
-		sed 's,\(href="\)\(txt/\|[^":]*\.html\),\1http://www.openssh.org/\2,g' \
+	wget -O - http://www.openssh.com/faq.html | \
+		sed 's,\(href="\)\(txt/\|[^":]*\.html\),\1http://www.openssh.com/\2,g' \
 		> debian/faq.html
