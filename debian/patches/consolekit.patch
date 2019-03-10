@@ -49,7 +49,7 @@ Index: openssh/configure
    --with-privsep-path=xxx Path for privilege separation chroot (default=/var/empty)
    --with-xauth=PATH       Specify path to xauth program
    --with-maildir=/path/to/mail    Specify your system mail directory
-@@ -18463,6 +18464,135 @@ fi
+@@ -20344,6 +20345,135 @@ fi
  
  
  
@@ -185,7 +185,7 @@ Index: openssh/configure
  # Looking for programs, paths and files
  
  PRIVSEP_PATH=/var/empty
-@@ -20993,6 +21123,7 @@ echo "                   libldns support
+@@ -22874,6 +23004,7 @@ echo "                   libldns support
  echo "  Solaris process contract support: $SPC_MSG"
  echo "           Solaris project support: $SP_MSG"
  echo "         Solaris privilege support: $SPP_MSG"
@@ -197,7 +197,7 @@ Index: openssh/configure.ac
 ===================================================================
 --- openssh.orig/configure.ac
 +++ openssh/configure.ac
-@@ -4378,6 +4378,30 @@ AC_ARG_WITH([kerberos5],
+@@ -4506,6 +4506,30 @@ AC_ARG_WITH([kerberos5],
  AC_SUBST([GSSLIBS])
  AC_SUBST([K5LIBS])
  
@@ -228,7 +228,7 @@ Index: openssh/configure.ac
  # Looking for programs, paths and files
  
  PRIVSEP_PATH=/var/empty
-@@ -5183,6 +5207,7 @@ echo "                   libldns support
+@@ -5311,6 +5335,7 @@ echo "                   libldns support
  echo "  Solaris process contract support: $SPC_MSG"
  echo "           Solaris project support: $SP_MSG"
  echo "         Solaris privilege support: $SPP_MSG"
@@ -514,7 +514,7 @@ Index: openssh/monitor.c
 ===================================================================
 --- openssh.orig/monitor.c
 +++ openssh/monitor.c
-@@ -93,6 +93,9 @@
+@@ -95,6 +95,9 @@
  #include "authfd.h"
  #include "match.h"
  #include "ssherr.h"
@@ -524,7 +524,7 @@ Index: openssh/monitor.c
  
  #ifdef GSSAPI
  static Gssctxt *gsscontext = NULL;
-@@ -153,6 +156,10 @@ int mm_answer_audit_command(int, struct
+@@ -155,6 +158,10 @@ int mm_answer_audit_command(int, struct
  
  static int monitor_read_log(struct monitor *);
  
@@ -535,7 +535,7 @@ Index: openssh/monitor.c
  static Authctxt *authctxt;
  
  /* local state for key verify */
-@@ -231,6 +238,9 @@ struct mon_table mon_dispatch_postauth20
+@@ -233,6 +240,9 @@ struct mon_table mon_dispatch_postauth20
      {MONITOR_REQ_AUDIT_EVENT, MON_PERMIT, mm_answer_audit_event},
      {MONITOR_REQ_AUDIT_COMMAND, MON_PERMIT, mm_answer_audit_command},
  #endif
@@ -545,7 +545,7 @@ Index: openssh/monitor.c
      {0, 0, NULL}
  };
  
-@@ -406,6 +416,9 @@ monitor_child_postauth(struct monitor *p
+@@ -408,6 +418,9 @@ monitor_child_postauth(struct monitor *p
  		monitor_permit(mon_dispatch, MONITOR_REQ_PTY, 1);
  		monitor_permit(mon_dispatch, MONITOR_REQ_PTYCLEANUP, 1);
  	}
@@ -555,7 +555,7 @@ Index: openssh/monitor.c
  
  	for (;;)
  		monitor_read(pmonitor, mon_dispatch, NULL);
-@@ -1898,3 +1911,29 @@ mm_answer_gss_userok(int sock, struct ss
+@@ -1902,3 +1915,29 @@ mm_answer_gss_userok(int sock, struct ss
  }
  #endif /* GSSAPI */
  
@@ -667,7 +667,7 @@ Index: openssh/session.c
  
  #if defined(KRB5) && defined(USE_AFS)
  #include <kafs.h>
-@@ -1019,6 +1020,9 @@ do_setup_env(struct ssh *ssh, Session *s
+@@ -1021,6 +1022,9 @@ do_setup_env(struct ssh *ssh, Session *s
  #if !defined (HAVE_LOGIN_CAP) && !defined (HAVE_CYGWIN)
  	char *path = NULL;
  #endif
@@ -677,7 +677,7 @@ Index: openssh/session.c
  
  	/* Initialize the environment. */
  	envsize = 100;
-@@ -1120,6 +1124,12 @@ do_setup_env(struct ssh *ssh, Session *s
+@@ -1122,6 +1126,12 @@ do_setup_env(struct ssh *ssh, Session *s
  		child_set_env(&env, &envsize, "KRB5CCNAME",
  		    s->authctxt->krb5_ccname);
  #endif
@@ -690,9 +690,9 @@ Index: openssh/session.c
  	if (auth_sock_name != NULL)
  		child_set_env(&env, &envsize, SSH_AUTHSOCKET_ENV_NAME,
  		    auth_sock_name);
-@@ -2194,6 +2204,10 @@ session_pty_cleanup2(Session *s)
+@@ -2270,6 +2280,10 @@ session_pty_cleanup2(Session *s)
  
- 	debug("session_pty_cleanup: session %d release %s", s->self, s->tty);
+ 	debug("%s: session %d release %s", __func__, s->self, s->tty);
  
 +#ifdef USE_CONSOLEKIT
 +	consolekit_unregister(s);
@@ -714,7 +714,7 @@ Index: openssh/session.h
  #define TTYSZ 64
  typedef struct Session Session;
  struct Session {
-@@ -60,6 +62,10 @@ struct Session {
+@@ -61,6 +63,10 @@ struct Session {
  		char	*name;
  		char	*val;
  	} *env;

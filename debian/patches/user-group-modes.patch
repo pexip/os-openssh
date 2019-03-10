@@ -55,7 +55,7 @@ Index: openssh/auth.c
 ===================================================================
 --- openssh.orig/auth.c
 +++ openssh/auth.c
-@@ -468,8 +468,7 @@ check_key_in_hostfiles(struct passwd *pw
+@@ -472,8 +472,7 @@ check_key_in_hostfiles(struct passwd *pw
  		user_hostfile = tilde_expand_filename(userfile, pw->pw_uid);
  		if (options.strict_modes &&
  		    (stat(user_hostfile, &st) == 0) &&
@@ -69,7 +69,7 @@ Index: openssh/misc.c
 ===================================================================
 --- openssh.orig/misc.c
 +++ openssh/misc.c
-@@ -57,8 +57,9 @@
+@@ -58,8 +58,9 @@
  #include <netdb.h>
  #ifdef HAVE_PATHS_H
  # include <paths.h>
@@ -80,8 +80,8 @@ Index: openssh/misc.c
  #ifdef SSH_TUN_OPENBSD
  #include <net/if.h>
  #endif
-@@ -341,6 +342,71 @@ a2port(const char *s)
- 	return (int)port;
+@@ -345,6 +346,71 @@ a2port(const char *s)
+ 	return -1;
  }
  
 +/*
@@ -156,7 +156,7 @@ Index: openssh/misc.h
 ===================================================================
 --- openssh.orig/misc.h
 +++ openssh/misc.h
-@@ -167,6 +167,8 @@ int	 safe_path_fd(int, const char *, str
+@@ -168,6 +168,8 @@ int	 safe_path_fd(int, const char *, str
  char	*read_passphrase(const char *, int);
  int	 ask_permission(const char *, ...) __attribute__((format(printf, 1, 2)));
  
@@ -178,7 +178,7 @@ Index: openssh/readconf.c
  #ifdef USE_SYSTEM_GLOB
  # include <glob.h>
  #else
-@@ -1763,8 +1765,7 @@ read_config_file_depth(const char *filen
+@@ -1788,8 +1790,7 @@ read_config_file_depth(const char *filen
  
  		if (fstat(fileno(f), &sb) == -1)
  			fatal("fstat %s: %s", filename, strerror(errno));
@@ -192,7 +192,7 @@ Index: openssh/ssh.1
 ===================================================================
 --- openssh.orig/ssh.1
 +++ openssh/ssh.1
-@@ -1475,6 +1475,8 @@ The file format and configuration option
+@@ -1485,6 +1485,8 @@ The file format and configuration option
  .Xr ssh_config 5 .
  Because of the potential for abuse, this file must have strict permissions:
  read/write for the user, and not writable by others.
@@ -205,7 +205,7 @@ Index: openssh/ssh_config.5
 ===================================================================
 --- openssh.orig/ssh_config.5
 +++ openssh/ssh_config.5
-@@ -1781,6 +1781,8 @@ The format of this file is described abo
+@@ -1803,6 +1803,8 @@ The format of this file is described abo
  This file is used by the SSH client.
  Because of the potential for abuse, this file must have strict permissions:
  read/write for the user, and not accessible by others.

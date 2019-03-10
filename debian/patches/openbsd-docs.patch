@@ -78,7 +78,7 @@ Index: openssh/ssh-keygen.1
  It is important that this file contains moduli of a range of bit lengths and
  that both ends of a connection share common moduli.
  .Sh CERTIFICATES
-@@ -864,7 +860,7 @@ on all machines
+@@ -877,7 +873,7 @@ on all machines
  where the user wishes to log in using public key authentication.
  There is no need to keep the contents of this file secret.
  .Pp
@@ -91,7 +91,7 @@ Index: openssh/ssh.1
 ===================================================================
 --- openssh.orig/ssh.1
 +++ openssh/ssh.1
-@@ -850,6 +850,10 @@ implements public key authentication pro
+@@ -860,6 +860,10 @@ implements public key authentication pro
  using one of the DSA, ECDSA, Ed25519 or RSA algorithms.
  The HISTORY section of
  .Xr ssl 8
@@ -136,8 +136,8 @@ Index: openssh/sshd_config.5
 ===================================================================
 --- openssh.orig/sshd_config.5
 +++ openssh/sshd_config.5
-@@ -384,8 +384,7 @@ then no banner is displayed.
- By default, no banner is displayed.
+@@ -395,8 +395,7 @@ Certificates signed using other algorith
+ public key or host-based authentication.
  .It Cm ChallengeResponseAuthentication
  Specifies whether challenge-response authentication is allowed (e.g. via
 -PAM or through authentication styles supported in

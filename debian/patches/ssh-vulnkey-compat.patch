@@ -32,7 +32,7 @@ Index: openssh/servconf.c
 ===================================================================
 --- openssh.orig/servconf.c
 +++ openssh/servconf.c
-@@ -581,6 +581,7 @@ static struct {
+@@ -585,6 +585,7 @@ static struct {
  	{ "x11uselocalhost", sX11UseLocalhost, SSHCFG_ALL },
  	{ "xauthlocation", sXAuthLocation, SSHCFG_GLOBAL },
  	{ "strictmodes", sStrictModes, SSHCFG_GLOBAL },

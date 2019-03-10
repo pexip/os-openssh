@@ -18,7 +18,7 @@ Index: openssh/auth2-pubkey.c
 ===================================================================
 --- openssh.orig/auth2-pubkey.c
 +++ openssh/auth2-pubkey.c
-@@ -374,6 +374,7 @@ match_principals_file(struct ssh *ssh, s
+@@ -380,6 +380,7 @@ match_principals_file(struct ssh *ssh, s
  		restore_uid();
  		return 0;
  	}
@@ -26,7 +26,7 @@ Index: openssh/auth2-pubkey.c
  	success = process_principals(ssh, f, file, cert, authoptsp);
  	fclose(f);
  	restore_uid();
-@@ -704,6 +705,7 @@ check_authkeys_file(struct ssh *ssh, str
+@@ -710,6 +711,7 @@ check_authkeys_file(struct ssh *ssh, str
  	if (authoptsp != NULL)
  		*authoptsp = NULL;
  
@@ -34,7 +34,7 @@ Index: openssh/auth2-pubkey.c
  	while (getline(&line, &linesize, f) != -1) {
  		linenum++;
  		/* Always consume entire file */
-@@ -778,6 +780,7 @@ user_cert_trusted_ca(struct ssh *ssh, st
+@@ -784,6 +786,7 @@ user_cert_trusted_ca(struct ssh *ssh, st
  	    use_authorized_principals ? NULL : pw->pw_name, &reason) != 0)
  		goto fail_reason;
  
@@ -64,7 +64,7 @@ Index: openssh/auth.c
  /*
   * Check if the user is allowed to log in via ssh. If user is listed
   * in DenyUsers or one of user's groups is listed in DenyGroups, false
-@@ -1150,11 +1161,14 @@ auth_authorise_keyopts(struct ssh *ssh,
+@@ -1154,11 +1165,14 @@ auth_authorise_keyopts(struct ssh *ssh,
  			auth_debug_add("%s: invalid from criteria", loc);
  			/* FALLTHROUGH */
  		case 0:
@@ -84,7 +84,7 @@ Index: openssh/auth.c
  			auth_debug_add("%s: Your host '%.200s' is not "
  			    "permitted to use this key for login.",
  			    loc, remote_host);
-@@ -1176,9 +1190,12 @@ auth_authorise_keyopts(struct ssh *ssh,
+@@ -1180,9 +1194,12 @@ auth_authorise_keyopts(struct ssh *ssh,
  			    loc);
  			/* FALLTHROUGH */
  		case 0:

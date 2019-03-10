@@ -16,7 +16,7 @@ Index: openssh/sshd.c
 ===================================================================
 --- openssh.orig/sshd.c
 +++ openssh/sshd.c
-@@ -1977,6 +1977,16 @@ main(int ac, char **av)
+@@ -1976,6 +1976,16 @@ main(int ac, char **av)
  			}
  		}
  

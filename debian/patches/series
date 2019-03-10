@@ -25,3 +25,4 @@ sigstop.patch
 debian-config.patch
 openssh-6.5p1-fips.patch
 extra-config.patch
+fix-compat-version-check.patch

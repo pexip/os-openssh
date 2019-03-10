@@ -21,7 +21,7 @@ Index: openssh/ssh.1
 ===================================================================
 --- openssh.orig/ssh.1
 +++ openssh/ssh.1
-@@ -1575,6 +1575,7 @@ if an error occurred.
+@@ -1585,6 +1585,7 @@ if an error occurred.
  .Xr sftp 1 ,
  .Xr ssh-add 1 ,
  .Xr ssh-agent 1 ,

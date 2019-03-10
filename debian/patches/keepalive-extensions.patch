@@ -32,12 +32,12 @@ Index: openssh/readconf.c
 @@ -173,6 +173,7 @@ typedef enum {
  	oStreamLocalBindMask, oStreamLocalBindUnlink, oRevokedHostKeys,
  	oFingerprintHash, oUpdateHostkeys, oHostbasedKeyTypes,
- 	oPubkeyAcceptedKeyTypes, oProxyJump,
+ 	oPubkeyAcceptedKeyTypes, oCASignatureAlgorithms, oProxyJump,
 +	oProtocolKeepAlives, oSetupTimeOut,
  	oIgnore, oIgnoredUnknownOption, oDeprecated, oUnsupported
  } OpCodes;
  
-@@ -309,6 +310,8 @@ static struct {
+@@ -310,6 +311,8 @@ static struct {
  	{ "pubkeyacceptedkeytypes", oPubkeyAcceptedKeyTypes },
  	{ "ignoreunknown", oIgnoreUnknown },
  	{ "proxyjump", oProxyJump },
@@ -46,7 +46,7 @@ Index: openssh/readconf.c
  
  	{ NULL, oBadOption }
  };
-@@ -1369,6 +1372,8 @@ parse_keytypes:
+@@ -1383,6 +1386,8 @@ parse_keytypes:
  		goto parse_flag;
  
  	case oServerAliveInterval:
@@ -55,7 +55,7 @@ Index: openssh/readconf.c
  		intptr = &options->server_alive_interval;
  		goto parse_time;
  
-@@ -2032,8 +2037,13 @@ fill_default_options(Options * options)
+@@ -2058,8 +2063,13 @@ fill_default_options(Options * options)
  		options->rekey_interval = 0;
  	if (options->verify_host_key_dns == -1)
  		options->verify_host_key_dns = 0;
@@ -89,7 +89,7 @@ Index: openssh/ssh_config.5
  The argument must be
  .Cm yes
  or
-@@ -1431,7 +1435,14 @@ from the server,
+@@ -1453,7 +1457,14 @@ from the server,
  will send a message through the encrypted
  channel to request a response from the server.
  The default
@@ -105,7 +105,7 @@ Index: openssh/ssh_config.5
  .It Cm SetEnv
  Directly specify one or more environment variables and their contents to
  be sent to the server.
-@@ -1511,6 +1522,12 @@ Specifies whether the system should send
+@@ -1533,6 +1544,12 @@ Specifies whether the system should send
  other side.
  If they are sent, death of the connection or crash of one
  of the machines will be properly noticed.
@@ -122,7 +122,7 @@ Index: openssh/sshd_config.5
 ===================================================================
 --- openssh.orig/sshd_config.5
 +++ openssh/sshd_config.5
-@@ -1556,6 +1556,9 @@ This avoids infinitely hanging sessions.
+@@ -1567,6 +1567,9 @@ This avoids infinitely hanging sessions.
  .Pp
  To disable TCP keepalive messages, the value should be set to
  .Cm no .

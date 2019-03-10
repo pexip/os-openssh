@@ -1,3 +1,30 @@
+openssh (1:7.9p1-0pexip1) pexip; urgency=medium
+
+  * New upstream release
+  * debian/patches/selinux-role.patch,
+    debian/patches/ssh-vulnkey-compat.patch,
+    debian/patches/keepalive-extensions.patch,
+    debian/patches/syslog-level-silent.patch,
+    debian/patches/consolekit.patch,
+    debian/patches/user-group-modes.patch,
+    debian/patches/shell-path.patch,
+    debian/patches/auth-log-verbosity.patch,
+    debian/patches/mention-ssh-keygen-on-keychange.patch,
+    debian/patches/package-versioning.patch,
+    debian/patches/debian-banner.patch,
+    debian/patches/openbsd-docs.patch,
+    debian/patches/ssh-argv0.patch,
+    debian/patches/doc-hash-tab-completion.patch,
+    debian/patches/sigstop.patch,
+    debian/patches/debian-config.patch,
+    debian/patches/openssh-6.5p1-fips.patch:
+    Refresh
+  * debian/patches/fix-compat-version-check.patch:
+    fix for version macro checking for 1.0.1 to protect use of
+    OPENSSL_init_crypto() was not introduced untill openssl 1.1.0 
+
+ -- Vincent Sanders <vince@pexip.com>  Wed, 06 Mar 2019 12:49:01 +0000
+
 openssh (1:7.8p1-0pexip4) pexip; urgency=medium
 
   * FIPS: fix keytypes table

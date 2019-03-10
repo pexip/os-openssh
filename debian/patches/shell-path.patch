@@ -28,7 +28,7 @@ Index: openssh/sshconnect.c
  		perror(argv[0]);
  		exit(1);
  	}
-@@ -1525,7 +1525,7 @@ ssh_local_cmd(const char *args)
+@@ -1534,7 +1534,7 @@ ssh_local_cmd(const char *args)
  	if (pid == 0) {
  		signal(SIGPIPE, SIG_DFL);
  		debug3("Executing %s -c \"%s\"", shell, args);

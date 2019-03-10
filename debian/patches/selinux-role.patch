@@ -84,7 +84,7 @@ Index: openssh/monitor.c
 ===================================================================
 --- openssh.orig/monitor.c
 +++ openssh/monitor.c
-@@ -115,6 +115,7 @@ int mm_answer_sign(int, struct sshbuf *)
+@@ -117,6 +117,7 @@ int mm_answer_sign(int, struct sshbuf *)
  int mm_answer_pwnamallow(int, struct sshbuf *);
  int mm_answer_auth2_read_banner(int, struct sshbuf *);
  int mm_answer_authserv(int, struct sshbuf *);
@@ -92,7 +92,7 @@ Index: openssh/monitor.c
  int mm_answer_authpassword(int, struct sshbuf *);
  int mm_answer_bsdauthquery(int, struct sshbuf *);
  int mm_answer_bsdauthrespond(int, struct sshbuf *);
-@@ -189,6 +190,7 @@ struct mon_table mon_dispatch_proto20[]
+@@ -191,6 +192,7 @@ struct mon_table mon_dispatch_proto20[]
      {MONITOR_REQ_SIGN, MON_ONCE, mm_answer_sign},
      {MONITOR_REQ_PWNAM, MON_ONCE, mm_answer_pwnamallow},
      {MONITOR_REQ_AUTHSERV, MON_ONCE, mm_answer_authserv},
@@ -100,7 +100,7 @@ Index: openssh/monitor.c
      {MONITOR_REQ_AUTH2_READ_BANNER, MON_ONCE, mm_answer_auth2_read_banner},
      {MONITOR_REQ_AUTHPASSWORD, MON_AUTH, mm_answer_authpassword},
  #ifdef USE_PAM
-@@ -796,6 +798,7 @@ mm_answer_pwnamallow(int sock, struct ss
+@@ -800,6 +802,7 @@ mm_answer_pwnamallow(int sock, struct ss
  
  	/* Allow service/style information on the auth context */
  	monitor_permit(mon_dispatch, MONITOR_REQ_AUTHSERV, 1);
@@ -108,7 +108,7 @@ Index: openssh/monitor.c
  	monitor_permit(mon_dispatch, MONITOR_REQ_AUTH2_READ_BANNER, 1);
  
  #ifdef USE_PAM
-@@ -829,16 +832,42 @@ mm_answer_authserv(int sock, struct sshb
+@@ -833,16 +836,42 @@ mm_answer_authserv(int sock, struct sshb
  	monitor_permit_authentications(1);
  
  	if ((r = sshbuf_get_cstring(m, &authctxt->service, NULL)) != 0 ||
@@ -154,7 +154,7 @@ Index: openssh/monitor.c
  	return (0);
  }
  
-@@ -1480,7 +1509,7 @@ mm_answer_pty(int sock, struct sshbuf *m
+@@ -1484,7 +1513,7 @@ mm_answer_pty(int sock, struct sshbuf *m
  	res = pty_allocate(&s->ptyfd, &s->ttyfd, s->tty, sizeof(s->tty));
  	if (res == 0)
  		goto error;
@@ -247,9 +247,9 @@ Index: openssh/openbsd-compat/port-linux.c
 ===================================================================
 --- openssh.orig/openbsd-compat/port-linux.c
 +++ openssh/openbsd-compat/port-linux.c
-@@ -27,6 +27,11 @@
- #include <string.h>
+@@ -28,6 +28,11 @@
  #include <stdio.h>
+ #include <stdlib.h>
  
 +#ifdef WITH_SELINUX
 +#include "hostfile.h"
@@ -259,7 +259,7 @@ Index: openssh/openbsd-compat/port-linux.c
  #include "log.h"
  #include "xmalloc.h"
  #include "port-linux.h"
-@@ -55,7 +60,7 @@ ssh_selinux_enabled(void)
+@@ -56,7 +61,7 @@ ssh_selinux_enabled(void)
  
  /* Return the default security context for the given username */
  static security_context_t
@@ -268,7 +268,7 @@ Index: openssh/openbsd-compat/port-linux.c
  {
  	security_context_t sc = NULL;
  	char *sename = NULL, *lvl = NULL;
-@@ -70,9 +75,16 @@ ssh_selinux_getctxbyname(char *pwname)
+@@ -71,9 +76,16 @@ ssh_selinux_getctxbyname(char *pwname)
  #endif
  
  #ifdef HAVE_GET_DEFAULT_CONTEXT_WITH_LEVEL
@@ -287,7 +287,7 @@ Index: openssh/openbsd-compat/port-linux.c
  #endif
  
  	if (r != 0) {
-@@ -102,7 +114,7 @@ ssh_selinux_getctxbyname(char *pwname)
+@@ -103,7 +115,7 @@ ssh_selinux_getctxbyname(char *pwname)
  
  /* Set the execution context to the default for the specified user */
  void
@@ -296,7 +296,7 @@ Index: openssh/openbsd-compat/port-linux.c
  {
  	security_context_t user_ctx = NULL;
  
-@@ -111,7 +123,7 @@ ssh_selinux_setup_exec_context(char *pwn
+@@ -112,7 +124,7 @@ ssh_selinux_setup_exec_context(char *pwn
  
  	debug3("%s: setting execution context", __func__);
  
@@ -305,7 +305,7 @@ Index: openssh/openbsd-compat/port-linux.c
  	if (setexeccon(user_ctx) != 0) {
  		switch (security_getenforce()) {
  		case -1:
-@@ -133,7 +145,7 @@ ssh_selinux_setup_exec_context(char *pwn
+@@ -134,7 +146,7 @@ ssh_selinux_setup_exec_context(char *pwn
  
  /* Set the TTY context for the specified user */
  void
@@ -314,7 +314,7 @@ Index: openssh/openbsd-compat/port-linux.c
  {
  	security_context_t new_tty_ctx = NULL;
  	security_context_t user_ctx = NULL;
-@@ -145,7 +157,7 @@ ssh_selinux_setup_pty(char *pwname, cons
+@@ -146,7 +158,7 @@ ssh_selinux_setup_pty(char *pwname, cons
  
  	debug3("%s: setting TTY context on %s", __func__, tty);
  
@@ -377,7 +377,7 @@ Index: openssh/session.c
 ===================================================================
 --- openssh.orig/session.c
 +++ openssh/session.c
-@@ -1378,7 +1378,7 @@ safely_chroot(const char *path, uid_t ui
+@@ -1380,7 +1380,7 @@ safely_chroot(const char *path, uid_t ui
  
  /* Set login name, uid, gid, and groups. */
  void
@@ -386,7 +386,7 @@ Index: openssh/session.c
  {
  	char uidstr[32], *chroot_path, *tmp;
  
-@@ -1406,7 +1406,7 @@ do_setusercontext(struct passwd *pw)
+@@ -1408,7 +1408,7 @@ do_setusercontext(struct passwd *pw)
  		endgrent();
  #endif
  
@@ -395,7 +395,7 @@ Index: openssh/session.c
  
  		if (!in_chroot && options.chroot_directory != NULL &&
  		    strcasecmp(options.chroot_directory, "none") != 0) {
-@@ -1545,7 +1545,7 @@ do_child(struct ssh *ssh, Session *s, co
+@@ -1547,7 +1547,7 @@ do_child(struct ssh *ssh, Session *s, co
  
  	/* Force a password change */
  	if (s->authctxt->force_pwchange) {
@@ -404,7 +404,7 @@ Index: openssh/session.c
  		child_close_fds(ssh);
  		do_pwchange(s);
  		exit(1);
-@@ -1563,7 +1563,7 @@ do_child(struct ssh *ssh, Session *s, co
+@@ -1565,7 +1565,7 @@ do_child(struct ssh *ssh, Session *s, co
  	/* When PAM is enabled we rely on it to do the nologin check */
  	if (!options.use_pam)
  		do_nologin(pw);
@@ -413,7 +413,7 @@ Index: openssh/session.c
  	/*
  	 * PAM session modules in do_setusercontext may have
  	 * generated messages, so if this in an interactive
-@@ -1953,7 +1953,7 @@ session_pty_req(struct ssh *ssh, Session
+@@ -1955,7 +1955,7 @@ session_pty_req(struct ssh *ssh, Session
  	ssh_tty_parse_modes(ssh, s->ttyfd);
  
  	if (!use_privsep)
@@ -426,7 +426,7 @@ Index: openssh/session.h
 ===================================================================
 --- openssh.orig/session.h
 +++ openssh/session.h
-@@ -76,7 +76,7 @@ void	 session_pty_cleanup2(Session *);
+@@ -77,7 +77,7 @@ void	 session_pty_cleanup2(Session *);
  Session	*session_new(void);
  Session	*session_by_tty(char *);
  void	 session_close(struct ssh *, Session *);
@@ -439,7 +439,7 @@ Index: openssh/sshd.c
 ===================================================================
 --- openssh.orig/sshd.c
 +++ openssh/sshd.c
-@@ -673,7 +673,7 @@ privsep_postauth(Authctxt *authctxt)
+@@ -672,7 +672,7 @@ privsep_postauth(Authctxt *authctxt)
  	reseed_prngs();
  
  	/* Drop privileges */

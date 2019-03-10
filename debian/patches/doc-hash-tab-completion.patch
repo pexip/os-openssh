@@ -16,7 +16,7 @@ Index: openssh/ssh_config.5
 ===================================================================
 --- openssh.orig/ssh_config.5
 +++ openssh/ssh_config.5
-@@ -743,6 +743,9 @@ Note that existing names and addresses i
+@@ -761,6 +761,9 @@ Note that existing names and addresses i
  will not be converted automatically,
  but may be manually hashed using
  .Xr ssh-keygen 1 .
