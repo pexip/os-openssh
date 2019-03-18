@@ -1,3 +1,15 @@
+openssh (1:7.9p1-0pexip2) pexip; urgency=medium
+
+  * debian/patches/scp-disallow-dot-or-empty-filename.patch:
+    Add fix for CVE-2018-20168 from Debian
+  * debian/patches/sanitize-scp-filenames-via-snmprintf.patch:
+    Add fix for CVE-2019-6109 from Debian
+  * debian/patches/check-filenames-in-scp-client.patch,
+    debian/patches/scp-handle-braces.patch:
+    Add fix for CVE-2019-6111 from Debian
+
+ -- John-Mark Bell <jmb@pexip.com>  Mon, 18 Mar 2019 15:32:08 +0000
+
 openssh (1:7.9p1-0pexip1) pexip; urgency=medium
 
   * New upstream release

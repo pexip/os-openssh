@@ -26,3 +26,7 @@ debian-config.patch
 openssh-6.5p1-fips.patch
 extra-config.patch
 fix-compat-version-check.patch
+scp-disallow-dot-or-empty-filename.patch
+sanitize-scp-filenames-via-snmprintf.patch
+check-filenames-in-scp-client.patch
+scp-handle-braces.patch
