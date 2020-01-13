@@ -1,3 +1,25 @@
+openssh (1:8.1p1-0pexip1) pexip; urgency=medium
+
+  * New upstream release
+  * debian/patches/consolekit.patch,
+    debian/patches/debian-banner.patch,
+    debian/patches/no-openssl-version-check.patch,
+    debian/patches/openbsd-docs.patch,
+    debian/patches/openssh-6.5p1-fips.patch,
+    debian/patches/package-versioning.patch,
+    debian/patches/selinux-role.patch,
+    debian/patches/user-group-modes.patch:
+    Refresh
+  * debian/patches/fix-compat-version-check.patch:
+    Drop: redundant
+  * debian/patches/scp-disallow-dot-or-empty-filename.patch,
+    debian/patches/sanitize-scp-filenames-via-snmprintf.patch,
+    debian/patches/check-filenames-in-scp-client.patch,
+    debian/patches/scp-handle-braces.patch:
+    Drop; merged upstream
+
+ -- John-Mark Bell <jmb@pexip.com>  Mon, 13 Jan 2020 10:14:51 +0000
+
 openssh (1:7.9p1-0pexip2) pexip; urgency=medium
 
   * debian/patches/scp-disallow-dot-or-empty-filename.patch:

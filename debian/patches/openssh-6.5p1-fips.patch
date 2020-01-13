@@ -10,14 +10,14 @@ Index: openssh/Makefile.in
 +++ openssh/Makefile.in
 @@ -100,7 +100,8 @@ LIBSSH_OBJS=${LIBOPENSSH_OBJS} \
  	kex.o kexdh.o kexgex.o kexecdh.o kexc25519.o \
- 	kexdhc.o kexgexc.o kexecdhc.o kexc25519c.o \
- 	kexdhs.o kexgexs.o kexecdhs.o kexc25519s.o \
+ 	kexgexc.o kexgexs.o \
+ 	sntrup4591761.o kexsntrup4591761x25519.o kexgen.o \
 -	platform-pledge.o platform-tracing.o platform-misc.o
 +	platform-pledge.o platform-tracing.o platform-misc.o \
 +	fips.o
  
+ 
  SSHOBJS= ssh.o readconf.o clientloop.o sshtty.o \
- 	sshconnect.o sshconnect2.o mux.o
 Index: openssh/cipher-ctr.c
 ===================================================================
 --- openssh.orig/cipher-ctr.c
@@ -203,7 +203,7 @@ Index: openssh/kex.c
  /* prototype */
  static int kex_choose_conf(struct ssh *);
 @@ -106,6 +107,39 @@ static const struct kexalg kexalgs[] = {
- 	{ NULL, -1, -1, -1},
+ 	{ NULL, 0, -1, -1},
  };
  
 +static const struct kexalg kexalgs_fips140_2[] = {
@@ -226,7 +226,7 @@ Index: openssh/kex.c
 +	    SSH_DIGEST_SHA512 },
 +# endif
 +#endif
-+	{ NULL, -1, -1, -1},
++	{ NULL, 0, -1, -1},
 +};
 +
 +static const struct kexalg *
@@ -321,8 +321,8 @@ Index: openssh/myproposal.h
 --- openssh.orig/myproposal.h
 +++ openssh/myproposal.h
 @@ -104,6 +104,19 @@
- 	KEX_SHA2_GROUP14 \
- 	"diffie-hellman-group14-sha1"
+ 
+ #define KEX_CLIENT_KEX KEX_SERVER_KEX
  
 +#define KEX_FIPS_140_2_SERVER_KEX \
 +	KEX_ECDH_METHODS \
@@ -383,16 +383,14 @@ Index: openssh/myproposal.h
 +
  /* Not a KEX value, but here so all the algorithm defaults are together */
  #define	SSH_ALLOWED_CA_SIGALGS	\
- 	"ecdsa-sha2-nistp256," \
-@@ -148,6 +182,14 @@
+ 	HOSTKEY_ECDSA_METHODS \
+@@ -148,6 +182,12 @@
  	"rsa-sha2-512," \
  	"rsa-sha2-256," \
  	"ssh-rsa"
 +
 +#define	SSH_FIPS_140_2_ALLOWED_CA_SIGALGS	\
-+	"ecdsa-sha2-nistp256," \
-+	"ecdsa-sha2-nistp384," \
-+	"ecdsa-sha2-nistp521," \
++	HOSTKEY_ECDSA_METHODS \
 +	"rsa-sha2-512," \
 +	"rsa-sha2-256," \
 +	"ssh-rsa"
@@ -403,15 +401,23 @@ Index: openssh/openbsd-compat/arc4random.c
 ===================================================================
 --- openssh.orig/openbsd-compat/arc4random.c
 +++ openssh/openbsd-compat/arc4random.c
-@@ -45,6 +45,7 @@
- #endif
+@@ -207,29 +207,46 @@ _rs_random_u32(u_int32_t *val)
+ 	return;
+ }
  
- #include "log.h"
-+#include "fips.h"
- 
- #define KEYSTREAM_ONLY
- #include "chacha_private.h"
-@@ -210,26 +211,30 @@ _rs_random_u32(u_int32_t *val)
++#include <openssl/crypto.h>
++static int
++fips_mode(void)
++{
++	static int fips_state = -1;
++	if (-1 == fips_state) {
++		fips_state = FIPS_mode();
++		if (fips_state)
++			debug("FIPS mode initialized");
++	}
++	return fips_state;
++}
++
  void
  arc4random_stir(void)
  {
@@ -455,7 +461,7 @@ Index: openssh/openbsd-compat/arc4random.c
  }
  
  u_int32_t
-@@ -238,7 +243,11 @@ arc4random(void)
+@@ -238,7 +255,11 @@ arc4random(void)
  	u_int32_t val;
  
  	_ARC4_LOCK();
@@ -468,7 +474,7 @@ Index: openssh/openbsd-compat/arc4random.c
  	_ARC4_UNLOCK();
  	return val;
  }
-@@ -252,7 +261,11 @@ void
+@@ -252,7 +273,11 @@ void
  arc4random_buf(void *buf, size_t n)
  {
  	_ARC4_LOCK();
@@ -943,13 +949,13 @@ Index: openssh/sshkey.c
 --- openssh.orig/sshkey.c
 +++ openssh/sshkey.c
 @@ -57,6 +57,7 @@
+ #define SSHKEY_INTERNAL
  #include "sshkey.h"
- #include "sshkey-xmss.h"
  #include "match.h"
 +#include "fips.h"
  
- #include "xmss_fast.h"
- 
+ #ifdef WITH_XMSS
+ #include "sshkey-xmss.h"
 @@ -138,12 +139,51 @@ static const struct keytype keytypes[] =
  	{ NULL, NULL, NULL, -1, -1, 0, 0 }
  };
@@ -1068,15 +1074,6 @@ Index: openssh/sshkey.c
  		if ((k->ed25519_pk = malloc(ED25519_PK_SZ)) == NULL ||
  		    (k->ed25519_sk = malloc(ED25519_SK_SZ)) == NULL) {
  			ret = SSH_ERR_ALLOC_FAIL;
-@@ -3825,7 +3869,7 @@ sshkey_private_to_fileblob(struct sshkey
- 	case KEY_DSA:
- 	case KEY_ECDSA:
- 	case KEY_RSA:
--		if (force_new_format) {
-+		if (force_new_format && !fips_mode()) {
- 			return sshkey_private_to_blob2(key, blob, passphrase,
- 			    comment, new_format_cipher, new_format_rounds);
- 		}
 @@ -3836,6 +3880,10 @@ sshkey_private_to_fileblob(struct sshkey
  #ifdef WITH_XMSS
  	case KEY_XMSS:
@@ -1086,9 +1083,18 @@ Index: openssh/sshkey.c
 +			return SSH_ERR_KEY_TYPE_UNKNOWN;
 +		}
  		return sshkey_private_to_blob2(key, blob, passphrase,
- 		    comment, new_format_cipher, new_format_rounds);
+ 		    comment, openssh_format_cipher, openssh_format_rounds);
  	default:
-@@ -4045,11 +4093,17 @@ sshkey_parse_private_fileblob_type(struc
+@@ -3843,6 +3891,8 @@ sshkey_private_to_fileblob(struct sshkey
+ 	}
+ 
+ #ifdef WITH_OPENSSL
++	if (fips_mode())
++	    format = SSHKEY_PRIVATE_PEM;
+ 	switch (format) {
+ 	case SSHKEY_PRIVATE_OPENSSH:
+ 		return sshkey_private_to_blob2(key, blob, passphrase,
+@@ -4045,11 +4095,17 @@ sshkey_parse_private_fileblob_type(struc
  #ifdef WITH_XMSS
  	case KEY_XMSS:
  #endif /* WITH_XMSS */
@@ -1124,9 +1130,9 @@ Index: openssh/readconf.c
  		    defaults, all)) != 0) \
  			fatal("%s: %s: %s", __func__, #what, ssh_err(r)); \
  	} while (0)
--	ASSEMBLE(ciphers, KEX_SERVER_ENCRYPT, all_cipher);
--	ASSEMBLE(macs, KEX_SERVER_MAC, all_mac);
--	ASSEMBLE(kex_algorithms, KEX_SERVER_KEX, all_kex);
+-	ASSEMBLE(ciphers, KEX_CLIENT_ENCRYPT, all_cipher);
+-	ASSEMBLE(macs, KEX_CLIENT_MAC, all_mac);
+-	ASSEMBLE(kex_algorithms, KEX_CLIENT_KEX, all_kex);
 -	ASSEMBLE(hostbased_key_types, KEX_DEFAULT_PK_ALG, all_key);
 -	ASSEMBLE(pubkey_key_types, KEX_DEFAULT_PK_ALG, all_key);
 -	ASSEMBLE(ca_sign_algorithms, SSH_ALLOWED_CA_SIGALGS, all_sig);
@@ -1139,9 +1145,9 @@ Index: openssh/readconf.c
 +		ASSEMBLE(pubkey_key_types, KEX_FIPS_140_2_PK_ALG, all_key);
 +		ASSEMBLE(ca_sign_algorithms, SSH_FIPS_140_2_ALLOWED_CA_SIGALGS, all_sig);
 +	} else {
-+		ASSEMBLE(ciphers, KEX_SERVER_ENCRYPT, all_cipher);
-+		ASSEMBLE(macs, KEX_SERVER_MAC, all_mac);
-+		ASSEMBLE(kex_algorithms, KEX_SERVER_KEX, all_kex);
++		ASSEMBLE(ciphers, KEX_CLIENT_ENCRYPT, all_cipher);
++		ASSEMBLE(macs, KEX_CLIENT_MAC, all_mac);
++		ASSEMBLE(kex_algorithms, KEX_CLIENT_KEX, all_kex);
 +		ASSEMBLE(hostbased_key_types, KEX_DEFAULT_PK_ALG, all_key);
 +		ASSEMBLE(pubkey_key_types, KEX_DEFAULT_PK_ALG, all_key);
 +		ASSEMBLE(ca_sign_algorithms, SSH_ALLOWED_CA_SIGALGS, all_sig);

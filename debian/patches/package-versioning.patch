@@ -13,43 +13,29 @@ Last-Update: 2013-09-14
 
 Patch-Name: package-versioning.patch
 ---
- sshconnect.c | 4 ++--
- sshd.c       | 2 +-
+ kex.c        | 2 +-
  version.h    | 7 ++++++-
- 3 files changed, 9 insertions(+), 4 deletions(-)
+ 2 files changed, 7 insertions(+), 2 deletions(-)
 
-Index: openssh/sshconnect.c
+Index: openssh/kex.c
 ===================================================================
---- openssh.orig/sshconnect.c
-+++ openssh/sshconnect.c
-@@ -609,7 +609,7 @@ send_client_banner(int connection_out, i
- {
- 	/* Send our own protocol version identification. */
- 	xasprintf(&client_version_string, "SSH-%d.%d-%.100s\r\n",
--	    PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_VERSION);
-+	    PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_RELEASE);
- 	if (atomicio(vwrite, connection_out, client_version_string,
- 	    strlen(client_version_string)) != strlen(client_version_string))
- 		fatal("write: %.100s", strerror(errno));
-Index: openssh/sshd.c
-===================================================================
---- openssh.orig/sshd.c
-+++ openssh/sshd.c
-@@ -373,7 +373,7 @@ sshd_exchange_identification(struct ssh
- 	char remote_version[256];	/* Must be at least as big as buf. */
- 
- 	xasprintf(&server_version_string, "SSH-%d.%d-%.100s%s%s\r\n",
--	    PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_VERSION,
-+	    PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_RELEASE,
- 	    *options.version_addendum == '\0' ? "" : " ",
- 	    options.version_addendum);
- 
+--- openssh.orig/kex.c
++++ openssh/kex.c
+@@ -1179,7 +1179,7 @@ kex_exchange_identification (struct ssh
+ 	if (version_addendum != NULL && *version_addendum == '\0')
+ 		version_addendum = NULL;
+ 	if ((r = sshbuf_putf(our_version, "SSH-%d.%d-%.100s%s%s\r\n",
+-	   PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_VERSION,
++	   PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_RELEASE,
+ 	    version_addendum == NULL ? "" : " ",
+ 	    version_addendum == NULL ? "" : version_addendum)) != 0) {
+ 		error("%s: sshbuf_putf: %s", __func__, ssh_err(r));
 Index: openssh/version.h
 ===================================================================
 --- openssh.orig/version.h
 +++ openssh/version.h
 @@ -3,4 +3,9 @@
- #define SSH_VERSION	"OpenSSH_7.9"
+ #define SSH_VERSION	"OpenSSH_8.1"
  
  #define SSH_PORTABLE	"p1"
 -#define SSH_RELEASE	SSH_VERSION SSH_PORTABLE

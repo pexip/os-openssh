@@ -12,12 +12,50 @@ Last-Update: 2013-09-14
 
 Patch-Name: debian-banner.patch
 ---
+ kex.c         | 5 +++--
+ kex.h         | 2 +-
  servconf.c    | 9 +++++++++
  servconf.h    | 2 ++
+ sshconnect.c  | 2 +-
  sshd.c        | 3 ++-
  sshd_config.5 | 5 +++++
- 4 files changed, 18 insertions(+), 1 deletion(-)
+ 7 files changed, 23 insertions(+), 5 deletions(-)
 
+Index: openssh/kex.c
+===================================================================
+--- openssh.orig/kex.c
++++ openssh/kex.c
+@@ -1161,7 +1161,7 @@ kex_exchange_identification(struct ssh
+  */
+ int
+ kex_exchange_identification(struct ssh *ssh, int timeout_ms,
+-    const char *version_addendum)
++    int debian_banner, const char *version_addendum)
+ {
+ 	int remote_major, remote_minor, mismatch;
+ 	size_t len, i, n;
+@@ -1179,7 +1179,8 @@ kex_exchange_identification(struct ssh
+ 	if (version_addendum != NULL && *version_addendum == '\0')
+ 		version_addendum = NULL;
+ 	if ((r = sshbuf_putf(our_version, "SSH-%d.%d-%.100s%s%s\r\n",
+-	   PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_RELEASE,
++	   PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2,
++	   debian_banner ? SSH_RELEASE : SSH_RELEASE_MINIMUM,
+ 	    version_addendum == NULL ? "" : " ",
+ 	    version_addendum == NULL ? "" : version_addendum)) != 0) {
+ 		error("%s: sshbuf_putf: %s", __func__, ssh_err(r));
+Index: openssh/kex.h
+--- openssh.orig/kex.h
++++ openssh/kex.h
+@@ -177,7 +177,7 @@
+ char	*kex_names_cat(const char *, const char *);
+ int	 kex_assemble_names(char **, const char *, const char *);
+ 
+-int	 kex_exchange_identification(struct ssh *, int, const char *);
++int	 kex_exchange_identification(struct ssh *, int, int, const char *);
+ 
+ struct kex *kex_new(void);
+ int	 kex_ready(struct ssh *, char *[PROPOSAL_MAX]);
 Index: openssh/servconf.c
 ===================================================================
 --- openssh.orig/servconf.c
@@ -80,20 +118,31 @@ Index: openssh/servconf.h
  }       ServerOptions;
  
  /* Information about the incoming connection as used by Match */
+Index: openssh/sshconnect.c
+--- openssh.orig/sshconnect.c
++++ openssh/sshconnect.c
+@@ -1284,7 +1284,7 @@ ssh_login (struct ssh *ssh, Sensitive
+ 	lowercase(host);
+ 
+ 	/* Exchange protocol version identification strings with the server. */
+-	if (kex_exchange_identification(ssh, timeout_ms, NULL) != 0)
++	if (kex_exchange_identification(ssh, timeout_ms, 0, NULL) != 0)
+ 		cleanup_exit(255); /* error already logged */
+ 
+ 	/* Put the connection into non-blocking mode. */
 Index: openssh/sshd.c
-===================================================================
 --- openssh.orig/sshd.c
 +++ openssh/sshd.c
-@@ -373,7 +373,8 @@ sshd_exchange_identification(struct ssh
- 	char remote_version[256];	/* Must be at least as big as buf. */
+@@ -2081,7 +2081,8 @@ main(int ac, char **av)
+ 	if (!debug_flag)
+ 		alarm(options.login_grace_time);
  
- 	xasprintf(&server_version_string, "SSH-%d.%d-%.100s%s%s\r\n",
--	    PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_RELEASE,
-+	    PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2,
-+	    options.debian_banner ? SSH_RELEASE : SSH_RELEASE_MINIMUM,
- 	    *options.version_addendum == '\0' ? "" : " ",
- 	    options.version_addendum);
+-	if (kex_exchange_identification(ssh, -1, options.version_addendum) != 0)
++	if (kex_exchange_identification(ssh, -1, options.debian_banner,
++	    options.version_addendum) != 0)
+ 		cleanup_exit(255); /* error already logged */
  
+ 	ssh_packet_set_nonblocking(ssh);
 Index: openssh/sshd_config.5
 ===================================================================
 --- openssh.orig/sshd_config.5

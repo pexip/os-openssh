@@ -28,7 +28,7 @@ Index: openssh/Makefile.in
 --- openssh.orig/Makefile.in
 +++ openssh/Makefile.in
 @@ -118,7 +118,8 @@ SSHDOBJS=sshd.o auth-rhosts.o auth-passw
- 	sftp-server.o sftp-common.o \
+ 	sftp-server.o sftp-common.o sftp-realpath.o \
  	sandbox-null.o sandbox-rlimit.o sandbox-systrace.o sandbox-darwin.o \
  	sandbox-seccomp-filter.o sandbox-capsicum.o sandbox-pledge.o \
 -	sandbox-solaris.o uidswap.o
@@ -525,16 +525,16 @@ Index: openssh/monitor.c
  #ifdef GSSAPI
  static Gssctxt *gsscontext = NULL;
 @@ -155,6 +158,10 @@ int mm_answer_audit_command(int, struct
- 
+     struct mon_table **);
  static int monitor_read_log(struct monitor *);
  
 +#ifdef USE_CONSOLEKIT
-+int mm_answer_consolekit_register(int, Buffer *);
++int mm_answer_consolekit_register(struct ssh *, int, Buffer *);
 +#endif
 +
- static Authctxt *authctxt;
- 
- /* local state for key verify */
+ struct mon_table mon_dispatch_proto20[] = {
+ #ifdef WITH_OPENSSL
+     {MONITOR_REQ_MODULI, MON_ONCE, mm_answer_moduli},
 @@ -233,6 +240,9 @@ struct mon_table mon_dispatch_postauth20
      {MONITOR_REQ_AUDIT_EVENT, MON_PERMIT, mm_answer_audit_event},
      {MONITOR_REQ_AUDIT_COMMAND, MON_PERMIT, mm_answer_audit_command},
@@ -554,14 +554,14 @@ Index: openssh/monitor.c
 +#endif
  
  	for (;;)
- 		monitor_read(pmonitor, mon_dispatch, NULL);
+ 		monitor_read(ssh, pmonitor, mon_dispatch, NULL);
 @@ -1902,3 +1915,29 @@ mm_answer_gss_userok(int sock, struct ss
  }
  #endif /* GSSAPI */
  
 +#ifdef USE_CONSOLEKIT
 +int
-+mm_answer_consolekit_register(int sock, Buffer *m)
++mm_answer_consolekit_register(struct ssh *ssh, int sock, Buffer *m)
 +{
 +	Session *s;
 +	char *tty, *display;
@@ -597,7 +597,7 @@ Index: openssh/monitor.h
 +
  };
  
- struct monitor {
+ struct ssh;
 Index: openssh/monitor_wrap.c
 ===================================================================
 --- openssh.orig/monitor_wrap.c

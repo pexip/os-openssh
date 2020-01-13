@@ -67,7 +67,7 @@ Index: openssh/ssh-keygen.1
 -to generate new host keys.
 +This is used by system administration scripts to generate new host keys.
  .It Fl a Ar rounds
- When saving a private key this option specifies the number of KDF
+ When saving a private key, this option specifies the number of KDF
  (key derivation function) rounds used.
 @@ -677,7 +673,7 @@ option.
  Valid generator values are 2, 3, and 5.

@@ -50,9 +50,9 @@ Index: openssh/auth2.c
  {
  	Authctxt *authctxt = ssh->authctxt;
  	Authmethod *m = NULL;
--	char *user, *service, *method, *style = NULL;
-+	char *user, *service, *method, *style = NULL, *role = NULL;
- 	int authenticated = 0;
+-	char *user = NULL, *service = NULL, *method = NULL, *style = NULL;
++	char *user = NULL, *service = NULL, *method = NULL, *style = NULL, *role = NULL;
+ 	int r, authenticated = 0;
  	double tstart = monotime_double();
  
 @@ -268,8 +268,13 @@ input_userauth_request(int type, u_int32
@@ -77,21 +77,21 @@ Index: openssh/auth2.c
  		if (use_privsep)
 -			mm_inform_authserv(service, style);
 +			mm_inform_authserv(service, style, role);
- 		userauth_banner();
+ 		userauth_banner(ssh);
  		if (auth2_setup_methods_lists(authctxt) != 0)
- 			packet_disconnect("no authentication methods enabled");
+ 			ssh_packet_disconnect(ssh,
 Index: openssh/monitor.c
 ===================================================================
 --- openssh.orig/monitor.c
 +++ openssh/monitor.c
 @@ -117,6 +117,7 @@ int mm_answer_sign(int, struct sshbuf *)
- int mm_answer_pwnamallow(int, struct sshbuf *);
- int mm_answer_auth2_read_banner(int, struct sshbuf *);
- int mm_answer_authserv(int, struct sshbuf *);
-+int mm_answer_authrole(int, struct sshbuf *);
- int mm_answer_authpassword(int, struct sshbuf *);
- int mm_answer_bsdauthquery(int, struct sshbuf *);
- int mm_answer_bsdauthrespond(int, struct sshbuf *);
+ int mm_answer_pwnamallow(struct ssh *, int, struct sshbuf *);
+ int mm_answer_auth2_read_banner(struct ssh *, int, struct sshbuf *);
+ int mm_answer_authserv(struct ssh *, int, struct sshbuf *);
++int mm_answer_authrole(struct ssh *, int, struct sshbuf *);
+ int mm_answer_authpassword(struct ssh *, int, struct sshbuf *);
+ int mm_answer_bsdauthquery(struct ssh *, int, struct sshbuf *);
+ int mm_answer_bsdauthrespond(struct ssh *, int, struct sshbuf *);
 @@ -191,6 +192,7 @@ struct mon_table mon_dispatch_proto20[]
      {MONITOR_REQ_SIGN, MON_ONCE, mm_answer_sign},
      {MONITOR_REQ_PWNAM, MON_ONCE, mm_answer_pwnamallow},
@@ -135,7 +135,7 @@ Index: openssh/monitor.c
 +}
 +
 +int
-+mm_answer_authrole(int sock, struct sshbuf *m)
++mm_answer_authrole(struct ssh *ssh, int sock, struct sshbuf *m)
 +{
 +	int r;
 +
@@ -175,7 +175,7 @@ Index: openssh/monitor.h
 +
  };
  
- struct monitor {
+ struct ssh;
 Index: openssh/monitor_wrap.c
 ===================================================================
 --- openssh.orig/monitor_wrap.c
@@ -234,13 +234,13 @@ Index: openssh/monitor_wrap.h
 --- openssh.orig/monitor_wrap.h
 +++ openssh/monitor_wrap.h
 @@ -43,7 +43,8 @@ int mm_is_monitor(void);
- DH *mm_choose_dh(int, int, int);
- int mm_sshkey_sign(struct sshkey *, u_char **, size_t *, const u_char *, size_t,
-     const char *, u_int compat);
+ #endif
+ int mm_sshkey_sign(struct ssh *, struct sshkey *, u_char **, size_t *,
+     const u_char *, size_t, const char *, u_int compat);
 -void mm_inform_authserv(char *, char *);
 +void mm_inform_authserv(char *, char *, char *);
 +void mm_inform_authrole(char *);
- struct passwd *mm_getpwnamallow(const char *);
+ struct passwd *mm_getpwnamallow(struct ssh *, const char *);
  char *mm_auth2_read_banner(void);
  int mm_auth_password(struct ssh *, char *);
 Index: openssh/openbsd-compat/port-linux.c
@@ -414,7 +414,7 @@ Index: openssh/session.c
  	 * PAM session modules in do_setusercontext may have
  	 * generated messages, so if this in an interactive
 @@ -1955,7 +1955,7 @@ session_pty_req(struct ssh *ssh, Session
- 	ssh_tty_parse_modes(ssh, s->ttyfd);
+ 		sshpkt_fatal(ssh, r, "%s: parse packet", __func__);
  
  	if (!use_privsep)
 -		pty_setowner(s->pw, s->tty);
