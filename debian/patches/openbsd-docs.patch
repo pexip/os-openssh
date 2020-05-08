@@ -48,7 +48,7 @@ Index: openssh/ssh-keygen.1
 --- openssh.orig/ssh-keygen.1
 +++ openssh/ssh-keygen.1
 @@ -176,9 +176,7 @@ key in
- .Pa ~/.ssh/id_ed25519
+ .Pa ~/.ssh/id_ed25519_sk
  or
  .Pa ~/.ssh/id_rsa .
 -Additionally, the system administrator may use this to generate host keys,
@@ -77,7 +77,7 @@ Index: openssh/ssh-keygen.1
 +.Pa /etc/ssh/moduli .
  It is important that this file contains moduli of a range of bit lengths and
  that both ends of a connection share common moduli.
- .Sh CERTIFICATES
+ .Pp
 @@ -877,7 +873,7 @@ on all machines
  where the user wishes to log in using public key authentication.
  There is no need to keep the contents of this file secret.

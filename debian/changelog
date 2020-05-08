@@ -1,3 +1,31 @@
+openssh (1:8.2p1-0pexip1) pexip; urgency=medium
+
+  * New upstream release
+  * debian/patches/consolekit.patch,
+    debian/patches/debian-banner.patch,
+    debian/patches/keepalive-extensions.patch,
+    debian/patches/lintian-symlink-pickiness.patch,
+    debian/patches/openbsd-docs.patch,
+    debian/patches/package-versioning.patch,
+    debian/patches/selinux-role.patch,
+    debian/patches/shell-path.patch,
+    debian/patches/ssh-agent-setgid.patch,
+    debian/patches/user-group-modes.patch:
+    Refresh
+  * debian/patches/openssh-6.5p1-fips.patch:
+    Refresh, and take the opportunity to:
+      - drop 3DES support in FIPS mode
+      - remove diffie-hellman-group14-sha1 from the default
+        key exchange proposal (follows the corresponding
+        upstream change in non-FIPS mode)
+      - remove ssh-rsa from the allowed CA signature algorithms
+        (follows the corresponding upstream change)
+      - allow the new ECDSA-SK key types in FIPS mode
+  * debian/openssh-client.install:
+    Install ssh-sk-helper and its man page
+
+ -- John-Mark Bell <jmb@pexip.com>  Fri, 08 May 2020 10:39:17 +0100
+
 openssh (1:8.1p1-0pexip1) pexip; urgency=medium
 
   * New upstream release

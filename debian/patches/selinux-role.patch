@@ -236,7 +236,7 @@ Index: openssh/monitor_wrap.h
 @@ -43,7 +43,8 @@ int mm_is_monitor(void);
  #endif
  int mm_sshkey_sign(struct ssh *, struct sshkey *, u_char **, size_t *,
-     const u_char *, size_t, const char *, u_int compat);
+     const u_char *, size_t, const char *, const char *, u_int compat);
 -void mm_inform_authserv(char *, char *);
 +void mm_inform_authserv(char *, char *, char *);
 +void mm_inform_authrole(char *);

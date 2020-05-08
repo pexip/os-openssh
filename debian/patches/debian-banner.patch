@@ -69,32 +69,31 @@ Index: openssh/servconf.c
  
  /* Returns 1 if a string option is unset or set to "none" or 0 otherwise. */
 @@ -411,6 +412,8 @@ fill_default_server_options(ServerOption
- 		options->disable_forwarding = 0;
- 	if (options->expose_userauth_info == -1)
  		options->expose_userauth_info = 0;
+ 	if (options->sk_provider == NULL)
+ 		options->sk_provider = xstrdup("internal");
 +	if (options->debian_banner == -1)
 +		options->debian_banner = 1;
  
  	assemble_algorithms(options);
  
-@@ -496,7 +499,7 @@ typedef enum {
- 	sAuthenticationMethods, sHostKeyAgent, sPermitUserRC,
+@@ -496,6 +499,7 @@ typedef enum {
  	sStreamLocalBindMask, sStreamLocalBindUnlink,
  	sAllowStreamLocalForwarding, sFingerprintHash, sDisableForwarding,
--	sExposeAuthInfo, sRDomain,
-+	sExposeAuthInfo, sRDomain, sDebianBanner,
+ 	sExposeAuthInfo, sRDomain, sPubkeyAuthOptions, sSecurityKeyProvider,
++	sDebianBanner,
  	sDeprecated, sIgnore, sUnsupported
  } ServerOpCodes;
  
-@@ -646,6 +649,7 @@ static struct {
- 	{ "exposeauthinfo", sExposeAuthInfo, SSHCFG_ALL },
+@@ -646,6 +650,7 @@ static struct {
  	{ "rdomain", sRDomain, SSHCFG_ALL },
  	{ "casignaturealgorithms", sCASignatureAlgorithms, SSHCFG_ALL },
+ 	{ "securitykeyprovider", sSecurityKeyProvider, SSHCFG_GLOBAL },
 +	{ "debianbanner", sDebianBanner, SSHCFG_GLOBAL },
  	{ NULL, sBadOption, 0 }
  };
  
-@@ -2150,6 +2154,10 @@ process_server_config_line(ServerOptions
+@@ -2150,6 +2155,10 @@ process_server_config_line(ServerOptions
  			*charptr = xstrdup(arg);
  		break;
  
@@ -110,9 +109,9 @@ Index: openssh/servconf.h
 --- openssh.orig/servconf.h
 +++ openssh/servconf.h
 @@ -210,6 +210,8 @@ typedef struct {
- 	int	fingerprint_hash;
  	int	expose_userauth_info;
  	u_int64_t timing_secret;
+ 	char   *sk_provider;
 +
 +	int	debian_banner;
  }       ServerOptions;

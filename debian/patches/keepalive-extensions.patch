@@ -30,17 +30,17 @@ Index: openssh/readconf.c
 --- openssh.orig/readconf.c
 +++ openssh/readconf.c
 @@ -173,6 +173,7 @@ typedef enum {
- 	oStreamLocalBindMask, oStreamLocalBindUnlink, oRevokedHostKeys,
  	oFingerprintHash, oUpdateHostkeys, oHostbasedKeyTypes,
  	oPubkeyAcceptedKeyTypes, oCASignatureAlgorithms, oProxyJump,
+ 	oSecurityKeyProvider,
 +	oProtocolKeepAlives, oSetupTimeOut,
  	oIgnore, oIgnoredUnknownOption, oDeprecated, oUnsupported
  } OpCodes;
  
 @@ -310,6 +311,8 @@ static struct {
- 	{ "pubkeyacceptedkeytypes", oPubkeyAcceptedKeyTypes },
  	{ "ignoreunknown", oIgnoreUnknown },
  	{ "proxyjump", oProxyJump },
+ 	{ "securitykeyprovider", oSecurityKeyProvider },
 +	{ "protocolkeepalives", oProtocolKeepAlives },
 +	{ "setuptimeout", oSetupTimeOut },
  
@@ -75,16 +75,17 @@ Index: openssh/ssh_config.5
 ===================================================================
 --- openssh.orig/ssh_config.5
 +++ openssh/ssh_config.5
-@@ -247,8 +247,12 @@ Valid arguments are
- If set to
+@@ -247,9 +247,13 @@ Valid arguments are
  .Cm yes ,
- passphrase/password querying will be disabled.
+ user interaction such as password prompts and host key confirmation requests
+ will be disabled.
 +In addition, the
 +.Cm ServerAliveInterval
 +option will be set to 300 seconds by default.
  This option is useful in scripts and other batch jobs where no user
--is present to supply the password.
-+is present to supply the password,
+ is present to interact with
+-.Xr ssh 1 .
++.Xr ssh 1 ,
 +and where it is desirable to detect a broken network swiftly.
  The argument must be
  .Cm yes

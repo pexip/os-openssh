@@ -8,16 +8,15 @@ Index: openssh/Makefile.in
 ===================================================================
 --- openssh.orig/Makefile.in
 +++ openssh/Makefile.in
-@@ -100,7 +100,8 @@ LIBSSH_OBJS=${LIBOPENSSH_OBJS} \
- 	kex.o kexdh.o kexgex.o kexecdh.o kexc25519.o \
+@@ -100,7 +100,7 @@ LIBSSH_OBJS=${LIBOPENSSH_OBJS} \
  	kexgexc.o kexgexs.o \
  	sntrup4591761.o kexsntrup4591761x25519.o kexgen.o \
--	platform-pledge.o platform-tracing.o platform-misc.o
-+	platform-pledge.o platform-tracing.o platform-misc.o \
-+	fips.o
+ 	sftp-realpath.o platform-pledge.o platform-tracing.o platform-misc.o \
+-	sshbuf-io.o
++	sshbuf-io.o fips.o
  
+ SKOBJS=	ssh-sk-client.o
  
- SSHOBJS= ssh.o readconf.o clientloop.o sshtty.o \
 Index: openssh/cipher-ctr.c
 ===================================================================
 --- openssh.orig/cipher-ctr.c
@@ -51,14 +50,13 @@ Index: openssh/cipher.c
  
  #include "openbsd-compat/openssl-compat.h"
  
-@@ -111,8 +112,39 @@ static const struct sshcipher ciphers[]
+@@ -111,8 +112,38 @@ static const struct sshcipher ciphers[]
  	{ NULL,			0, 0, 0, 0, 0, NULL }
  };
  
 +static const struct sshcipher ciphers_fips140_2[] = {
 + 	{ "none",		8, 0, 0, 0, CFLAG_NONE, NULL },
 +
-+	{ "3des-cbc",		8, 24, 0, 0, CFLAG_CBC, EVP_des_ede3_cbc },
 +	{ "aes128-cbc",		16, 16, 0, 0, CFLAG_CBC, EVP_aes_128_cbc },
 +	{ "aes192-cbc",		16, 24, 0, 0, CFLAG_CBC, EVP_aes_192_cbc },
 +	{ "aes256-cbc",		16, 32, 0, 0, CFLAG_CBC, EVP_aes_256_cbc },
@@ -91,7 +89,7 @@ Index: openssh/cipher.c
  /* Returns a comma-separated list of supported ciphers. */
  char *
  cipher_alg_list(char sep, int auth_only)
-@@ -121,7 +153,7 @@ cipher_alg_list(char sep, int auth_only)
+@@ -121,7 +152,7 @@ cipher_alg_list(char sep, int auth_only)
  	size_t nlen, rlen = 0;
  	const struct sshcipher *c;
  
@@ -100,7 +98,7 @@ Index: openssh/cipher.c
  		if ((c->flags & CFLAG_INTERNAL) != 0)
  			continue;
  		if (auth_only && c->auth_len == 0)
-@@ -193,7 +225,7 @@ const struct sshcipher *
+@@ -193,7 +224,7 @@ const struct sshcipher *
  cipher_by_name(const char *name)
  {
  	const struct sshcipher *c;
@@ -320,57 +318,61 @@ Index: openssh/myproposal.h
 ===================================================================
 --- openssh.orig/myproposal.h
 +++ openssh/myproposal.h
-@@ -104,6 +104,19 @@
+@@ -104,6 +104,17 @@
  
  #define KEX_CLIENT_KEX KEX_SERVER_KEX
  
 +#define KEX_FIPS_140_2_SERVER_KEX \
-+	KEX_ECDH_METHODS \
-+	KEX_SHA2_METHODS \
-+	KEX_SHA2_GROUP14 \
-+	"diffie-hellman-group14-sha1"
++	"ecdh-sha2-nistp256," \
++	"ecdh-sha2-nistp384," \
++	"ecdh-sha2-nistp521," \
++	"diffie-hellman-group-exchange-sha256," \
++	"diffie-hellman-group16-sha512," \
++	"diffie-hellman-group18-sha512," \
++	"diffie-hellman-group14-sha256"
 +
-+#define KEX_FIPS_140_2_CLIENT_KEX \
-+	KEX_ECDH_METHODS \
-+	KEX_SHA2_METHODS \
-+	"diffie-hellman-group-exchange-sha1," \
-+	KEX_SHA2_GROUP14 \
-+	"diffie-hellman-group14-sha1"
++#define KEX_FIPS_140_2_CLIENT_KEX KEX_FIPS_140_2_SERVER_KEX
 +
  #define	KEX_DEFAULT_PK_ALG	\
- 	HOSTKEY_ECDSA_CERT_METHODS \
- 	"ssh-ed25519-cert-v01@openssh.com," \
-@@ -116,6 +129,14 @@
+ 	"ecdsa-sha2-nistp256-cert-v01@openssh.com," \
+ 	"ecdsa-sha2-nistp384-cert-v01@openssh.com," \
+@@ -116,6 +127,22 @@
  	"rsa-sha2-256," \
  	"ssh-rsa"
  
 +#define	KEX_FIPS_140_2_PK_ALG      \
-+	HOSTKEY_ECDSA_CERT_METHODS \
++	"ecdsa-sha2-nistp256-cert-v01@openssh.com," \
++	"ecdsa-sha2-nistp384-cert-v01@openssh.com," \
++	"ecdsa-sha2-nistp521-cert-v01@openssh.com," \
++	"sk-ecdsa-sha2-nistp256-cert-v01@openssh.com," \
++	"rsa-sha2-512-cert-v01@openssh.com," \
++	"rsa-sha2-256-cert-v01@openssh.com," \
 +	"ssh-rsa-cert-v01@openssh.com," \
-+	HOSTKEY_ECDSA_METHODS \
++	"ecdsa-sha2-nistp256," \
++	"ecdsa-sha2-nistp384," \
++	"ecdsa-sha2-nistp521," \
++	"sk-ecdsa-sha2-nistp256@openssh.com," \
 +	"rsa-sha2-512," \
 +	"rsa-sha2-256," \
 +	"ssh-rsa"
 +
- /* the actual algorithms */
- 
- #define KEX_SERVER_ENCRYPT \
-@@ -125,7 +146,13 @@
+ #define	KEX_SERVER_ENCRYPT \
+ 	"chacha20-poly1305@openssh.com," \
+ 	"aes128-ctr,aes192-ctr,aes256-ctr," \
+@@ -125,6 +152,12 @@
  
  #define KEX_CLIENT_ENCRYPT KEX_SERVER_ENCRYPT
  
--#define KEX_SERVER_MAC \
 +#define	KEX_FIPS_140_2_SERVER_ENCRYPT \
 +	"aes128-ctr,aes192-ctr,aes256-ctr," \
-+	AESGCM_CIPHER_MODES
++	"aes128-gcm@openssh.com,aes256-gcm@openssh.com"
 +
 +#define	KEX_FIPS_140_2_CLIENT_ENCRYPT KEX_FIPS_140_2_SERVER_ENCRYPT
 +
-+#define KEX_SERVER_MAC		   \
+ #define	KEX_SERVER_MAC \
  	"umac-64-etm@openssh.com," \
  	"umac-128-etm@openssh.com," \
- 	"hmac-sha2-256-etm@openssh.com," \
-@@ -139,6 +166,13 @@
+@@ -139,6 +172,13 @@
  
  #define KEX_CLIENT_MAC KEX_SERVER_MAC
  
@@ -383,20 +385,22 @@ Index: openssh/myproposal.h
 +
  /* Not a KEX value, but here so all the algorithm defaults are together */
  #define	SSH_ALLOWED_CA_SIGALGS	\
- 	HOSTKEY_ECDSA_METHODS \
-@@ -148,6 +182,12 @@
+ 	"ecdsa-sha2-nistp256," \
+@@ -148,6 +188,14 @@
+ 	"sk-ssh-ed25519@openssh.com," \
  	"rsa-sha2-512," \
- 	"rsa-sha2-256," \
- 	"ssh-rsa"
+ 	"rsa-sha2-256"
 +
 +#define	SSH_FIPS_140_2_ALLOWED_CA_SIGALGS	\
-+	HOSTKEY_ECDSA_METHODS \
++	"ecdsa-sha2-nistp256," \
++	"ecdsa-sha2-nistp384," \
++	"ecdsa-sha2-nistp521," \
++	"sk-ecdsa-sha2-nistp256@openssh.com," \
 +	"rsa-sha2-512," \
-+	"rsa-sha2-256," \
-+	"ssh-rsa"
++	"rsa-sha2-256"
  
- #else /* WITH_OPENSSL */
- 
+ #define	KEX_DEFAULT_COMP	"none,zlib@openssh.com"
+ #define	KEX_DEFAULT_LANG	""
 Index: openssh/openbsd-compat/arc4random.c
 ===================================================================
 --- openssh.orig/openbsd-compat/arc4random.c
@@ -487,44 +491,6 @@ Index: openssh/openbsd-compat/arc4random.c
  	_ARC4_UNLOCK();
  }
  # endif /* !HAVE_ARC4RANDOM_BUF */
-Index: openssh/sshconnect2.c
-===================================================================
---- openssh.orig/sshconnect2.c
-+++ openssh/sshconnect2.c
-@@ -72,6 +72,7 @@
- #include "hostfile.h"
- #include "ssherr.h"
- #include "utf8.h"
-+#include "fips.h"
- 
- #ifdef GSSAPI
- #include "ssh-gss.h"
-@@ -117,7 +118,7 @@ order_hostkeyalgs(char *host, struct soc
- 	for (i = 0; i < options.num_system_hostfiles; i++)
- 		load_hostkeys(hostkeys, hostname, options.system_hostfiles[i]);
- 
--	oavail = avail = xstrdup(KEX_DEFAULT_PK_ALG);
-+	oavail = avail = xstrdup(fips_mode() ? KEX_FIPS_140_2_PK_ALG : KEX_DEFAULT_PK_ALG);
- 	maxlen = strlen(avail) + 1;
- 	first = xmalloc(maxlen);
- 	last = xmalloc(maxlen);
-@@ -180,14 +181,14 @@ ssh_kex2(char *host, struct sockaddr *ho
- 	if (options.hostkeyalgorithms != NULL) {
- 		all_key = sshkey_alg_list(0, 0, 1, ',');
- 		if (kex_assemble_names(&options.hostkeyalgorithms,
--		    KEX_DEFAULT_PK_ALG, all_key) != 0)
-+		    fips_mode() ? KEX_FIPS_140_2_PK_ALG : KEX_DEFAULT_PK_ALG, all_key) != 0)
- 			fatal("%s: kex_assemble_namelist", __func__);
- 		free(all_key);
- 		myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] =
- 		    compat_pkalg_proposal(options.hostkeyalgorithms);
- 	} else {
- 		/* Enforce default */
--		options.hostkeyalgorithms = xstrdup(KEX_DEFAULT_PK_ALG);
-+		options.hostkeyalgorithms = xstrdup(fips_mode() ? KEX_FIPS_140_2_PK_ALG : KEX_DEFAULT_PK_ALG);
- 		/* Prefer algorithms that we already have keys for */
- 		myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] =
- 		    compat_pkalg_proposal(
 Index: openssh/ssh-dss.c
 ===================================================================
 --- openssh.orig/ssh-dss.c
@@ -949,14 +915,14 @@ Index: openssh/sshkey.c
 --- openssh.orig/sshkey.c
 +++ openssh/sshkey.c
 @@ -57,6 +57,7 @@
- #define SSHKEY_INTERNAL
  #include "sshkey.h"
  #include "match.h"
+ #include "ssh-sk.h"
 +#include "fips.h"
  
  #ifdef WITH_XMSS
  #include "sshkey-xmss.h"
-@@ -138,12 +139,51 @@ static const struct keytype keytypes[] =
+@@ -138,12 +139,59 @@ static const struct keytype keytypes[] =
  	{ NULL, NULL, NULL, -1, -1, 0, 0 }
  };
  
@@ -972,8 +938,14 @@ Index: openssh/sshkey.c
 +#  ifdef OPENSSL_HAS_NISTP521
 +	{ "ecdsa-sha2-nistp521", "ECDSA", NULL, KEY_ECDSA, NID_secp521r1, 0, 0 },
 +#  endif /* OPENSSL_HAS_NISTP521 */
++	{ "sk-ecdsa-sha2-nistp256@openssh.com", "ECDSA-SK", NULL,
++	    KEY_ECDSA_SK, NID_X9_62_prime256v1, 0, 0 },
 +# endif /* OPENSSL_HAS_ECC */
 +	{ "ssh-rsa-cert-v01@openssh.com", "RSA-CERT", NULL, KEY_RSA_CERT, 0, 1, 0 },
++	{ "rsa-sha2-256-cert-v01@openssh.com", "RSA-CERT",
++	    "rsa-sha2-256", KEY_RSA_CERT, 0, 1, 1 },
++	{ "rsa-sha2-512-cert-v01@openssh.com", "RSA-CERT",
++	    "rsa-sha2-512", KEY_RSA_CERT, 0, 1, 1 },
 +	{ "ssh-dss-cert-v01@openssh.com", "DSA-CERT", NULL, KEY_DSA_CERT, 0, 1, 0 },
 +# ifdef OPENSSL_HAS_ECC
 +	{ "ecdsa-sha2-nistp256-cert-v01@openssh.com", "ECDSA-CERT", NULL,
@@ -984,6 +956,8 @@ Index: openssh/sshkey.c
 +	{ "ecdsa-sha2-nistp521-cert-v01@openssh.com", "ECDSA-CERT", NULL,
 +	    KEY_ECDSA_CERT, NID_secp521r1, 1, 0 },
 +#  endif /* OPENSSL_HAS_NISTP521 */
++	{ "sk-ecdsa-sha2-nistp256-cert-v01@openssh.com", "ECDSA-SK-CERT", NULL,
++	    KEY_ECDSA_SK_CERT, NID_X9_62_prime256v1, 1, 0 },
 +# endif /* OPENSSL_HAS_ECC */
 +#endif /* WITH_OPENSSL */
 +	{ NULL, NULL, NULL, -1, -1, 0, 0 }
@@ -1009,7 +983,7 @@ Index: openssh/sshkey.c
  		if (kt->type == k->type)
  			return kt->shortname;
  	}
-@@ -155,7 +195,7 @@ sshkey_ssh_name_from_type_nid(int type,
+@@ -155,7 +203,7 @@ sshkey_ssh_name_from_type_nid(int type,
  {
  	const struct keytype *kt;
  
@@ -1018,7 +992,7 @@ Index: openssh/sshkey.c
  		if (kt->type == type && (kt->nid == 0 || kt->nid == nid))
  			return kt->name;
  	}
-@@ -167,7 +207,7 @@ sshkey_type_is_cert(int type)
+@@ -167,7 +215,7 @@ sshkey_type_is_cert(int type)
  {
  	const struct keytype *kt;
  
@@ -1027,7 +1001,7 @@ Index: openssh/sshkey.c
  		if (kt->type == type)
  			return kt->cert;
  	}
-@@ -192,7 +232,7 @@ sshkey_type_from_name(const char *name)
+@@ -192,7 +240,7 @@ sshkey_type_from_name(const char *name)
  {
  	const struct keytype *kt;
  
@@ -1036,16 +1010,16 @@ Index: openssh/sshkey.c
  		/* Only allow shortname matches for plain key types */
  		if ((kt->name != NULL && strcmp(name, kt->name) == 0) ||
  		    (!kt->cert && strcasecmp(kt->shortname, name) == 0))
-@@ -206,7 +246,7 @@ sshkey_ecdsa_nid_from_name(const char *n
+@@ -206,7 +254,7 @@ sshkey_ecdsa_nid_from_name(const char *n
  {
  	const struct keytype *kt;
  
 -	for (kt = keytypes; kt->type != -1; kt++) {
 +	for (kt = fips_select_keytypes(); kt->type != -1; kt++) {
- 		if (kt->type != KEY_ECDSA && kt->type != KEY_ECDSA_CERT)
+ 		if (!key_type_is_ecdsa_variant(kt->type))
  			continue;
  		if (kt->name != NULL && strcmp(name, kt->name) == 0)
-@@ -222,7 +262,7 @@ sshkey_alg_list(int certs_only, int plai
+@@ -222,7 +270,7 @@ sshkey_alg_list(int certs_only, int plai
  	size_t nlen, rlen = 0;
  	const struct keytype *kt;
  
@@ -1054,7 +1028,7 @@ Index: openssh/sshkey.c
  		if (kt->name == NULL)
  			continue;
  		if (!include_sigonly && kt->sigonly)
-@@ -264,7 +304,7 @@ sshkey_names_valid2(const char *names, i
+@@ -264,7 +312,7 @@ sshkey_names_valid2(const char *names, i
  				 * If any has a positive or negative match then
  				 * the component is accepted.
  				 */
@@ -1063,7 +1037,7 @@ Index: openssh/sshkey.c
  					if (match_pattern_list(kt->name,
  					    p, 0) != 0)
  						break;
-@@ -1615,6 +1655,10 @@ sshkey_generate(int type, u_int bits, st
+@@ -1615,6 +1663,10 @@ sshkey_generate(int type, u_int bits, st
  		return SSH_ERR_ALLOC_FAIL;
  	switch (type) {
  	case KEY_ED25519:
@@ -1074,18 +1048,18 @@ Index: openssh/sshkey.c
  		if ((k->ed25519_pk = malloc(ED25519_PK_SZ)) == NULL ||
  		    (k->ed25519_sk = malloc(ED25519_SK_SZ)) == NULL) {
  			ret = SSH_ERR_ALLOC_FAIL;
-@@ -3836,6 +3880,10 @@ sshkey_private_to_fileblob(struct sshkey
- #ifdef WITH_XMSS
- 	case KEY_XMSS:
- #endif /* WITH_XMSS */
-+		if (fips_mode()) {
+@@ -3836,6 +3888,10 @@ sshkey_private_to_fileblob(struct sshkey
+ #ifdef WITH_OPENSSL
+ 	case KEY_ECDSA_SK:
+ #endif /* WITH_OPENSSL */
++		if (fips_mode() && key->type != KEY_ECDSA_SK) {
 +			/* ED25519 not supported in FIPS mode */
 +			return SSH_ERR_KEY_TYPE_UNKNOWN;
 +		}
  		return sshkey_private_to_blob2(key, blob, passphrase,
  		    comment, openssh_format_cipher, openssh_format_rounds);
  	default:
-@@ -3843,6 +3891,8 @@ sshkey_private_to_fileblob(struct sshkey
+@@ -3843,6 +3899,8 @@ sshkey_private_to_fileblob(struct sshkey
  	}
  
  #ifdef WITH_OPENSSL
@@ -1094,7 +1068,7 @@ Index: openssh/sshkey.c
  	switch (format) {
  	case SSHKEY_PRIVATE_OPENSSH:
  		return sshkey_private_to_blob2(key, blob, passphrase,
-@@ -4045,11 +4095,17 @@ sshkey_parse_private_fileblob_type(struc
+@@ -4045,11 +4103,17 @@ sshkey_parse_private_fileblob_type(struc
  #ifdef WITH_XMSS
  	case KEY_XMSS:
  #endif /* WITH_XMSS */
@@ -1126,35 +1100,31 @@ Index: openssh/readconf.c
  
  /* Format of the configuration file:
  
-@@ -2122,12 +2123,22 @@ fill_default_options(Options * options)
- 		    defaults, all)) != 0) \
- 			fatal("%s: %s: %s", __func__, #what, ssh_err(r)); \
- 	} while (0)
--	ASSEMBLE(ciphers, KEX_CLIENT_ENCRYPT, all_cipher);
--	ASSEMBLE(macs, KEX_CLIENT_MAC, all_mac);
--	ASSEMBLE(kex_algorithms, KEX_CLIENT_KEX, all_kex);
--	ASSEMBLE(hostbased_key_types, KEX_DEFAULT_PK_ALG, all_key);
--	ASSEMBLE(pubkey_key_types, KEX_DEFAULT_PK_ALG, all_key);
--	ASSEMBLE(ca_sign_algorithms, SSH_ALLOWED_CA_SIGALGS, all_sig);
-+
+@@ -2122,11 +2123,19 @@ fill_default_options(Options * options)
+ 	all_key = sshkey_alg_list(0, 0, 1, ',');
+ 	all_sig = sshkey_alg_list(0, 1, 1, ',');
+ 	/* remove unsupported algos from default lists */
+-	def_cipher = match_filter_whitelist(KEX_CLIENT_ENCRYPT, all_cipher);
+-	def_mac = match_filter_whitelist(KEX_CLIENT_MAC, all_mac);
+-	def_kex = match_filter_whitelist(KEX_CLIENT_KEX, all_kex);
+-	def_key = match_filter_whitelist(KEX_DEFAULT_PK_ALG, all_key);
+-	def_sig = match_filter_whitelist(SSH_ALLOWED_CA_SIGALGS, all_sig);
 +	if (fips_mode()) {
-+		ASSEMBLE(ciphers, KEX_FIPS_140_2_CLIENT_ENCRYPT, all_cipher);
-+		ASSEMBLE(macs, KEX_FIPS_140_2_CLIENT_MAC, all_mac);
-+		ASSEMBLE(kex_algorithms, KEX_FIPS_140_2_CLIENT_KEX, all_kex);
-+		ASSEMBLE(hostbased_key_types, KEX_FIPS_140_2_PK_ALG, all_key);
-+		ASSEMBLE(pubkey_key_types, KEX_FIPS_140_2_PK_ALG, all_key);
-+		ASSEMBLE(ca_sign_algorithms, SSH_FIPS_140_2_ALLOWED_CA_SIGALGS, all_sig);
++		def_cipher = match_filter_whitelist(KEX_FIPS_140_2_CLIENT_ENCRYPT, all_cipher);
++		def_mac = match_filter_whitelist(KEX_FIPS_140_2_CLIENT_MAC, all_mac);
++		def_kex = match_filter_whitelist(KEX_FIPS_140_2_CLIENT_KEX, all_kex);
++		def_key = match_filter_whitelist(KEX_FIPS_140_2_PK_ALG, all_key);
++		def_sig = match_filter_whitelist(SSH_FIPS_140_2_ALLOWED_CA_SIGALGS, all_sig);
 +	} else {
-+		ASSEMBLE(ciphers, KEX_CLIENT_ENCRYPT, all_cipher);
-+		ASSEMBLE(macs, KEX_CLIENT_MAC, all_mac);
-+		ASSEMBLE(kex_algorithms, KEX_CLIENT_KEX, all_kex);
-+		ASSEMBLE(hostbased_key_types, KEX_DEFAULT_PK_ALG, all_key);
-+		ASSEMBLE(pubkey_key_types, KEX_DEFAULT_PK_ALG, all_key);
-+		ASSEMBLE(ca_sign_algorithms, SSH_ALLOWED_CA_SIGALGS, all_sig);
++		def_cipher = match_filter_whitelist(KEX_CLIENT_ENCRYPT, all_cipher);
++		def_mac = match_filter_whitelist(KEX_CLIENT_MAC, all_mac);
++		def_kex = match_filter_whitelist(KEX_CLIENT_KEX, all_kex);
++		def_key = match_filter_whitelist(KEX_DEFAULT_PK_ALG, all_key);
++		def_sig = match_filter_whitelist(SSH_ALLOWED_CA_SIGALGS, all_sig);
 +	}
- #undef ASSEMBLE
- 	free(all_cipher);
- 	free(all_mac);
+ #define ASSEMBLE(what, defaults, all) \
+ 	do { \
+ 		if ((r = kex_assemble_names(&options->what, \
 Index: openssh/servconf.c
 ===================================================================
 --- openssh.orig/servconf.c
@@ -1167,38 +1137,32 @@ Index: openssh/servconf.c
  
  static void add_listen_addr(ServerOptions *, const char *,
      const char *, int);
-@@ -206,13 +207,23 @@ assemble_algorithms(ServerOptions *o)
- 		if ((r = kex_assemble_names(&o->what, defaults, all)) != 0) \
- 			fatal("%s: %s: %s", __func__, #what, ssh_err(r)); \
- 	} while (0)
--	ASSEMBLE(ciphers, KEX_SERVER_ENCRYPT, all_cipher);
--	ASSEMBLE(macs, KEX_SERVER_MAC, all_mac);
--	ASSEMBLE(kex_algorithms, KEX_SERVER_KEX, all_kex);
--	ASSEMBLE(hostkeyalgorithms, KEX_DEFAULT_PK_ALG, all_key);
--	ASSEMBLE(hostbased_key_types, KEX_DEFAULT_PK_ALG, all_key);
--	ASSEMBLE(pubkey_key_types, KEX_DEFAULT_PK_ALG, all_key);
--	ASSEMBLE(ca_sign_algorithms, SSH_ALLOWED_CA_SIGALGS, all_sig);
+@@ -206,11 +207,19 @@ assemble_algorithms(ServerOptions *o)
+ 	all_key = sshkey_alg_list(0, 0, 1, ',');
+ 	all_sig = sshkey_alg_list(0, 1, 1, ',');
+ 	/* remove unsupported algos from default lists */
+-	def_cipher = match_filter_whitelist(KEX_SERVER_ENCRYPT, all_cipher);
+-	def_mac = match_filter_whitelist(KEX_SERVER_MAC, all_mac);
+-	def_kex = match_filter_whitelist(KEX_SERVER_KEX, all_kex);
+-	def_key = match_filter_whitelist(KEX_DEFAULT_PK_ALG, all_key);
+-	def_sig = match_filter_whitelist(SSH_ALLOWED_CA_SIGALGS, all_sig);
 +	if (fips_mode()) {
-+		ASSEMBLE(ciphers, KEX_FIPS_140_2_SERVER_ENCRYPT, all_cipher);
-+		ASSEMBLE(macs, KEX_FIPS_140_2_SERVER_MAC, all_mac);
-+		ASSEMBLE(kex_algorithms, KEX_FIPS_140_2_SERVER_KEX, all_kex);
-+		ASSEMBLE(hostkeyalgorithms, KEX_FIPS_140_2_PK_ALG, all_key);
-+		ASSEMBLE(hostbased_key_types, KEX_FIPS_140_2_PK_ALG, all_key);
-+		ASSEMBLE(pubkey_key_types, KEX_FIPS_140_2_PK_ALG, all_key);
-+		ASSEMBLE(ca_sign_algorithms, SSH_FIPS_140_2_ALLOWED_CA_SIGALGS, all_sig);
++		def_cipher = match_filter_whitelist(KEX_FIPS_140_2_SERVER_ENCRYPT, all_cipher);
++		def_mac = match_filter_whitelist(KEX_FIPS_140_2_SERVER_MAC, all_mac);
++		def_kex = match_filter_whitelist(KEX_FIPS_140_2_SERVER_KEX, all_kex);
++		def_key = match_filter_whitelist(KEX_FIPS_140_2_PK_ALG, all_key);
++		def_sig = match_filter_whitelist(SSH_FIPS_140_2_ALLOWED_CA_SIGALGS, all_sig);
 +	} else {
-+		ASSEMBLE(ciphers, KEX_SERVER_ENCRYPT, all_cipher);
-+		ASSEMBLE(macs, KEX_SERVER_MAC, all_mac);
-+		ASSEMBLE(kex_algorithms, KEX_SERVER_KEX, all_kex);
-+		ASSEMBLE(hostkeyalgorithms, KEX_DEFAULT_PK_ALG, all_key);
-+		ASSEMBLE(hostbased_key_types, KEX_DEFAULT_PK_ALG, all_key);
-+		ASSEMBLE(pubkey_key_types, KEX_DEFAULT_PK_ALG, all_key);
-+		ASSEMBLE(ca_sign_algorithms, SSH_ALLOWED_CA_SIGALGS, all_sig);
++		def_cipher = match_filter_whitelist(KEX_SERVER_ENCRYPT, all_cipher);
++		def_mac = match_filter_whitelist(KEX_SERVER_MAC, all_mac);
++		def_kex = match_filter_whitelist(KEX_SERVER_KEX, all_kex);
++		def_key = match_filter_whitelist(KEX_DEFAULT_PK_ALG, all_key);
++		def_sig = match_filter_whitelist(SSH_ALLOWED_CA_SIGALGS, all_sig);
 +	}
- #undef ASSEMBLE
- 	free(all_cipher);
- 	free(all_mac);
-@@ -2132,6 +2143,9 @@ process_server_config_line(ServerOptions
+ #define ASSEMBLE(what, defaults, all) \
+ 	do { \
+ 		if ((r = kex_assemble_names(&o->what, defaults, all)) != 0) \
+@@ -2132,6 +2139,9 @@ process_server_config_line(ServerOptions
  		if ((value = ssh_digest_alg_by_name(arg)) == -1)
  			fatal("%.200s line %d: Invalid hash algorithm \"%s\".",
  			    filename, linenum, arg);

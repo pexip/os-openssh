@@ -157,21 +157,21 @@ Index: openssh/misc.h
 --- openssh.orig/misc.h
 +++ openssh/misc.h
 @@ -168,6 +168,8 @@ int	 safe_path_fd(int, const char *, str
+ 
  char	*read_passphrase(const char *, int);
  int	 ask_permission(const char *, ...) __attribute__((format(printf, 1, 2)));
- 
 +int	 secure_permissions(struct stat *st, uid_t uid);
 +
- #define MINIMUM(a, b)	(((a) < (b)) ? (a) : (b))
- #define MAXIMUM(a, b)	(((a) > (b)) ? (a) : (b))
- #define ROUNDUP(x, y)   ((((x)+((y)-1))/(y))*(y))
+ struct notifier_ctx *notify_start(int, const char *, ...)
+ 	__attribute__((format(printf, 2, 3)));
+ void	notify_complete(struct notifier_ctx *);
 Index: openssh/readconf.c
 ===================================================================
 --- openssh.orig/readconf.c
 +++ openssh/readconf.c
 @@ -39,6 +39,8 @@
- #include <stdio.h>
  #include <string.h>
+ #include <stdarg.h>
  #include <unistd.h>
 +#include <pwd.h>
 +#include <grp.h>

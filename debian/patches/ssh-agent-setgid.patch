@@ -17,9 +17,9 @@ Index: openssh/ssh-agent.1
 --- openssh.orig/ssh-agent.1
 +++ openssh/ssh-agent.1
 @@ -206,6 +206,21 @@ environment variable holds the agent's p
- .Pp
- The agent exits automatically when the command given on the command
- line terminates.
+ It is accessible only to the current user,
+ but is easily abused by root or another instance of the same user.
+ .El
 +.Pp
 +In Debian,
 +.Nm

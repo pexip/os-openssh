@@ -35,7 +35,7 @@ Index: openssh/version.h
 --- openssh.orig/version.h
 +++ openssh/version.h
 @@ -3,4 +3,9 @@
- #define SSH_VERSION	"OpenSSH_8.1"
+ #define SSH_VERSION	"OpenSSH_8.2"
  
  #define SSH_PORTABLE	"p1"
 -#define SSH_RELEASE	SSH_VERSION SSH_PORTABLE
