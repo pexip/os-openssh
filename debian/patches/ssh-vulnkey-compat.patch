@@ -1,4 +1,4 @@
-From d422205e757aaf23e8e0e787f842ef37f6a170a2 Mon Sep 17 00:00:00 2001
+From 6ed578a01fd61f9c930ef46cfefc467203ddd6c0 Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@ubuntu.com>
 Date: Sun, 9 Feb 2014 16:09:50 +0000
 Subject: Accept obsolete ssh-vulnkey configuration options
@@ -16,23 +16,23 @@ Patch-Name: ssh-vulnkey-compat.patch
  servconf.c | 1 +
  2 files changed, 2 insertions(+)
 
-Index: openssh/readconf.c
-===================================================================
---- openssh.orig/readconf.c
-+++ openssh/readconf.c
-@@ -227,6 +227,7 @@ static struct {
- 	{ "passwordauthentication", oPasswordAuthentication },
- 	{ "kbdinteractiveauthentication", oKbdInteractiveAuthentication },
- 	{ "kbdinteractivedevices", oKbdInteractiveDevices },
+diff --git a/readconf.c b/readconf.c
+index fb585e248..2ccc48572 100644
+--- a/readconf.c
++++ b/readconf.c
+@@ -191,6 +191,7 @@ static struct {
+ 	{ "fallbacktorsh", oDeprecated },
+ 	{ "globalknownhostsfile2", oDeprecated },
+ 	{ "rhostsauthentication", oDeprecated },
 +	{ "useblacklistedkeys", oDeprecated },
- 	{ "pubkeyauthentication", oPubkeyAuthentication },
- 	{ "dsaauthentication", oPubkeyAuthentication },		    /* alias */
- 	{ "hostbasedauthentication", oHostbasedAuthentication },
-Index: openssh/servconf.c
-===================================================================
---- openssh.orig/servconf.c
-+++ openssh/servconf.c
-@@ -585,6 +585,7 @@ static struct {
+ 	{ "userknownhostsfile2", oDeprecated },
+ 	{ "useroaming", oDeprecated },
+ 	{ "usersh", oDeprecated },
+diff --git a/servconf.c b/servconf.c
+index f38ba9e44..ff5b9436c 100644
+--- a/servconf.c
++++ b/servconf.c
+@@ -656,6 +656,7 @@ static struct {
  	{ "x11uselocalhost", sX11UseLocalhost, SSHCFG_ALL },
  	{ "xauthlocation", sXAuthLocation, SSHCFG_GLOBAL },
  	{ "strictmodes", sStrictModes, SSHCFG_GLOBAL },

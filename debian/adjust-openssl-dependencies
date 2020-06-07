@@ -25,8 +25,12 @@ server_udeb=debian/openssh-server-udeb.substvars
 libcrypto_package="$(sed -n 's/.*[= ]\(libcrypto[0-9][a-z0-9+.-]*\).*/\1/p' "$client_udeb")"
 if [ "$libcrypto_package" ]; then
 	new_dep="$libcrypto_package (>= $libssl_version)"
-	sed -i "/^shlibs:Depends=/s/\$/, $new_dep/" "$client_udeb"
-	sed -i "/^shlibs:Depends=/s/\$/, $new_dep/" "$server_udeb"
+	if [ -e "$client_udeb" ]; then
+		sed -i "/^shlibs:Depends=/s/\$/, $new_dep/" "$client_udeb"
+	fi
+	if [ -e "$server_udeb" ]; then
+		sed -i "/^shlibs:Depends=/s/\$/, $new_dep/" "$server_udeb"
+	fi
 fi
 
 exit 0

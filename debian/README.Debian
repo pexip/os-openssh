@@ -4,22 +4,12 @@ OpenSSH for Debian
 UPGRADE ISSUES
 ==============
 
-Privilege Separation
---------------------
-
-As of 3.3, openssh has employed privilege separation to reduce the
-quantity of code that runs as root, thereby reducing the impact of
-some security holes in sshd. This now also works properly with PAM.
-
-Privilege separation is turned on by default, so, if you decide you
-want it turned off, you need to add "UsePrivilegeSeparation no" to
-/etc/ssh/sshd_config.
-
 PermitRootLogin
 ---------------
 
 As of 1:6.6p1-1, new installations will be set to "PermitRootLogin
-without-password".  This disables password authentication for root, foiling
+without-password" (or the synonymous "PermitRootLogin prohibit-password" as
+of 1:7.1p1-1).  This disables password authentication for root, foiling
 password dictionary attacks on the root user.  Some sites may wish to use
 the stronger "PermitRootLogin forced-commands-only" or "PermitRootLogin no",
 but note that "PermitRootLogin no" will break setups that SSH to root with a
@@ -34,7 +24,7 @@ ssh restart" as root.
 
 Disabling PermitRootLogin means that an attacker possessing credentials for
 the root account (any credentials in the case of "yes", or private key
-material in the case of "without-password") must compromise a normal user
+material in the case of "prohibit-password") must compromise a normal user
 account rather than being able to SSH directly to root.  Be careful to avoid
 a false illusion of security if you change this setting; any account you
 escalate to root from should be considered equivalent to root for the
@@ -44,7 +34,9 @@ it if you know you will only ever log in as root from the physical console.
 Since the root account does not generally have non-password credentials
 unless you explicitly install an SSH public key in its
 ~/.ssh/authorized_keys, which you presumably only do if you want to SSH to
-it, "without-password" should be a reasonable default for most sites.
+it, "prohibit-password" should be a reasonable default for most sites.
+
+As of OpenSSH 7.0, this is the upstream default.
 
 For further discussion, see:
 
@@ -112,19 +104,6 @@ use the ssh-argv0 script.
 OTHER ISSUES
 ============
 
-/usr/bin/ssh not SUID
----------------------
-
-Due to Debian bug #164325, RhostsRSAAuthentication can only be used if ssh
-is SUID.  Until this is fixed, if that is a problem, use:
-
-   dpkg-statoverride
-
-or if that's also missing, use this:
-
-   chown root.root /usr/bin/ssh
-   chmod 04755 /usr/bin/ssh
-
 Authorization Forwarding
 ------------------------
 
@@ -173,9 +152,8 @@ Kerberos support
 ----------------
 
 ssh is now compiled with Kerberos support. Unfortunately, privilege
-separation is incompatible with Kerberos support for SSH protocol 1 and
-parts of the support for protocol 2; you may need to run kinit after logging
-in.
+separation is incompatible with parts of Kerberos support for protocol 2;
+you may need to run kinit after logging in.
 
 Interoperability between scp and the ssh.com SSH server
 -------------------------------------------------------
@@ -194,8 +172,8 @@ Running sshd from inittab
 -------------------------
 
 Some people find it useful to run the sshd server from inittab, to make sure
-that it always stays running. To do this, stop sshd ('/etc/init.d/ssh
-stop'), add the following line to /etc/inittab, and run 'telinit q':
+that it always stays running. To do this, stop sshd ('service ssh stop'),
+add the following line to /etc/inittab, and run 'telinit q':
 
   ss:2345:respawn:/usr/sbin/sshd -D
 
@@ -223,6 +201,94 @@ This may be appropriate in environments where minimal footprint is critical
 MaxConnections cannot quite replace this as it cannot distinguish between
 authenticated and unauthenticated connections; see
 https://bugzilla.redhat.com/show_bug.cgi?id=963268 for more discussion.
+
+The provided ssh.socket unit file sets ListenStream=22.  If you need to have
+it listen on a different address or port, then you will need to do this as
+follows (modifying ListenStream to match your requirements):
+
+  mkdir -p /etc/systemd/system/ssh.socket.d
+  cat >/etc/systemd/system/ssh.socket.d/listen.conf <<EOF
+  [Socket]
+  ListenStream=2222
+  EOF
+  systemctl daemon-reload
+
+See systemd.socket(5) for details.
+
+Terminating SSH sessions cleanly on shutdown/reboot with systemd
+----------------------------------------------------------------
+
+If you have libpam-systemd >= 230 installed (following openssh-server's
+Recommends) and "UsePAM yes" in sshd_config (the default configuration
+shipped by this package), then SSH sessions will be terminated cleanly when
+the server is shut down or rebooted.
+
+If either of these conditions does not hold, then you may find that SSH
+sessions hang silently when the server is shut down or rebooted.  If you do
+not want to use PAM or configure it properly for whatever reason, then you
+can instead copy
+/usr/share/doc/openssh-server/examples/ssh-session-cleanup.service to
+/etc/systemd/system/ and run "systemctl enable ssh-session-cleanup.service".
+
+Non-systemd users may find /usr/lib/openssh/ssh-session-cleanup helpful if
+they have a similar problem, although at present there is no system
+integration for this for anything other than systemd.
+
+SSH protocol 1 server support removed
+-------------------------------------
+
+sshd(8) no longer supports the old SSH protocol 1, so all the configuration
+options related to it are now deprecated and should be removed from
+/etc/ssh/sshd_config.  These are:
+
+  KeyRegenerationInterval
+  RSAAuthentication
+  RhostsRSAAuthentication
+  ServerKeyBits
+
+The Protocol option is also no longer needed, although it is silently
+ignored rather than deprecated.
+
+if-up hook removed
+------------------
+
+openssh-server previously shipped an if-up hook that restarted sshd when a
+network interface came up.  This generally caused more problems than it
+solved: for instance, it means that sshd stops listening briefly while being
+restarted, which can cause problems in some environments, particularly
+automated tests.
+
+The only known situation where the if-up hook was useful was when
+sshd_config was changed to add ListenAddress entries for particular IP
+addresses, overriding the default of listening on all addresses, and the
+system is one that often roams between networks.  In such a situation, it is
+better to remove ListenAddress entries from sshd_config (restoring it to the
+default behaviour) and instead use firewall rules to restrict incoming SSH
+connections to only the desired interfaces or addresses.
+
+For further discussion, see:
+
+  https://bugs.launchpad.net/bugs/1674330
+
+IPQoS defaults reverted to pre-7.8 values
+-----------------------------------------
+
+OpenSSH 7.8 changed the default IPQoS settings to use DSCP AF21 for
+interactive traffic and CS1 for bulk.  This caused some problems with other
+software ("iptables -m tos" and VMware), so Debian's OpenSSH reverts this
+change for the time being.
+
+This is *temporary*, and we expect to come back into sync with upstream
+OpenSSH once those other issues have been fixed.  If you want to restore the
+upstream default, add this to ssh_config and sshd_config:
+
+  IPQoS af21 cs1
+
+For further discussion, see:
+
+  https://bugs.debian.org/923879
+  https://bugs.debian.org/926229
+  https://bugs.launchpad.net/1822370
 
 -- 
 Matthew Vernon <matthew@debian.org>

@@ -1,4 +1,4 @@
-From 6de70b95f5005447ae23532d4f3ee41a9338479f Mon Sep 17 00:00:00 2001
+From d66c30698f807ab95aee7ea4a882c192884df047 Mon Sep 17 00:00:00 2001
 From: Matthew Vernon <matthew@debian.org>
 Date: Sun, 9 Feb 2014 16:10:05 +0000
 Subject: Include the Debian version in our identification
@@ -9,19 +9,19 @@ generally just try attacks rather than bothering to scan for
 vulnerable-looking version strings.  (However, see debian-banner.patch.)
 
 Forwarded: not-needed
-Last-Update: 2013-09-14
+Last-Update: 2019-06-05
 
 Patch-Name: package-versioning.patch
 ---
- kex.c        | 2 +-
- version.h    | 7 ++++++-
+ kex.c     | 2 +-
+ version.h | 7 ++++++-
  2 files changed, 7 insertions(+), 2 deletions(-)
 
-Index: openssh/kex.c
-===================================================================
---- openssh.orig/kex.c
-+++ openssh/kex.c
-@@ -1179,7 +1179,7 @@ kex_exchange_identification (struct ssh
+diff --git a/kex.c b/kex.c
+index 144dee512..0e64bf760 100644
+--- a/kex.c
++++ b/kex.c
+@@ -1243,7 +1243,7 @@ kex_exchange_identification(struct ssh *ssh, int timeout_ms,
  	if (version_addendum != NULL && *version_addendum == '\0')
  		version_addendum = NULL;
  	if ((r = sshbuf_putf(our_version, "SSH-%d.%d-%.100s%s%s\r\n",
@@ -29,13 +29,13 @@ Index: openssh/kex.c
 +	   PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_RELEASE,
  	    version_addendum == NULL ? "" : " ",
  	    version_addendum == NULL ? "" : version_addendum)) != 0) {
- 		error("%s: sshbuf_putf: %s", __func__, ssh_err(r));
-Index: openssh/version.h
-===================================================================
---- openssh.orig/version.h
-+++ openssh/version.h
+ 		oerrno = errno;
+diff --git a/version.h b/version.h
+index a2eca3ec8..158eaee70 100644
+--- a/version.h
++++ b/version.h
 @@ -3,4 +3,9 @@
- #define SSH_VERSION	"OpenSSH_8.2"
+ #define SSH_VERSION	"OpenSSH_8.3"
  
  #define SSH_PORTABLE	"p1"
 -#define SSH_RELEASE	SSH_VERSION SSH_PORTABLE

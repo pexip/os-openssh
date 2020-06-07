@@ -1,4 +1,4 @@
-From 912129ba92bea401d8cdeadc7aa7084fbf7625a1 Mon Sep 17 00:00:00 2001
+From ca39bb2ab1f56d8ecdeadc32d6bda1a8e73301ac Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:10:01 +0000
 Subject: Force use of DNSSEC even if "options edns0" isn't in resolv.conf
@@ -17,11 +17,11 @@ Patch-Name: dnssec-sshfp.patch
  openbsd-compat/getrrsetbyname.h |  3 +++
  3 files changed, 21 insertions(+), 6 deletions(-)
 
-Index: openssh/dns.c
-===================================================================
---- openssh.orig/dns.c
-+++ openssh/dns.c
-@@ -211,6 +211,7 @@ verify_host_key_dns(const char *hostname
+diff --git a/dns.c b/dns.c
+index e4f9bf830..9c9fe6413 100644
+--- a/dns.c
++++ b/dns.c
+@@ -210,6 +210,7 @@ verify_host_key_dns(const char *hostname, struct sockaddr *address,
  {
  	u_int counter;
  	int result;
@@ -29,7 +29,7 @@ Index: openssh/dns.c
  	struct rrsetinfo *fingerprints = NULL;
  
  	u_int8_t hostkey_algorithm;
-@@ -234,8 +235,19 @@ verify_host_key_dns(const char *hostname
+@@ -233,8 +234,19 @@ verify_host_key_dns(const char *hostname, struct sockaddr *address,
  		return -1;
  	}
  
@@ -50,11 +50,11 @@ Index: openssh/dns.c
  	if (result) {
  		verbose("DNS lookup error: %s", dns_result_totext(result));
  		return -1;
-Index: openssh/openbsd-compat/getrrsetbyname.c
-===================================================================
---- openssh.orig/openbsd-compat/getrrsetbyname.c
-+++ openssh/openbsd-compat/getrrsetbyname.c
-@@ -209,8 +209,8 @@ getrrsetbyname(const char *hostname, uns
+diff --git a/openbsd-compat/getrrsetbyname.c b/openbsd-compat/getrrsetbyname.c
+index dc6fe0533..e061a290a 100644
+--- a/openbsd-compat/getrrsetbyname.c
++++ b/openbsd-compat/getrrsetbyname.c
+@@ -209,8 +209,8 @@ getrrsetbyname(const char *hostname, unsigned int rdclass,
  		goto fail;
  	}
  
@@ -65,7 +65,7 @@ Index: openssh/openbsd-compat/getrrsetbyname.c
  		result = ERRSET_INVAL;
  		goto fail;
  	}
-@@ -226,9 +226,9 @@ getrrsetbyname(const char *hostname, uns
+@@ -226,9 +226,9 @@ getrrsetbyname(const char *hostname, unsigned int rdclass,
  #endif /* DEBUG */
  
  #ifdef RES_USE_DNSSEC
@@ -78,10 +78,10 @@ Index: openssh/openbsd-compat/getrrsetbyname.c
  #endif /* RES_USE_DNSEC */
  
  	/* make query */
-Index: openssh/openbsd-compat/getrrsetbyname.h
-===================================================================
---- openssh.orig/openbsd-compat/getrrsetbyname.h
-+++ openssh/openbsd-compat/getrrsetbyname.h
+diff --git a/openbsd-compat/getrrsetbyname.h b/openbsd-compat/getrrsetbyname.h
+index 1283f5506..dbbc85a2a 100644
+--- a/openbsd-compat/getrrsetbyname.h
++++ b/openbsd-compat/getrrsetbyname.h
 @@ -72,6 +72,9 @@
  #ifndef RRSET_VALIDATED
  # define RRSET_VALIDATED	1
