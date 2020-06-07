@@ -2,7 +2,6 @@
 set -e
 
 action="$1"
-oldversion="$2"
 
 umask 022
 

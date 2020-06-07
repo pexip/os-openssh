@@ -1,4 +1,4 @@
-From a433d9baa031d7136a8cf3e3807ebff83a3a8634 Mon Sep 17 00:00:00 2001
+From 08ca1225e6979fc6b5b6e7f85ce5cb0ac5cc7405 Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:10:18 +0000
 Subject: Various Debian-specific configuration changes
@@ -13,6 +13,8 @@ worms.
 
 ssh: Enable GSSAPIAuthentication by default.
 
+ssh: Include /etc/ssh/ssh_config.d/*.conf.
+
 sshd: Enable PAM, disable ChallengeResponseAuthentication, and disable
 PrintMotd.
 
@@ -22,27 +24,29 @@ sshd: Set 'AcceptEnv LANG LC_*' by default.
 
 sshd: Change sftp subsystem path to /usr/lib/openssh/sftp-server.
 
+sshd: Include /etc/ssh/sshd_config.d/*.conf.
+
 Document all of this.
 
 Author: Russ Allbery <rra@debian.org>
 Forwarded: not-needed
-Last-Update: 2017-10-04
+Last-Update: 2020-02-21
 
 Patch-Name: debian-config.patch
 ---
  readconf.c    |  2 +-
- ssh.1         | 21 +++++++++++++++++++++
- ssh_config    |  6 +++++-
- ssh_config.5  | 19 ++++++++++++++++++-
- sshd_config   | 16 ++++++++++------
- sshd_config.5 | 22 ++++++++++++++++++++++
- 6 files changed, 77 insertions(+), 9 deletions(-)
+ ssh.1         | 24 ++++++++++++++++++++++++
+ ssh_config    |  8 +++++++-
+ ssh_config.5  | 26 +++++++++++++++++++++++++-
+ sshd_config   | 18 ++++++++++++------
+ sshd_config.5 | 29 +++++++++++++++++++++++++++++
+ 6 files changed, 98 insertions(+), 9 deletions(-)
 
 diff --git a/readconf.c b/readconf.c
-index 6b01f20d2..661b8bf40 100644
+index 5bf0afbb4..87b0dc62a 100644
 --- a/readconf.c
 +++ b/readconf.c
-@@ -2000,7 +2000,7 @@ fill_default_options(Options * options)
+@@ -2111,7 +2111,7 @@ fill_default_options(Options * options)
  	if (options->forward_x11 == -1)
  		options->forward_x11 = 0;
  	if (options->forward_x11_trusted == -1)
@@ -52,10 +56,10 @@ index 6b01f20d2..661b8bf40 100644
  		options->forward_x11_timeout = 1200;
  	/*
 diff --git a/ssh.1 b/ssh.1
-index ad1ed0f86..1bcc8edab 100644
+index 5a31b5dde..035823da3 100644
 --- a/ssh.1
 +++ b/ssh.1
-@@ -782,6 +782,16 @@ directive in
+@@ -812,6 +812,16 @@ directive in
  .Xr ssh_config 5
  for more information.
  .Pp
@@ -72,14 +76,17 @@ index ad1ed0f86..1bcc8edab 100644
  .It Fl x
  Disables X11 forwarding.
  .Pp
-@@ -790,6 +800,17 @@ Enables trusted X11 forwarding.
+@@ -820,6 +830,20 @@ Enables trusted X11 forwarding.
  Trusted X11 forwardings are not subjected to the X11 SECURITY extension
  controls.
  .Pp
-+(Debian-specific: This option does nothing in the default configuration: it
-+is equivalent to
-+.Dq Cm ForwardX11Trusted No yes ,
-+which is the default as described above.
++(Debian-specific: In the default configuration, this option is equivalent to
++.Fl X ,
++since
++.Cm ForwardX11Trusted
++defaults to
++.Dq yes
++as described above.
 +Set the
 +.Cm ForwardX11Trusted
 +option to
@@ -91,14 +98,16 @@ index ad1ed0f86..1bcc8edab 100644
  Send log information using the
  .Xr syslog 3
 diff --git a/ssh_config b/ssh_config
-index bcb9f153d..1b676fb2c 100644
+index 1ff999b68..8a55237b9 100644
 --- a/ssh_config
 +++ b/ssh_config
-@@ -17,9 +17,10 @@
+@@ -17,9 +17,12 @@
  # list of available options, their meanings and defaults, please see the
  # ssh_config(5) man page.
  
 -# Host *
++Include /etc/ssh/ssh_config.d/*.conf
++
 +Host *
  #   ForwardAgent no
  #   ForwardX11 no
@@ -106,7 +115,7 @@ index bcb9f153d..1b676fb2c 100644
  #   PasswordAuthentication yes
  #   HostbasedAuthentication no
  #   GSSAPIAuthentication no
-@@ -46,3 +47,6 @@
+@@ -45,3 +48,6 @@
  #   VisualHostKey no
  #   ProxyCommand ssh -q -W %h:%p gateway.example.com
  #   RekeyLimit 1G 1h
@@ -114,10 +123,10 @@ index bcb9f153d..1b676fb2c 100644
 +    HashKnownHosts yes
 +    GSSAPIAuthentication yes
 diff --git a/ssh_config.5 b/ssh_config.5
-index a91355726..1a8e24bd1 100644
+index dd8241df1..aac3fabb7 100644
 --- a/ssh_config.5
 +++ b/ssh_config.5
-@@ -71,6 +71,22 @@ Since the first obtained value for each parameter is used, more
+@@ -71,6 +71,29 @@ Since the first obtained value for each parameter is used, more
  host-specific declarations should be given near the beginning of the
  file, and general defaults at the end.
  .Pp
@@ -130,6 +139,8 @@ index a91355726..1a8e24bd1 100644
 +.Pp
 +.Bl -bullet -offset indent -compact
 +.It
++.Cm Include /etc/ssh/ssh_config.d/*.conf
++.It
 +.Cm SendEnv No LANG LC_*
 +.It
 +.Cm HashKnownHosts No yes
@@ -137,10 +148,15 @@ index a91355726..1a8e24bd1 100644
 +.Cm GSSAPIAuthentication No yes
 +.El
 +.Pp
++.Pa /etc/ssh/ssh_config.d/*.conf
++files are included at the start of the system-wide configuration file, so
++options set there will override those in
++.Pa /etc/ssh/ssh_config.
++.Pp
  The file contains keyword-argument pairs, one per line.
  Lines starting with
  .Ql #
-@@ -699,11 +715,12 @@ elapsed.
+@@ -729,11 +752,12 @@ elapsed.
  .It Cm ForwardX11Trusted
  If this option is set to
  .Cm yes ,
@@ -155,10 +171,19 @@ index a91355726..1a8e24bd1 100644
  from stealing or tampering with data belonging to trusted X11
  clients.
 diff --git a/sshd_config b/sshd_config
-index 2c48105f8..ed8272f6d 100644
+index 2c48105f8..459c1b230 100644
 --- a/sshd_config
 +++ b/sshd_config
-@@ -57,8 +57,9 @@ AuthorizedKeysFile	.ssh/authorized_keys
+@@ -10,6 +10,8 @@
+ # possible, but leave them commented.  Uncommented options override the
+ # default value.
+ 
++Include /etc/ssh/sshd_config.d/*.conf
++
+ #Port 22
+ #AddressFamily any
+ #ListenAddress 0.0.0.0
+@@ -57,8 +59,9 @@ AuthorizedKeysFile	.ssh/authorized_keys
  #PasswordAuthentication yes
  #PermitEmptyPasswords no
  
@@ -170,7 +195,7 @@ index 2c48105f8..ed8272f6d 100644
  
  # Kerberos options
  #KerberosAuthentication no
-@@ -81,16 +82,16 @@ AuthorizedKeysFile	.ssh/authorized_keys
+@@ -81,16 +84,16 @@ AuthorizedKeysFile	.ssh/authorized_keys
  # If you just want the PAM account and session checks to run without
  # PAM authentication, then enable this but set PasswordAuthentication
  # and ChallengeResponseAuthentication to 'no'.
@@ -190,7 +215,7 @@ index 2c48105f8..ed8272f6d 100644
  #PrintLastLog yes
  #TCPKeepAlive yes
  #PermitUserEnvironment no
-@@ -107,8 +108,11 @@ AuthorizedKeysFile	.ssh/authorized_keys
+@@ -107,8 +110,11 @@ AuthorizedKeysFile	.ssh/authorized_keys
  # no default banner path
  #Banner none
  
@@ -204,10 +229,10 @@ index 2c48105f8..ed8272f6d 100644
  # Example of overriding settings on a per-user basis
  #Match User anoncvs
 diff --git a/sshd_config.5 b/sshd_config.5
-index 23f71fd1d..ba50a30f1 100644
+index c27f99937..b38025dbf 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
-@@ -56,6 +56,28 @@ Arguments may optionally be enclosed in double quotes
+@@ -56,6 +56,35 @@ Arguments may optionally be enclosed in double quotes
  .Pq \&"
  in order to represent arguments containing spaces.
  .Pp
@@ -219,6 +244,8 @@ index 23f71fd1d..ba50a30f1 100644
 +.Xr sshd 8 :
 +.Pp
 +.Bl -bullet -offset indent -compact
++.It
++.Cm Include /etc/ssh/sshd_config.d/*.conf
 +.It
 +.Cm ChallengeResponseAuthentication No no
 +.It
@@ -232,6 +259,11 @@ index 23f71fd1d..ba50a30f1 100644
 +.It
 +.Cm UsePAM No yes
 +.El
++.Pp
++.Pa /etc/ssh/sshd_config.d/*.conf
++files are included at the start of the configuration file, so options set
++there will override those in
++.Pa /etc/ssh/sshd_config.
 +.Pp
  The possible
  keywords and their meanings are as follows (note that

@@ -7,3 +7,6 @@ build:
     expire_in: 1 day
   script:
     - gitlab-ci-git-buildpackage-all
+  except:
+    variables:
+      - $CI_COMMIT_TAG != null

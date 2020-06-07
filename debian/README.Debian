@@ -270,6 +270,26 @@ For further discussion, see:
 
   https://bugs.launchpad.net/bugs/1674330
 
+IPQoS defaults reverted to pre-7.8 values
+-----------------------------------------
+
+OpenSSH 7.8 changed the default IPQoS settings to use DSCP AF21 for
+interactive traffic and CS1 for bulk.  This caused some problems with other
+software ("iptables -m tos" and VMware), so Debian's OpenSSH reverts this
+change for the time being.
+
+This is *temporary*, and we expect to come back into sync with upstream
+OpenSSH once those other issues have been fixed.  If you want to restore the
+upstream default, add this to ssh_config and sshd_config:
+
+  IPQoS af21 cs1
+
+For further discussion, see:
+
+  https://bugs.debian.org/923879
+  https://bugs.debian.org/926229
+  https://bugs.launchpad.net/1822370
+
 -- 
 Matthew Vernon <matthew@debian.org>
 Colin Watson <cjwatson@debian.org>

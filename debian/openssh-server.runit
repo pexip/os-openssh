@@ -1,0 +1,1 @@
+debian/openssh-server.ssh.runscript logscript,name=ssh,since=1:8.0p1-5

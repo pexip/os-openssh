@@ -2,7 +2,7 @@
 set -e
 
 if [ "$(id -un)" != openssh-tests ]; then
-	TMP="$ADTTMP/user"
+	TMP="$AUTOPKGTEST_TMP/user"
 	CREATED_RUN_SSHD=false
 	STARTED_HAVEGED=false
 
@@ -15,7 +15,7 @@ if [ "$(id -un)" != openssh-tests ]; then
 			else
 				start-stop-daemon --stop --quiet \
 					--retry=TERM/30/KILL/5 \
-					--pidfile "$ADTTMP/haveged.pid" \
+					--pidfile "$AUTOPKGTEST_TMP/haveged.pid" \
 					--name haveged
 			fi
 		fi
@@ -54,8 +54,9 @@ EOF
 		STARTED_HAVEGED=:
 	elif ! pidof haveged >/dev/null; then
 		start-stop-daemon --start --quiet \
-			--pidfile "$ADTTMP/haveged.pid" \
-			--exec /usr/sbin/haveged -- -p "$ADTTMP/haveged.pid"
+			--pidfile "$AUTOPKGTEST_TMP/haveged.pid" \
+			--exec /usr/sbin/haveged -- \
+			-p "$AUTOPKGTEST_TMP/haveged.pid"
 		STARTED_HAVEGED=:
 	fi
 

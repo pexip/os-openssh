@@ -1,3 +1,87 @@
+openssh (1:8.3p1-1) unstable; urgency=medium
+
+  OpenSSH 8.3 includes a number of changes that may affect existing
+  configurations:
+
+  * sftp(1): reject an argument of "-1" in the same way as ssh(1) and scp(1)
+    do instead of accepting and silently ignoring it.
+
+ -- Colin Watson <cjwatson@debian.org>  Sun, 07 Jun 2020 13:44:04 +0100
+
+openssh (1:8.2p1-1) unstable; urgency=medium
+
+  OpenSSH 8.2 includes a number of changes that may affect existing
+  configurations:
+
+   * ssh(1), sshd(8), ssh-keygen(1): This release removes the "ssh-rsa"
+     (RSA/SHA1) algorithm from those accepted for certificate signatures
+     (i.e.  the client and server CASignatureAlgorithms option) and will use
+     the rsa-sha2-512 signature algorithm by default when the ssh-keygen(1)
+     CA signs new certificates.
+
+     Certificates are at special risk to SHA1 collision vulnerabilities as
+     an attacker has effectively unlimited time in which to craft a
+     collision that yields them a valid certificate, far more than the
+     relatively brief LoginGraceTime window that they have to forge a host
+     key signature.
+
+     The OpenSSH certificate format includes a CA-specified (typically
+     random) nonce value near the start of the certificate that should make
+     exploitation of chosen-prefix collisions in this context challenging,
+     as the attacker does not have full control over the prefix that
+     actually gets signed. Nonetheless, SHA1 is now a demonstrably broken
+     algorithm and further improvements in attacks are highly likely.
+
+     OpenSSH releases prior to 7.2 do not support the newer RSA/SHA2
+     algorithms and will refuse to accept certificates signed by an OpenSSH
+     8.2+ CA using RSA keys unless the unsafe algorithm is explicitly
+     selected during signing ("ssh-keygen -t ssh-rsa").  Older
+     clients/servers may use another CA key type such as ssh-ed25519
+     (supported since OpenSSH 6.5) or one of the ecdsa-sha2-nistp256/384/521
+     types (supported since OpenSSH 5.7) instead if they cannot be upgraded.
+
+   * ssh(1), sshd(8): Remove diffie-hellman-group14-sha1 from the default
+     key exchange proposal for both the client and server.
+
+   * ssh-keygen(1): The command-line options related to the generation and
+     screening of safe prime numbers used by the
+     diffie-hellman-group-exchange-* key exchange algorithms have changed.
+     Most options have been folded under the -O flag.
+
+   * sshd(8): The sshd listener process title visible to ps(1) has changed
+     to include information about the number of connections that are
+     currently attempting authentication and the limits configured by
+     MaxStartups.
+
+ -- Colin Watson <cjwatson@debian.org>  Fri, 21 Feb 2020 16:36:37 +0000
+
+openssh (1:8.1p1-1) unstable; urgency=medium
+
+  OpenSSH 8.1 includes a number of changes that may affect existing
+  configurations:
+
+   * ssh-keygen(1): when acting as a CA and signing certificates with an RSA
+     key, default to using the rsa-sha2-512 signature algorithm.
+     Certificates signed by RSA keys will therefore be incompatible with
+     OpenSSH versions prior to 7.2 unless the default is overridden (using
+     "ssh-keygen -t ssh-rsa -s ...").
+
+ -- Colin Watson <cjwatson@debian.org>  Thu, 10 Oct 2019 10:23:19 +0100
+
+openssh (1:8.0p1-1) experimental; urgency=medium
+
+  OpenSSH 8.0 includes a number of changes that may affect existing
+  configurations:
+
+   * sshd(8): Remove support for obsolete "host/port" syntax.
+     Slash-separated host/port was added in 2001 as an alternative to
+     host:port syntax for the benefit of IPv6 users.  These days there are
+     established standards for this like [::1]:22 and the slash syntax is
+     easily mistaken for CIDR notation, which OpenSSH supports for some
+     things.  Remove the slash notation from ListenAddress and PermitOpen.
+
+ -- Colin Watson <cjwatson@debian.org>  Sun, 09 Jun 2019 22:47:27 +0100
+
 openssh (1:7.9p1-1) unstable; urgency=medium
 
   OpenSSH 7.9 includes a number of changes that may affect existing

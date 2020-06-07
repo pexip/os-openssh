@@ -5,7 +5,6 @@ set -e
 db_version 2.0
 
 action="$1"
-oldversion="$2"
 
 umask 022
 
@@ -47,7 +46,7 @@ create_key() {
 
 	if echo "$hostkeys" | grep -x "$file" >/dev/null && \
 	   [ ! -f "$file" ] ; then
-		echo -n $msg
+		printf %s "$msg"
 		ssh-keygen -q -f "$file" -N '' "$@"
 		echo
 		if which restorecon >/dev/null 2>&1; then
@@ -92,7 +91,7 @@ create_sshdconfig() {
 	password_authentication="$RET"
 
 	trap cleanup EXIT
-	new_config="$(tempfile)"
+	new_config="$(mktemp)"
 	cp -a /usr/share/openssh/sshd_config "$new_config"
 	if [ "$permit_root_login" != true ]; then
 		sed -i 's/^#*PermitRootLogin .*/PermitRootLogin yes/' \

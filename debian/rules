@@ -65,11 +65,6 @@ ifeq ($(DEB_HOST_ARCH_OS),hurd)
 confflags += --with-libs=-lcrypt
 endif
 
-# http://gcc.gnu.org/bugzilla/show_bug.cgi?id=60155
-ifeq ($(DEB_HOST_ARCH),hppa)
-confflags += --without-hardening
-endif
-
 # Everything above here is common to the deb and udeb builds.
 confflags_udeb := $(confflags)
 
@@ -83,6 +78,7 @@ ifeq ($(DEB_HOST_ARCH_OS),linux)
 confflags += --with-selinux
 confflags += --with-audit=linux
 confflags += --with-systemd
+confflags += --with-security-key-builtin
 endif
 
 # The deb build wants xauth; the udeb build doesn't.
@@ -105,8 +101,12 @@ confflags_udeb += --with-cflags='$(cflags_udeb)'
 confflags += --with-ldflags='$(strip -Wl,--as-needed $(LDFLAGS))'
 confflags_udeb += --with-ldflags='-Wl,--as-needed'
 
+ifeq ($(shell dpkg-vendor --is Ubuntu && echo yes) $(DEB_HOST_ARCH), yes i386)
+  BUILD_PACKAGES += -Nopenssh-tests
+endif
+
 %:
-	dh $@ --with=autoreconf,systemd
+	dh $@ --with=autoreconf,systemd,runit $(BUILD_PACKAGES)
 
 autoreconf:
 	autoreconf -f -i
@@ -144,11 +144,7 @@ override_dh_auto_build-indep:
 
 override_dh_auto_test-arch:
 ifeq ($(RUN_TESTS),yes)
-	$(MAKE) -C debian/build-deb/regress \
-		.OBJDIR="$(CURDIR)/debian/build-deb/regress" \
-		.CURDIR="$(CURDIR)/regress" \
-		unit
-	$(MAKE) -C debian/build-deb compat-tests
+	$(MAKE) -C debian/build-deb unit compat-tests
 	$(MAKE) -C debian/keygen-test
 endif
 
@@ -211,6 +207,9 @@ endif
 
 override_dh_installpam: debian/openssh-server.sshd.pam
 	dh_installpam --name sshd
+
+override_dh_runit:
+	dh_runit -popenssh-server
 
 override_dh_fixperms-arch:
 	dh_fixperms

@@ -25,7 +25,7 @@ make -C "$tmp/regress" \
 	TEST_SSH_SFTPSERVER=/usr/lib/openssh/sftp-server \
 	TEST_SSH_PLINK=plink \
 	TEST_SSH_PUTTYGEN=puttygen \
-	TEST_SSH_CONCH=conch \
+	TEST_SSH_CONCH=conch3 \
 	TEST_SSH_IPV6=yes \
 	TEST_SSH_ECC=yes \
 	tests interop-tests </dev/zero || ret="$?"
