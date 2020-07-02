@@ -1,4 +1,5 @@
-gssapi.patch
+# Disabled in Pexip build
+# gssapi.patch
 restore-tcp-wrappers.patch
 selinux-role.patch
 ssh-vulnkey-compat.patch
@@ -24,3 +25,7 @@ restore-authorized_keys2.patch
 conch-old-privkey-format.patch
 revert-ipqos-defaults.patch
 avoid-extra-ports.patch
+
+# Extra patches for Pexip needs
+extra-config.patch
+openssh-6.5p1-fips.patch

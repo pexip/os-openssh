@@ -1,29 +1,28 @@
 Source: openssh
 Section: net
 Priority: standard
-Maintainer: Debian OpenSSH Maintainers <debian-ssh@lists.debian.org>
+Maintainer: Pexip AS <packaging@pexip.com>
 Build-Depends: autotools-dev,
                debhelper (>= 9.20160709~),
-               debhelper-compat (= 9),
                dh-autoreconf,
                dh-exec,
-               dh-runit (>= 2.8.8),
                dpkg-dev (>= 1.16.1~),
                libaudit-dev [linux-any],
                libedit-dev,
-               libfido2-dev [linux-any],
                libgtk-3-dev <!pkg.openssh.nognome>,
                libkrb5-dev | heimdal-dev,
                libpam0g-dev | libpam-dev,
                libselinux1-dev [linux-any],
-               libssl-dev (>= 1.1.0g),
+               libssl1.0-dev | libssl-dev (<< 1.1),
                libsystemd-dev [linux-any],
                libwrap0-dev | libwrap-dev,
                pkg-config,
                zlib1g-dev (>= 1:1.2.3),
 Standards-Version: 4.1.0
-Uploaders: Colin Watson <cjwatson@debian.org>,
+XSBC-Pexip-Original-Maintainer: Debian OpenSSH Maintainers <debian-ssh@lists.debian.org>
+XSBC-Pexip-Original-Uploaders: Colin Watson <cjwatson@debian.org>,
            Matthew Vernon <matthew@debian.org>,
+XS-Pexip-Upstream: http://ftp.debian.org/debian/ buster
 Homepage: http://www.openssh.com/
 Vcs-Git: https://salsa.debian.org/ssh-team/openssh.git
 Vcs-Browser: https://salsa.debian.org/ssh-team/openssh

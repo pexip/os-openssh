@@ -69,7 +69,6 @@ endif
 confflags_udeb := $(confflags)
 
 # Options specific to the deb build.
-confflags += --with-tcp-wrappers
 confflags += --with-pam
 confflags += --with-libedit
 confflags += --with-kerberos5=/usr
@@ -101,12 +100,19 @@ confflags_udeb += --with-cflags='$(cflags_udeb)'
 confflags += --with-ldflags='$(strip -Wl,--as-needed $(LDFLAGS))'
 confflags_udeb += --with-ldflags='-Wl,--as-needed'
 
+# START PEXIP CHANGES
+confflags += --disable-security-key # disable FIDO support
+confflags += --without-tcp-wrappers
+cflags += -I/usr/lib/ssl/fips-2.0/include
+cflags_udeb += -I/usr/lib/ssl/fips-2.0/include
+# END PEXIP CHANGES
+
 ifeq ($(shell dpkg-vendor --is Ubuntu && echo yes) $(DEB_HOST_ARCH), yes i386)
   BUILD_PACKAGES += -Nopenssh-tests
 endif
 
 %:
-	dh $@ --with=autoreconf,systemd,runit $(BUILD_PACKAGES)
+	dh $@ --with=autoreconf,systemd $(BUILD_PACKAGES)
 
 autoreconf:
 	autoreconf -f -i
@@ -207,9 +213,6 @@ endif
 
 override_dh_installpam: debian/openssh-server.sshd.pam
 	dh_installpam --name sshd
-
-override_dh_runit:
-	dh_runit -popenssh-server
 
 override_dh_fixperms-arch:
 	dh_fixperms
