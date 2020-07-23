@@ -1,3 +1,10 @@
+openssh (1:8.3p1-1pexip2) pexip; urgency=medium
+
+  * Add Breaks/Replaces to cope with /etc/ssh moduli moving
+    from openssh-client to openssh-server
+
+ -- Steve McIntyre <steve.mcintyre@pexip.com>  Thu, 23 Jul 2020 16:04:25 +0100
+
 openssh (1:8.3p1-1pexip1) pexip; urgency=medium
 
   * Refactor our Pexip changes to sit on top of current Debian
