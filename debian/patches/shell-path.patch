@@ -1,4 +1,4 @@
-From b78e6371a98460f5d12683406674e117d64b35f2 Mon Sep 17 00:00:00 2001
+From a7d2f23b7b86f97749856482233cdc9dd970d1d3 Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:10:00 +0000
 Subject: Look for $SHELL on the path for ProxyCommand/LocalCommand
@@ -16,10 +16,10 @@ Patch-Name: shell-path.patch
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/sshconnect.c b/sshconnect.c
-index af08be415..bfbf80e92 100644
+index 9ec0618a9..5f8c81b84 100644
 --- a/sshconnect.c
 +++ b/sshconnect.c
-@@ -260,7 +260,7 @@ ssh_proxy_connect(struct ssh *ssh, const char *host, const char *host_arg,
+@@ -263,7 +263,7 @@ ssh_proxy_connect(struct ssh *ssh, const char *host, const char *host_arg,
  		/* Execute the proxy command.  Note that we gave up any
  		   extra privileges above. */
  		ssh_signal(SIGPIPE, SIG_DFL);
@@ -28,7 +28,7 @@ index af08be415..bfbf80e92 100644
  		perror(argv[0]);
  		exit(1);
  	}
-@@ -1389,7 +1389,7 @@ ssh_local_cmd(const char *args)
+@@ -1392,7 +1392,7 @@ ssh_local_cmd(const char *args)
  	if (pid == 0) {
  		ssh_signal(SIGPIPE, SIG_DFL);
  		debug3("Executing %s -c \"%s\"", shell, args);

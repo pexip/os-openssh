@@ -1,4 +1,4 @@
-From cb72edd9757c469f3b5dc9cde374715ae8b54509 Mon Sep 17 00:00:00 2001
+From d08cd2b0cfbedf3ccd2ec3adaef850b8d9a87e85 Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:09:58 +0000
 Subject: Allow harmless group-writability
@@ -51,7 +51,7 @@ index e81321b49..3bcc73766 100644
  			    pw->pw_name, buf);
  			auth_debug_add("Bad file modes for %.200s", buf);
 diff --git a/auth.c b/auth.c
-index 687c57b42..aed3c13ac 100644
+index 3d31ec860..4152d9c44 100644
 --- a/auth.c
 +++ b/auth.c
 @@ -474,8 +474,7 @@ check_key_in_hostfiles(struct passwd *pw, struct sshkey *key, const char *host,
@@ -65,10 +65,10 @@ index 687c57b42..aed3c13ac 100644
  			    "bad owner or modes for %.200s",
  			    pw->pw_name, user_hostfile);
 diff --git a/misc.c b/misc.c
-index 554ceb0b1..75fe4dfea 100644
+index 4623b5755..c75a795c2 100644
 --- a/misc.c
 +++ b/misc.c
-@@ -61,8 +61,9 @@
+@@ -55,8 +55,9 @@
  #include <netdb.h>
  #ifdef HAVE_PATHS_H
  # include <paths.h>
@@ -79,8 +79,8 @@ index 554ceb0b1..75fe4dfea 100644
  #ifdef SSH_TUN_OPENBSD
  #include <net/if.h>
  #endif
-@@ -1124,6 +1125,55 @@ percent_expand(const char *string, ...)
- #undef EXPAND_MAX_KEYS
+@@ -1271,6 +1272,55 @@ percent_dollar_expand(const char *string, ...)
+ 	return ret;
  }
  
 +int
@@ -135,7 +135,7 @@ index 554ceb0b1..75fe4dfea 100644
  int
  tun_open(int tun, int mode, char **ifname)
  {
-@@ -1909,8 +1959,7 @@ safe_path(const char *name, struct stat *stp, const char *pw_dir,
+@@ -2056,8 +2106,7 @@ safe_path(const char *name, struct stat *stp, const char *pw_dir,
  		snprintf(err, errlen, "%s is not a regular file", buf);
  		return -1;
  	}
@@ -145,7 +145,7 @@ index 554ceb0b1..75fe4dfea 100644
  		snprintf(err, errlen, "bad ownership or modes for file %s",
  		    buf);
  		return -1;
-@@ -1925,8 +1974,7 @@ safe_path(const char *name, struct stat *stp, const char *pw_dir,
+@@ -2072,8 +2121,7 @@ safe_path(const char *name, struct stat *stp, const char *pw_dir,
  		strlcpy(buf, cp, sizeof(buf));
  
  		if (stat(buf, &st) == -1 ||
@@ -156,10 +156,10 @@ index 554ceb0b1..75fe4dfea 100644
  			    "bad ownership or modes for directory %s", buf);
  			return -1;
 diff --git a/misc.h b/misc.h
-index 4a05db2da..5db594b91 100644
+index ab94a79c0..b34c798e7 100644
 --- a/misc.h
 +++ b/misc.h
-@@ -188,6 +188,8 @@ struct notifier_ctx *notify_start(int, const char *, ...)
+@@ -192,6 +192,8 @@ struct notifier_ctx *notify_start(int, const char *, ...)
  	__attribute__((format(printf, 2, 3)));
  void	notify_complete(struct notifier_ctx *);
  
@@ -169,10 +169,10 @@ index 4a05db2da..5db594b91 100644
  #define MAXIMUM(a, b)	(((a) > (b)) ? (a) : (b))
  #define ROUNDUP(x, y)   ((((x)+((y)-1))/(y))*(y))
 diff --git a/readconf.c b/readconf.c
-index 431243193..5bf0afbb4 100644
+index 3d0a812b3..f4f273c96 100644
 --- a/readconf.c
 +++ b/readconf.c
-@@ -1926,8 +1926,7 @@ read_config_file_depth(const char *filename, struct passwd *pw,
+@@ -1967,8 +1967,7 @@ read_config_file_depth(const char *filename, struct passwd *pw,
  
  		if (fstat(fileno(f), &sb) == -1)
  			fatal("fstat %s: %s", filename, strerror(errno));
@@ -183,10 +183,10 @@ index 431243193..5bf0afbb4 100644
  	}
  
 diff --git a/ssh.1 b/ssh.1
-index 7a3ba31ab..a80be8efe 100644
+index be8e964f0..5d613076c 100644
 --- a/ssh.1
 +++ b/ssh.1
-@@ -1509,6 +1509,8 @@ The file format and configuration options are described in
+@@ -1528,6 +1528,8 @@ The file format and configuration options are described in
  .Xr ssh_config 5 .
  Because of the potential for abuse, this file must have strict permissions:
  read/write for the user, and not writable by others.
@@ -196,10 +196,10 @@ index 7a3ba31ab..a80be8efe 100644
  .It Pa ~/.ssh/environment
  Contains additional definitions for environment variables; see
 diff --git a/ssh_config.5 b/ssh_config.5
-index 85ab7447f..d814147d4 100644
+index 3ceb800ba..190e1d927 100644
 --- a/ssh_config.5
 +++ b/ssh_config.5
-@@ -1957,6 +1957,8 @@ The format of this file is described above.
+@@ -2010,6 +2010,8 @@ The format of this file is described above.
  This file is used by the SSH client.
  Because of the potential for abuse, this file must have strict permissions:
  read/write for the user, and not writable by others.

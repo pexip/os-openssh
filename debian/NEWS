@@ -1,3 +1,19 @@
+openssh (1:8.4p1-1) unstable; urgency=medium
+
+  OpenSSH 8.4 includes a number of changes that may affect existing
+  configurations:
+
+   * ssh-keygen(1): the format of the attestation information optionally
+     recorded when a FIDO key is generated has changed. It now includes the
+     authenticator data needed to validate attestation signatures. 
+
+   * The API between OpenSSH and the FIDO token middleware has changed and
+     the SSH_SK_VERSION_MAJOR version has been incremented as a result.
+     Third-party middleware libraries must support the current API version
+     (7) to work with OpenSSH 8.4.
+
+ -- Colin Watson <cjwatson@debian.org>  Sun, 18 Oct 2020 12:07:48 +0100
+
 openssh (1:8.3p1-1) unstable; urgency=medium
 
   OpenSSH 8.3 includes a number of changes that may affect existing

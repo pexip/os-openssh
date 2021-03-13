@@ -1,4 +1,4 @@
-From 90c1c8771b61dd3ee0eacb4e1cfac404dc42f4b0 Mon Sep 17 00:00:00 2001
+From 6353ee79cc71ef33a0a34d2d769a5fe327f6260d Mon Sep 17 00:00:00 2001
 From: Kees Cook <kees@debian.org>
 Date: Sun, 9 Feb 2014 16:10:06 +0000
 Subject: Add DebianBanner server configuration option
@@ -22,7 +22,7 @@ Patch-Name: debian-banner.patch
  7 files changed, 22 insertions(+), 5 deletions(-)
 
 diff --git a/kex.c b/kex.c
-index 0e64bf760..aa5acaac3 100644
+index ce7bb5b3b..763c45536 100644
 --- a/kex.c
 +++ b/kex.c
 @@ -1225,7 +1225,7 @@ send_error(struct ssh *ssh, char *msg)
@@ -58,10 +58,10 @@ index fe7141414..938dca03b 100644
  struct kex *kex_new(void);
  int	 kex_ready(struct ssh *, char *[PROPOSAL_MAX]);
 diff --git a/servconf.c b/servconf.c
-index ff5b9436c..cf4e52f3b 100644
+index 21abe41ac..f9eb778d6 100644
 --- a/servconf.c
 +++ b/servconf.c
-@@ -194,6 +194,7 @@ initialize_server_options(ServerOptions *options)
+@@ -195,6 +195,7 @@ initialize_server_options(ServerOptions *options)
  	options->fingerprint_hash = -1;
  	options->disable_forwarding = -1;
  	options->expose_userauth_info = -1;
@@ -69,7 +69,7 @@ index ff5b9436c..cf4e52f3b 100644
  }
  
  /* Returns 1 if a string option is unset or set to "none" or 0 otherwise. */
-@@ -468,6 +469,8 @@ fill_default_server_options(ServerOptions *options)
+@@ -469,6 +470,8 @@ fill_default_server_options(ServerOptions *options)
  		options->expose_userauth_info = 0;
  	if (options->sk_provider == NULL)
  		options->sk_provider = xstrdup("internal");
@@ -78,7 +78,7 @@ index ff5b9436c..cf4e52f3b 100644
  
  	assemble_algorithms(options);
  
-@@ -556,6 +559,7 @@ typedef enum {
+@@ -548,6 +551,7 @@ typedef enum {
  	sStreamLocalBindMask, sStreamLocalBindUnlink,
  	sAllowStreamLocalForwarding, sFingerprintHash, sDisableForwarding,
  	sExposeAuthInfo, sRDomain, sPubkeyAuthOptions, sSecurityKeyProvider,
@@ -86,7 +86,7 @@ index ff5b9436c..cf4e52f3b 100644
  	sDeprecated, sIgnore, sUnsupported
  } ServerOpCodes;
  
-@@ -719,6 +723,7 @@ static struct {
+@@ -712,6 +716,7 @@ static struct {
  	{ "rdomain", sRDomain, SSHCFG_ALL },
  	{ "casignaturealgorithms", sCASignatureAlgorithms, SSHCFG_ALL },
  	{ "securitykeyprovider", sSecurityKeyProvider, SSHCFG_GLOBAL },
@@ -94,7 +94,7 @@ index ff5b9436c..cf4e52f3b 100644
  	{ NULL, sBadOption, 0 }
  };
  
-@@ -2393,6 +2398,10 @@ process_server_config_line_depth(ServerOptions *options, char *line,
+@@ -2402,6 +2407,10 @@ process_server_config_line_depth(ServerOptions *options, char *line,
  			*charptr = xstrdup(arg);
  		break;
  
@@ -106,10 +106,10 @@ index ff5b9436c..cf4e52f3b 100644
  	case sIgnore:
  	case sUnsupported:
 diff --git a/servconf.h b/servconf.h
-index 253cad97e..5a2b60512 100644
+index f10908e5b..4afdf24d0 100644
 --- a/servconf.h
 +++ b/servconf.h
-@@ -226,6 +226,8 @@ typedef struct {
+@@ -227,6 +227,8 @@ typedef struct {
  	int	expose_userauth_info;
  	u_int64_t timing_secret;
  	char   *sk_provider;
@@ -119,10 +119,10 @@ index 253cad97e..5a2b60512 100644
  
  /* Information about the incoming connection as used by Match */
 diff --git a/sshconnect.c b/sshconnect.c
-index f20d3e792..1e5b8ea5a 100644
+index 3ae20b74e..bab3916d8 100644
 --- a/sshconnect.c
 +++ b/sshconnect.c
-@@ -1293,7 +1293,7 @@ ssh_login(struct ssh *ssh, Sensitive *sensitive, const char *orighost,
+@@ -1296,7 +1296,7 @@ ssh_login(struct ssh *ssh, Sensitive *sensitive, const char *orighost,
  	lowercase(host);
  
  	/* Exchange protocol version identification strings with the server. */
@@ -132,10 +132,10 @@ index f20d3e792..1e5b8ea5a 100644
  
  	/* Put the connection into non-blocking mode. */
 diff --git a/sshd.c b/sshd.c
-index e8b332ca4..baee13506 100644
+index 38d281ab4..50f2726bf 100644
 --- a/sshd.c
 +++ b/sshd.c
-@@ -2181,7 +2181,7 @@ main(int ac, char **av)
+@@ -2232,7 +2232,7 @@ main(int ac, char **av)
  	if (!debug_flag)
  		alarm(options.login_grace_time);
  
@@ -145,7 +145,7 @@ index e8b332ca4..baee13506 100644
  		sshpkt_fatal(ssh, r, "banner exchange");
  
 diff --git a/sshd_config.5 b/sshd_config.5
-index 9f093be1f..753ceda10 100644
+index 6457620bb..33dc0c675 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
 @@ -540,6 +540,11 @@ or

@@ -1,4 +1,4 @@
-From 9b1d6a32944943b6b18861b97868c463bf5a6e8c Mon Sep 17 00:00:00 2001
+From c26f6f9c7051b9ab2ac13d1d227e6d39527839cc Mon Sep 17 00:00:00 2001
 From: Vincent Untz <vuntz@ubuntu.com>
 Date: Sun, 9 Feb 2014 16:10:16 +0000
 Subject: Give the ssh-askpass-gnome window a default icon
@@ -12,10 +12,10 @@ Patch-Name: gnome-ssh-askpass2-icon.patch
  1 file changed, 2 insertions(+)
 
 diff --git a/contrib/gnome-ssh-askpass2.c b/contrib/gnome-ssh-askpass2.c
-index bc83a2d67..88cdfaeff 100644
+index f7912727c..bf8c92c8f 100644
 --- a/contrib/gnome-ssh-askpass2.c
 +++ b/contrib/gnome-ssh-askpass2.c
-@@ -233,6 +233,8 @@ main(int argc, char **argv)
+@@ -322,6 +322,8 @@ main(int argc, char **argv)
  
  	gtk_init(&argc, &argv);
  

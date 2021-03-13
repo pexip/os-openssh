@@ -1,4 +1,4 @@
-From 303cbd5533df863d518bc61d837ce56a93166b11 Mon Sep 17 00:00:00 2001
+From 7a305ed4a0cba43d0d1bc6ebf5737521a0854a9d Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:10:13 +0000
 Subject: Document consequences of ssh-agent being setgid in ssh-agent(1)
@@ -13,10 +13,10 @@ Patch-Name: ssh-agent-setgid.patch
  1 file changed, 15 insertions(+)
 
 diff --git a/ssh-agent.1 b/ssh-agent.1
-index fff0db6bc..99e4f6d2e 100644
+index 2cf46160b..272da79b3 100644
 --- a/ssh-agent.1
 +++ b/ssh-agent.1
-@@ -201,6 +201,21 @@ socket and stores its pathname in this variable.
+@@ -206,6 +206,21 @@ socket and stores its pathname in this variable.
  It is accessible only to the current user,
  but is easily abused by root or another instance of the same user.
  .El
