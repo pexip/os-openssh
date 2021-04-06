@@ -68,7 +68,7 @@ index 3ae596caa..836174fb6 100644
 +This is used by system administration scripts to generate new host keys.
  .It Fl a Ar rounds
  When saving a private key, this option specifies the number of KDF
- (key derivation function) rounds used.
+ (key derivation function, currently
 @@ -804,7 +800,7 @@ option.
  Valid generator values are 2, 3, and 5.
  .Pp

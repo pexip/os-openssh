@@ -23,6 +23,6 @@ index 190e1d927..96ca7a5df 100644
 +Use of this option may break facilities such as tab-completion that rely
 +on being able to read unhashed host names from
 +.Pa ~/.ssh/known_hosts .
- .It Cm HostbasedAuthentication
- Specifies whether to try rhosts based authentication with public key
- authentication.
+ .It Cm HostbasedAcceptedAlgorithms
+ Specifies the signature algorithms that will be used for hostbased
+ authentication as a comma-separated list of patterns.

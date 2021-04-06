@@ -24,9 +24,6 @@ debian-config.patch
 restore-authorized_keys2.patch
 conch-old-privkey-format.patch
 revert-ipqos-defaults.patch
-revert-x32-sandbox-breakage.patch
-ssh-copy-id-heredoc-syntax.patch
-ssh-agent-double-free.patch
 
 # Extra patches for Pexip needs
 extra-config.patch

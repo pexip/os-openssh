@@ -30,17 +30,17 @@ index b069333fa..3d0a812b3 100644
 --- a/readconf.c
 +++ b/readconf.c
 @@ -176,6 +176,7 @@ typedef enum {
- 	oFingerprintHash, oUpdateHostkeys, oHostbasedKeyTypes,
- 	oPubkeyAcceptedKeyTypes, oCASignatureAlgorithms, oProxyJump,
- 	oSecurityKeyProvider,
+ 	oFingerprintHash, oUpdateHostkeys, oHostbasedAcceptedAlgorithms,
+ 	oPubkeyAcceptedAlgorithms, oCASignatureAlgorithms, oProxyJump,
+ 	oSecurityKeyProvider, oKnownHostsCommand,
 +	oProtocolKeepAlives, oSetupTimeOut,
  	oIgnore, oIgnoredUnknownOption, oDeprecated, oUnsupported
  } OpCodes;
  
 @@ -326,6 +327,8 @@ static struct {
- 	{ "ignoreunknown", oIgnoreUnknown },
  	{ "proxyjump", oProxyJump },
  	{ "securitykeyprovider", oSecurityKeyProvider },
+ 	{ "knownhostscommand", oKnownHostsCommand },
 +	{ "protocolkeepalives", oProtocolKeepAlives },
 +	{ "setuptimeout", oSetupTimeOut },
  

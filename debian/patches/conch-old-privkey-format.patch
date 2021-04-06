@@ -25,10 +25,10 @@ index 8b4ed9de3..f50d189bb 100644
  		rsa_ssh2_crnl.prv scp-ssh-wrapper.exe \
  		scp-ssh-wrapper.scp setuid-allowed sftp-server.log \
  		sftp-server.sh sftp.log ssh-log-wrapper.sh ssh.log \
--		ssh-rsa_oldfmt \
-+		ssh-rsa_oldfmt ssh-rsa_oldfmt.pub \
+-		ssh-rsa_oldfmt knownhosts_command \
++		ssh-rsa_oldfmt ssh-rsa_oldfmt.pub knownhosts_command \
  		ssh_config ssh_config.* ssh_proxy ssh_proxy_bak \
- 		ssh_proxy_envpass sshd.log sshd_config sshd_config_minimal \
+ 		ssh_proxy_* sshd.log sshd_config sshd_config.* \
  		sshd_config.* sshd_proxy sshd_proxy.* sshd_proxy_bak \
 diff --git a/regress/conch-ciphers.sh b/regress/conch-ciphers.sh
 index 6678813a2..6ff5da20b 100644
@@ -64,5 +64,5 @@ index 5dc975d07..d8491b2be 100644
 +	${SSHKEYGEN} -p -N '' -m PEM -f $OBJ/ssh-rsa_oldfmt >/dev/null
 +fi
  
- # If PuTTY is present and we are running a PuTTY test, prepare keys and
- # configuration
+ # If PuTTY is present, new enough and we are running a PuTTY test, prepare
+ # keys and configuration.
