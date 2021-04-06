@@ -1,4 +1,4 @@
-/* $OpenBSD: monitor_wrap.c,v 1.107 2018/07/20 03:46:34 djm Exp $ */
+/* $OpenBSD: monitor_wrap.c,v 1.117 2019/12/15 18:57:30 djm Exp $ */
 /*
  * Copyright 2002 Niels Provos <provos@citi.umich.edu>
  * Copyright 2002 Markus Friedl <markus@openbsd.org>
@@ -202,12 +202,8 @@ mm_choose_dh(int min, int nbits, int max)
 	if (success == 0)
 		fatal("%s: MONITOR_ANS_MODULI failed", __func__);
 
-	if ((p = BN_new()) == NULL)
-		fatal("%s: BN_new failed", __func__);
-	if ((g = BN_new()) == NULL)
-		fatal("%s: BN_new failed", __func__);
-	if ((r = sshbuf_get_bignum2(m, p)) != 0 ||
-	    (r = sshbuf_get_bignum2(m, g)) != 0)
+	if ((r = sshbuf_get_bignum2(m, &p)) != 0 ||
+	    (r = sshbuf_get_bignum2(m, &g)) != 0)
 		fatal("%s: buffer error: %s", __func__, ssh_err(r));
 
 	debug3("%s: remaining %zu", __func__, sshbuf_len(m));
@@ -218,16 +214,16 @@ mm_choose_dh(int min, int nbits, int max)
 #endif
 
 int
-mm_sshkey_sign(struct sshkey *key, u_char **sigp, size_t *lenp,
-    const u_char *data, size_t datalen, const char *hostkey_alg, u_int compat)
+mm_sshkey_sign(struct ssh *ssh, struct sshkey *key, u_char **sigp, size_t *lenp,
+    const u_char *data, size_t datalen, const char *hostkey_alg,
+    const char *sk_provider, u_int compat)
 {
 	struct kex *kex = *pmonitor->m_pkex;
 	struct sshbuf *m;
-	u_int ndx = kex->host_key_index(key, 0, active_state);
+	u_int ndx = kex->host_key_index(key, 0, ssh);
 	int r;
 
 	debug3("%s entering", __func__);
-
 	if ((m = sshbuf_new()) == NULL)
 		fatal("%s: sshbuf_new failed", __func__);
 	if ((r = sshbuf_put_u32(m, ndx)) != 0 ||
@@ -248,9 +244,8 @@ mm_sshkey_sign(struct sshkey *key, u_char **sigp, size_t *lenp,
 }
 
 struct passwd *
-mm_getpwnamallow(const char *username)
+mm_getpwnamallow(struct ssh *ssh, const char *username)
 {
-	struct ssh *ssh = active_state;		/* XXX */
 	struct sshbuf *m;
 	struct passwd *pw;
 	size_t len;
@@ -438,8 +433,8 @@ mm_user_key_allowed(struct ssh *ssh, struct passwd *pw, struct sshkey *key,
 }
 
 int
-mm_hostbased_key_allowed(struct passwd *pw, const char *user, const char *host,
-    struct sshkey *key)
+mm_hostbased_key_allowed(struct ssh *ssh, struct passwd *pw,
+    const char *user, const char *host, struct sshkey *key)
 {
 	return (mm_key_allowed(MM_HOSTKEY, user, host, key, 0, NULL));
 }
@@ -498,15 +493,19 @@ mm_key_allowed(enum mm_keytype type, const char *user, const char *host,
 
 int
 mm_sshkey_verify(const struct sshkey *key, const u_char *sig, size_t siglen,
-    const u_char *data, size_t datalen, const char *sigalg, u_int compat)
+    const u_char *data, size_t datalen, const char *sigalg, u_int compat,
+    struct sshkey_sig_details **sig_detailsp)
 {
 	struct sshbuf *m;
 	u_int encoded_ret = 0;
 	int r;
+	u_char sig_details_present, flags;
+	u_int counter;
 
 	debug3("%s entering", __func__);
 
-
+	if (sig_detailsp != NULL)
+		*sig_detailsp = NULL;
 	if ((m = sshbuf_new()) == NULL)
 		fatal("%s: sshbuf_new failed", __func__);
 	if ((r = sshkey_puts(key, m)) != 0 ||
@@ -521,8 +520,19 @@ mm_sshkey_verify(const struct sshkey *key, const u_char *sig, size_t siglen,
 	mm_request_receive_expect(pmonitor->m_recvfd,
 	    MONITOR_ANS_KEYVERIFY, m);
 
-	if ((r = sshbuf_get_u32(m, &encoded_ret)) != 0)
+	if ((r = sshbuf_get_u32(m, &encoded_ret)) != 0 ||
+	    (r = sshbuf_get_u8(m, &sig_details_present)) != 0)
 		fatal("%s: buffer error: %s", __func__, ssh_err(r));
+	if (sig_details_present && encoded_ret == 0) {
+		if ((r = sshbuf_get_u32(m, &counter)) != 0 ||
+		    (r = sshbuf_get_u8(m, &flags)) != 0)
+			fatal("%s: buffer error: %s", __func__, ssh_err(r));
+		if (sig_detailsp != NULL) {
+			*sig_detailsp = xcalloc(1, sizeof(**sig_detailsp));
+			(*sig_detailsp)->sk_counter = counter;
+			(*sig_detailsp)->sk_flags = flags;
+		}
+	}
 
 	sshbuf_free(m);
 
@@ -532,9 +542,8 @@ mm_sshkey_verify(const struct sshkey *key, const u_char *sig, size_t siglen,
 }
 
 void
-mm_send_keystate(struct monitor *monitor)
+mm_send_keystate(struct ssh *ssh, struct monitor *monitor)
 {
-	struct ssh *ssh = active_state;		/* XXX */
 	struct sshbuf *m;
 	int r;
 
@@ -618,7 +627,7 @@ mm_session_pty_cleanup2(Session *s)
 	sshbuf_free(m);
 
 	/* closed dup'ed master */
-	if (s->ptymaster != -1 && close(s->ptymaster) < 0)
+	if (s->ptymaster != -1 && close(s->ptymaster) == -1)
 		error("close(s->ptymaster/%d): %s",
 		    s->ptymaster, strerror(errno));
 
@@ -628,7 +637,7 @@ mm_session_pty_cleanup2(Session *s)
 
 #ifdef USE_PAM
 void
-mm_start_pam(Authctxt *authctxt)
+mm_start_pam(struct ssh *ssh)
 {
 	struct sshbuf *m;
 
@@ -869,7 +878,7 @@ mm_bsdauth_respond(void *ctx, u_int numresponses, char **responses)
 
 #ifdef SSH_AUDIT_EVENTS
 void
-mm_audit_event(ssh_audit_event_t event)
+mm_audit_event(struct ssh *ssh, ssh_audit_event_t event)
 {
 	struct sshbuf *m;
 	int r;

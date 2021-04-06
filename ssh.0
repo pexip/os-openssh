@@ -1,7 +1,7 @@
 SSH(1)                      General Commands Manual                     SSH(1)
 
 NAME
-     ssh M-bM-^@M-^S OpenSSH SSH client (remote login program)
+     ssh M-bM-^@M-^S OpenSSH remote login client
 
 SYNOPSIS
      ssh [-46AaCfGgKkMNnqsTtVvXxYy] [-B bind_interface] [-b bind_address]
@@ -33,9 +33,9 @@ DESCRIPTION
 
      -6      Forces ssh to use IPv6 addresses only.
 
-     -A      Enables forwarding of the authentication agent connection.  This
-             can also be specified on a per-host basis in a configuration
-             file.
+     -A      Enables forwarding of connections from an authentication agent
+             such as ssh-agent(1).  This can also be specified on a per-host
+             basis in a configuration file.
 
              Agent forwarding should be enabled with caution.  Users with the
              ability to bypass file permissions on the remote host (for the
@@ -43,7 +43,8 @@ DESCRIPTION
              the forwarded connection.  An attacker cannot obtain key material
              from the agent, however they can perform operations on the keys
              that enable them to authenticate using the identities loaded into
-             the agent.
+             the agent.  A safer alternative may be to use a jump host (see
+             -J).
 
      -a      Disables forwarding of the authentication agent connection.
 
@@ -108,7 +109,8 @@ DESCRIPTION
              Specifies an alternative per-user configuration file.  If a
              configuration file is given on the command line, the system-wide
              configuration file (/etc/ssh/ssh_config) will be ignored.  The
-             default for the per-user configuration file is ~/.ssh/config.
+             default for the per-user configuration file is ~/.ssh/config.  If
+             set to M-bM-^@M-^\noneM-bM-^@M-^], no configuration files will be read.
 
      -f      Requests ssh to go to background just before command execution.
              This is useful if ssh is going to ask for passwords or
@@ -130,19 +132,19 @@ DESCRIPTION
 
      -I pkcs11
              Specify the PKCS#11 shared library ssh should use to communicate
-             with a PKCS#11 token providing the user's private RSA key.
+             with a PKCS#11 token providing keys for user authentication.
 
      -i identity_file
              Selects a file from which the identity (private key) for public
              key authentication is read.  The default is ~/.ssh/id_dsa,
-             ~/.ssh/id_ecdsa, ~/.ssh/id_ed25519 and ~/.ssh/id_rsa.  Identity
-             files may also be specified on a per-host basis in the
-             configuration file.  It is possible to have multiple -i options
-             (and multiple identities specified in configuration files).  If
-             no certificates have been explicitly specified by the
-             CertificateFile directive, ssh will also try to load certificate
-             information from the filename obtained by appending -cert.pub to
-             identity filenames.
+             ~/.ssh/id_ecdsa, ~/.ssh/id_ecdsa_sk, ~/.ssh/id_ed25519,
+             ~/.ssh/id_ed25519_sk and ~/.ssh/id_rsa.  Identity files may also
+             be specified on a per-host basis in the configuration file.  It
+             is possible to have multiple -i options (and multiple identities
+             specified in configuration files).  If no certificates have been
+             explicitly specified by the CertificateFile directive, ssh will
+             also try to load certificate information from the filename
+             obtained by appending -cert.pub to identity filenames.
 
      -J destination
              Connect to the target host by first making a ssh connection to
@@ -150,6 +152,10 @@ DESCRIPTION
              TCP forwarding to the ultimate destination from there.  Multiple
              jump hops may be specified separated by comma characters.  This
              is a shortcut to specify a ProxyJump configuration directive.
+             Note that configuration directives supplied on the command-line
+             generally apply to the destination host and not any specified
+             jump hosts.  Use ~/.ssh/config to specify configuration for jump
+             hosts.
 
      -K      Enables GSSAPI-based authentication and forwarding (delegation)
              of GSSAPI credentials to the server.
@@ -267,7 +273,7 @@ DESCRIPTION
                    HostbasedKeyTypes
                    HostKeyAlgorithms
                    HostKeyAlias
-                   HostName
+                   Hostname
                    IdentitiesOnly
                    IdentityAgent
                    IdentityFile
@@ -325,8 +331,11 @@ DESCRIPTION
              for use with the -Q flag), mac (supported message integrity
              codes), kex (key exchange algorithms), key (key types), key-cert
              (certificate key types), key-plain (non-certificate key types),
+             key-sig (all key types and signature algorithms),
              protocol-version (supported SSH protocol versions), and sig
-             (supported signature algorithms).
+             (supported signature algorithms).  Alternatively, any keyword
+             from ssh_config(5) or sshd_config(5) that takes an algorithm list
+             may be used as an alias for the corresponding query_option.
 
      -q      Quiet mode.  Causes most warning and diagnostic messages to be
              suppressed.
@@ -452,17 +461,17 @@ AUTHENTICATION
 
      Host-based authentication works as follows: If the machine the user logs
      in from is listed in /etc/hosts.equiv or /etc/shosts.equiv on the remote
-     machine, and the user names are the same on both sides, or if the files
-     ~/.rhosts or ~/.shosts exist in the user's home directory on the remote
-     machine and contain a line containing the name of the client machine and
-     the name of the user on that machine, the user is considered for login.
-     Additionally, the server must be able to verify the client's host key
-     (see the description of /etc/ssh/ssh_known_hosts and ~/.ssh/known_hosts,
-     below) for login to be permitted.  This authentication method closes
-     security holes due to IP spoofing, DNS spoofing, and routing spoofing.
-     [Note to the administrator: /etc/hosts.equiv, ~/.rhosts, and the
-     rlogin/rsh protocol in general, are inherently insecure and should be
-     disabled if security is desired.]
+     machine, the user is non-root and the user names are the same on both
+     sides, or if the files ~/.rhosts or ~/.shosts exist in the user's home
+     directory on the remote machine and contain a line containing the name of
+     the client machine and the name of the user on that machine, the user is
+     considered for login.  Additionally, the server must be able to verify
+     the client's host key (see the description of /etc/ssh/ssh_known_hosts
+     and ~/.ssh/known_hosts, below) for login to be permitted.  This
+     authentication method closes security holes due to IP spoofing, DNS
+     spoofing, and routing spoofing.  [Note to the administrator:
+     /etc/hosts.equiv, ~/.rhosts, and the rlogin/rsh protocol in general, are
+     inherently insecure and should be disabled if security is desired.]
 
      Public key authentication works as follows: The scheme is based on
      public-key cryptography, using cryptosystems where encryption and
@@ -487,9 +496,12 @@ AUTHENTICATION
 
      The user creates his/her key pair by running ssh-keygen(1).  This stores
      the private key in ~/.ssh/id_dsa (DSA), ~/.ssh/id_ecdsa (ECDSA),
-     ~/.ssh/id_ed25519 (Ed25519), or ~/.ssh/id_rsa (RSA) and stores the public
-     key in ~/.ssh/id_dsa.pub (DSA), ~/.ssh/id_ecdsa.pub (ECDSA),
-     ~/.ssh/id_ed25519.pub (Ed25519), or ~/.ssh/id_rsa.pub (RSA) in the user's
+     ~/.ssh/id_ecdsa_sk (authenticator-hosted ECDSA), ~/.ssh/id_ed25519
+     (Ed25519), ~/.ssh/id_ed25519_sk (authenticator-hosted Ed25519), or
+     ~/.ssh/id_rsa (RSA) and stores the public key in ~/.ssh/id_dsa.pub (DSA),
+     ~/.ssh/id_ecdsa.pub (ECDSA), ~/.ssh/id_ecdsa_sk.pub (authenticator-hosted
+     ECDSA), ~/.ssh/id_ed25519.pub (Ed25519), ~/.ssh/id_ed25519_sk.pub
+     (authenticator-hosted Ed25519), or ~/.ssh/id_rsa.pub (RSA) in the user's
      home directory.  The user should then copy the public key to
      ~/.ssh/authorized_keys in his/her home directory on the remote machine.
      The authorized_keys file corresponds to the conventional ~/.rhosts file,
@@ -594,36 +606,30 @@ ESCAPE CHARACTERS
              to stderr.
 
 TCP FORWARDING
-     Forwarding of arbitrary TCP connections over the secure channel can be
+     Forwarding of arbitrary TCP connections over a secure channel can be
      specified either on the command line or in a configuration file.  One
      possible application of TCP forwarding is a secure connection to a mail
      server; another is going through firewalls.
 
-     In the example below, we look at encrypting communication between an IRC
-     client and server, even though the IRC server does not directly support
-     encrypted communications.  This works as follows: the user connects to
-     the remote host using ssh, specifying a port to be used to forward
-     connections to the remote server.  After that it is possible to start the
-     service which is to be encrypted on the client machine, connecting to the
-     same local port, and ssh will encrypt and forward the connection.
+     In the example below, we look at encrypting communication for an IRC
+     client, even though the IRC server it connects to does not directly
+     support encrypted communication.  This works as follows: the user
+     connects to the remote host using ssh, specifying the ports to be used to
+     forward the connection.  After that it is possible to start the program
+     locally, and ssh will encrypt and forward the connection to the remote
+     server.
 
-     The following example tunnels an IRC session from client machine
-     M-bM-^@M-^\127.0.0.1M-bM-^@M-^] (localhost) to remote server M-bM-^@M-^\server.example.comM-bM-^@M-^]:
+     The following example tunnels an IRC session from the client to an IRC
+     server at M-bM-^@M-^\server.example.comM-bM-^@M-^], joining channel M-bM-^@M-^\#usersM-bM-^@M-^], nickname
+     M-bM-^@M-^\pinkyM-bM-^@M-^], using the standard IRC port, 6667:
 
-         $ ssh -f -L 1234:localhost:6667 server.example.com sleep 10
-         $ irc -c '#users' -p 1234 pinky 127.0.0.1
-
-     This tunnels a connection to IRC server M-bM-^@M-^\server.example.comM-bM-^@M-^], joining
-     channel M-bM-^@M-^\#usersM-bM-^@M-^], nickname M-bM-^@M-^\pinkyM-bM-^@M-^], using port 1234.  It doesn't matter
-     which port is used, as long as it's greater than 1023 (remember, only
-     root can open sockets on privileged ports) and doesn't conflict with any
-     ports already in use.  The connection is forwarded to port 6667 on the
-     remote server, since that's the standard port for IRC services.
+         $ ssh -f -L 6667:localhost:6667 server.example.com sleep 10
+         $ irc -c '#users' pinky IRC/127.0.0.1
 
      The -f option backgrounds ssh and the remote command M-bM-^@M-^\sleep 10M-bM-^@M-^] is
      specified to allow an amount of time (10 seconds, in the example) to
-     start the service which is to be tunnelled.  If no connections are made
-     within the time specified, ssh will exit.
+     start the program which is going to use the tunnel.  If no connections
+     are made within the time specified, ssh will exit.
 
 X11 FORWARDING
      If the ForwardX11 variable is set to M-bM-^@M-^\yesM-bM-^@M-^] (or see the description of the
@@ -860,7 +866,9 @@ FILES
 
      ~/.ssh/id_dsa
      ~/.ssh/id_ecdsa
+     ~/.ssh/id_ecdsa_sk
      ~/.ssh/id_ed25519
+     ~/.ssh/id_ed25519_sk
      ~/.ssh/id_rsa
              Contains the private key for authentication.  These files contain
              sensitive data and should be readable by the user but not
@@ -872,7 +880,9 @@ FILES
 
      ~/.ssh/id_dsa.pub
      ~/.ssh/id_ecdsa.pub
+     ~/.ssh/id_ecdsa_sk.pub
      ~/.ssh/id_ed25519.pub
+     ~/.ssh/id_ed25519_sk.pub
      ~/.ssh/id_rsa.pub
              Contains the public key for authentication.  These files are not
              sensitive and can (but need not) be readable by anyone.
@@ -979,4 +989,4 @@ AUTHORS
      created OpenSSH.  Markus Friedl contributed the support for SSH protocol
      versions 1.5 and 2.0.
 
-OpenBSD 6.4                   September 20, 2018                   OpenBSD 6.4
+OpenBSD 6.7                     April 17, 2020                     OpenBSD 6.7

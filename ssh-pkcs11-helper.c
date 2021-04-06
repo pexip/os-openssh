@@ -1,4 +1,4 @@
-/* $OpenBSD: ssh-pkcs11-helper.c,v 1.14 2018/01/08 15:18:46 markus Exp $ */
+/* $OpenBSD: ssh-pkcs11-helper.c,v 1.23 2020/03/06 18:26:21 markus Exp $ */
 /*
  * Copyright (c) 2010 Markus Friedl.  All rights reserved.
  *
@@ -24,10 +24,14 @@
 
 #include "openbsd-compat/sys-queue.h"
 
+#include <stdlib.h>
+#include <errno.h>
+#ifdef HAVE_POLL_H
+#include <poll.h>
+#endif
 #include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
-#include <errno.h>
 
 #include "xmalloc.h"
 #include "sshbuf.h"
@@ -40,11 +44,13 @@
 
 #ifdef ENABLE_PKCS11
 
+#ifdef WITH_OPENSSL
+
 /* borrows code from sftp-server and ssh-agent */
 
 struct pkcs11_keyinfo {
 	struct sshkey	*key;
-	char		*providername;
+	char		*providername, *label;
 	TAILQ_ENTRY(pkcs11_keyinfo) next;
 };
 
@@ -57,13 +63,14 @@ struct sshbuf *iqueue;
 struct sshbuf *oqueue;
 
 static void
-add_key(struct sshkey *k, char *name)
+add_key(struct sshkey *k, char *name, char *label)
 {
 	struct pkcs11_keyinfo *ki;
 
 	ki = xcalloc(1, sizeof(*ki));
 	ki->providername = xstrdup(name);
 	ki->key = k;
+	ki->label = xstrdup(label);
 	TAILQ_INSERT_TAIL(&pkcs11_keylist, ki, next);
 }
 
@@ -77,6 +84,7 @@ del_keys_by_name(char *name)
 		if (!strcmp(ki->providername, name)) {
 			TAILQ_REMOVE(&pkcs11_keylist, ki, next);
 			free(ki->providername);
+			free(ki->label);
 			sshkey_free(ki->key);
 			free(ki);
 		}
@@ -90,7 +98,7 @@ lookup_key(struct sshkey *k)
 	struct pkcs11_keyinfo *ki;
 
 	TAILQ_FOREACH(ki, &pkcs11_keylist, next) {
-		debug("check %p %s", ki, ki->providername);
+		debug("check %p %s %s", ki, ki->providername, ki->label);
 		if (sshkey_equal(k, ki->key))
 			return (ki->key);
 	}
@@ -110,18 +118,19 @@ static void
 process_add(void)
 {
 	char *name, *pin;
-	struct sshkey **keys;
+	struct sshkey **keys = NULL;
 	int r, i, nkeys;
 	u_char *blob;
 	size_t blen;
 	struct sshbuf *msg;
+	char **labels = NULL;
 
 	if ((msg = sshbuf_new()) == NULL)
 		fatal("%s: sshbuf_new failed", __func__);
 	if ((r = sshbuf_get_cstring(iqueue, &name, NULL)) != 0 ||
 	    (r = sshbuf_get_cstring(iqueue, &pin, NULL)) != 0)
 		fatal("%s: buffer error: %s", __func__, ssh_err(r));
-	if ((nkeys = pkcs11_add_provider(name, pin, &keys)) > 0) {
+	if ((nkeys = pkcs11_add_provider(name, pin, &keys, &labels)) > 0) {
 		if ((r = sshbuf_put_u8(msg,
 		    SSH2_AGENT_IDENTITIES_ANSWER)) != 0 ||
 		    (r = sshbuf_put_u32(msg, nkeys)) != 0)
@@ -133,17 +142,21 @@ process_add(void)
 				continue;
 			}
 			if ((r = sshbuf_put_string(msg, blob, blen)) != 0 ||
-			    (r = sshbuf_put_cstring(msg, name)) != 0)
+			    (r = sshbuf_put_cstring(msg, labels[i])) != 0)
 				fatal("%s: buffer error: %s",
 				    __func__, ssh_err(r));
 			free(blob);
-			add_key(keys[i], name);
+			add_key(keys[i], name, labels[i]);
+			free(labels[i]);
 		}
-		free(keys);
 	} else {
 		if ((r = sshbuf_put_u8(msg, SSH_AGENT_FAILURE)) != 0)
 			fatal("%s: buffer error: %s", __func__, ssh_err(r));
+		if ((r = sshbuf_put_u32(msg, -nkeys)) != 0)
+			fatal("%s: buffer error: %s", __func__, ssh_err(r));
 	}
+	free(labels);
+	free(keys); /* keys themselves are transferred to pkcs11_keylist */
 	free(pin);
 	free(name);
 	send_msg(msg);
@@ -194,13 +207,33 @@ process_sign(void)
 #ifdef WITH_OPENSSL
 			int ret;
 
-			slen = RSA_size(key->rsa);
-			signature = xmalloc(slen);
-			if ((ret = RSA_private_encrypt(dlen, data, signature,
-			    found->rsa, RSA_PKCS1_PADDING)) != -1) {
-				slen = ret;
-				ok = 0;
-			}
+			if (key->type == KEY_RSA) {
+				slen = RSA_size(key->rsa);
+				signature = xmalloc(slen);
+				ret = RSA_private_encrypt(dlen, data, signature,
+				    found->rsa, RSA_PKCS1_PADDING);
+				if (ret != -1) {
+					slen = ret;
+					ok = 0;
+				}
+#ifdef OPENSSL_HAS_ECC
+			} else if (key->type == KEY_ECDSA) {
+				u_int xslen = ECDSA_size(key->ecdsa);
+
+				signature = xmalloc(xslen);
+				/* "The parameter type is ignored." */
+				ret = ECDSA_sign(-1, data, dlen, signature,
+				    &xslen, found->ecdsa);
+				if (ret != 0)
+					ok = 0;
+				else
+					error("%s: ECDSA_sign"
+					    " returns %d", __func__, ret);
+				slen = xslen;
+#endif /* OPENSSL_HAS_ECC */
+			} else
+				error("%s: don't know how to sign with key "
+				    "type %d", __func__, (int)key->type);
 #endif /* WITH_OPENSSL */
 		}
 		sshkey_free(key);
@@ -287,48 +320,55 @@ cleanup_exit(int i)
 	_exit(i);
 }
 
+
 int
 main(int argc, char **argv)
 {
-	fd_set *rset, *wset;
-	int r, in, out, max, log_stderr = 0;
-	ssize_t len, olen, set_size;
+	int r, ch, in, out, log_stderr = 0;
+	ssize_t len;
 	SyslogFacility log_facility = SYSLOG_FACILITY_AUTH;
 	LogLevel log_level = SYSLOG_LEVEL_ERROR;
 	char buf[4*4096];
-
 	extern char *__progname;
+	struct pollfd pfd[2];
 
-	ssh_malloc_init();	/* must be called before any mallocs */
-	TAILQ_INIT(&pkcs11_keylist);
-	pkcs11_init(0);
-
-	seed_rng();
 	__progname = ssh_get_progname(argv[0]);
+	seed_rng();
+	TAILQ_INIT(&pkcs11_keylist);
 
 	log_init(__progname, log_level, log_facility, log_stderr);
 
+	while ((ch = getopt(argc, argv, "v")) != -1) {
+		switch (ch) {
+		case 'v':
+			log_stderr = 1;
+			if (log_level == SYSLOG_LEVEL_ERROR)
+				log_level = SYSLOG_LEVEL_DEBUG1;
+			else if (log_level < SYSLOG_LEVEL_DEBUG3)
+				log_level++;
+			break;
+		default:
+			fprintf(stderr, "usage: %s [-v]\n", __progname);
+			exit(1);
+		}
+	}
+
+	log_init(__progname, log_level, log_facility, log_stderr);
+
+	pkcs11_init(0);
+
 	in = STDIN_FILENO;
 	out = STDOUT_FILENO;
-
-	max = 0;
-	if (in > max)
-		max = in;
-	if (out > max)
-		max = out;
 
 	if ((iqueue = sshbuf_new()) == NULL)
 		fatal("%s: sshbuf_new failed", __func__);
 	if ((oqueue = sshbuf_new()) == NULL)
 		fatal("%s: sshbuf_new failed", __func__);
 
-	set_size = howmany(max + 1, NFDBITS) * sizeof(fd_mask);
-	rset = xmalloc(set_size);
-	wset = xmalloc(set_size);
-
-	for (;;) {
-		memset(rset, 0, set_size);
-		memset(wset, 0, set_size);
+	while (1) {
+		memset(pfd, 0, sizeof(pfd));
+		pfd[0].fd = in;
+		pfd[1].fd = out;
 
 		/*
 		 * Ensure that we can read a full buffer and handle
@@ -337,23 +377,21 @@ main(int argc, char **argv)
 		 */
 		if ((r = sshbuf_check_reserve(iqueue, sizeof(buf))) == 0 &&
 		    (r = sshbuf_check_reserve(oqueue, MAX_MSG_LENGTH)) == 0)
-			FD_SET(in, rset);
+			pfd[0].events = POLLIN;
 		else if (r != SSH_ERR_NO_BUFFER_SPACE)
 			fatal("%s: buffer error: %s", __func__, ssh_err(r));
 
-		olen = sshbuf_len(oqueue);
-		if (olen > 0)
-			FD_SET(out, wset);
+		if (sshbuf_len(oqueue) > 0)
+			pfd[1].events = POLLOUT;
 
-		if (select(max+1, rset, wset, NULL, NULL) < 0) {
-			if (errno == EINTR)
+		if ((r = poll(pfd, 2, -1 /* INFTIM */)) <= 0) {
+			if (r == 0 || errno == EINTR)
 				continue;
-			error("select: %s", strerror(errno));
-			cleanup_exit(2);
+			fatal("poll: %s", strerror(errno));
 		}
 
 		/* copy stdin to iqueue */
-		if (FD_ISSET(in, rset)) {
+		if ((pfd[0].revents & (POLLIN|POLLERR)) != 0) {
 			len = read(in, buf, sizeof buf);
 			if (len == 0) {
 				debug("read eof");
@@ -367,8 +405,9 @@ main(int argc, char **argv)
 			}
 		}
 		/* send oqueue to stdout */
-		if (FD_ISSET(out, wset)) {
-			len = write(out, sshbuf_ptr(oqueue), olen);
+		if ((pfd[1].revents & (POLLOUT|POLLHUP)) != 0) {
+			len = write(out, sshbuf_ptr(oqueue),
+			    sshbuf_len(oqueue));
 			if (len < 0) {
 				error("write: %s", strerror(errno));
 				cleanup_exit(1);
@@ -389,6 +428,21 @@ main(int argc, char **argv)
 			fatal("%s: buffer error: %s", __func__, ssh_err(r));
 	}
 }
+
+#else /* WITH_OPENSSL */
+void
+cleanup_exit(int i)
+{
+	_exit(i);
+}
+
+int
+main(int argc, char **argv)
+{
+	fprintf(stderr, "PKCS#11 code is not enabled\n");
+	return 1;
+}
+#endif /* WITH_OPENSSL */
 #else /* ENABLE_PKCS11 */
 int
 main(int argc, char **argv)

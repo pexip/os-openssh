@@ -1,4 +1,4 @@
-/* $OpenBSD: servconf.h,v 1.137 2018/09/20 03:28:06 djm Exp $ */
+/* $OpenBSD: servconf.h,v 1.144 2020/04/17 03:30:05 djm Exp $ */
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -15,6 +15,8 @@
 
 #ifndef SERVCONF_H
 #define SERVCONF_H
+
+#include <openbsd-compat/sys-queue.h>
 
 #define MAX_PORTS		256	/* Max # ports. */
 
@@ -36,11 +38,19 @@
 #define PERMITOPEN_ANY		0
 #define PERMITOPEN_NONE		-2
 
+/* IgnoreRhosts */
+#define IGNORE_RHOSTS_NO	0
+#define IGNORE_RHOSTS_YES	1
+#define IGNORE_RHOSTS_SHOSTS	2
+
 #define DEFAULT_AUTH_FAIL_MAX	6	/* Default for MaxAuthTries */
 #define DEFAULT_SESSIONS_MAX	10	/* Default for MaxSessions */
 
 /* Magic name for internal sftp-server */
 #define INTERNAL_SFTP_NAME	"internal-sftp"
+
+/* PubkeyAuthOptions flags */
+#define PUBKEYAUTH_TOUCH_REQUIRED	1
 
 struct ssh;
 struct fwd_perm_list;
@@ -75,6 +85,7 @@ typedef struct {
 	char	*routing_domain;	/* Bind session to routing domain */
 
 	char   **host_key_files;	/* Files containing host keys. */
+	int	*host_key_file_userprovided; /* Key was specified by user. */
 	u_int	num_host_key_files;     /* Number of files for host keys. */
 	char   **host_cert_files;	/* Files containing host certs. */
 	u_int	num_host_cert_files;	/* Number of files for host certs. */
@@ -113,6 +124,7 @@ typedef struct {
 	char   *ca_sign_algorithms;	/* Allowed CA signature algorithms */
 	int     pubkey_authentication;	/* If true, permit ssh2 pubkey authentication. */
 	char   *pubkey_key_types;	/* Key types allowed for public key */
+	int	pubkey_auth_options;	/* -1 or mask of PUBKEYAUTH_* flags */
 	int     kerberos_authentication;	/* If true, permit Kerberos
 						 * authentication. */
 	int     kerberos_or_local_passwd;	/* If true, permit kerberos
@@ -210,6 +222,7 @@ typedef struct {
 	int	fingerprint_hash;
 	int	expose_userauth_info;
 	u_int64_t timing_secret;
+	char   *sk_provider;
 }       ServerOptions;
 
 /* Information about the incoming connection as used by Match */
@@ -220,7 +233,18 @@ struct connection_info {
 	const char *laddress;	/* local address */
 	int lport;		/* local port */
 	const char *rdomain;	/* routing domain if available */
+	int test;		/* test mode, allow some attributes to be
+				 * unspecified */
 };
+
+/* List of included files for re-exec from the parsed configuration */
+struct include_item {
+	char *selector;
+	char *filename;
+	struct sshbuf *contents;
+	TAILQ_ENTRY(include_item) entry;
+};
+TAILQ_HEAD(include_list, include_item);
 
 
 /*
@@ -257,23 +281,24 @@ struct connection_info {
 		M_CP_STRARRAYOPT(permitted_listens, num_permitted_listens); \
 	} while (0)
 
-struct connection_info *get_connection_info(int, int);
+struct connection_info *get_connection_info(struct ssh *, int, int);
 void	 initialize_server_options(ServerOptions *);
 void	 fill_default_server_options(ServerOptions *);
 int	 process_server_config_line(ServerOptions *, char *, const char *, int,
-	     int *, struct connection_info *);
+	     int *, struct connection_info *, struct include_list *includes);
 void	 process_permitopen(struct ssh *ssh, ServerOptions *options);
 void	 load_server_config(const char *, struct sshbuf *);
 void	 parse_server_config(ServerOptions *, const char *, struct sshbuf *,
-	     struct connection_info *);
-void	 parse_server_match_config(ServerOptions *, struct connection_info *);
+	     struct include_list *includes, struct connection_info *);
+void	 parse_server_match_config(ServerOptions *,
+	     struct include_list *includes, struct connection_info *);
 int	 parse_server_match_testspec(struct connection_info *, char *);
 int	 server_match_spec_complete(struct connection_info *);
 void	 copy_set_server_options(ServerOptions *, ServerOptions *, int);
 void	 dump_config(ServerOptions *);
 char	*derelativise_path(const char *);
 void	 servconf_add_hostkey(const char *, const int,
-	    ServerOptions *, const char *path);
+	    ServerOptions *, const char *path, int);
 void	 servconf_add_hostcert(const char *, const int,
 	    ServerOptions *, const char *path);
 

@@ -1,4 +1,4 @@
-/* $OpenBSD: mux.c,v 1.77 2018/09/26 07:32:44 djm Exp $ */
+/* $OpenBSD: mux.c,v 1.82 2020/04/30 17:12:20 markus Exp $ */
 /*
  * Copyright (c) 2002-2008 Damien Miller <djm@openbsd.org>
  *
@@ -610,6 +610,7 @@ mux_confirm_remote_forward(struct ssh *ssh, int type, u_int32_t seq, void *ctxt)
 	struct Forward *rfwd;
 	Channel *c;
 	struct sshbuf *out;
+	u_int port;
 	int r;
 
 	if ((c = channel_by_id(ssh, fctx->cid)) == NULL) {
@@ -632,7 +633,15 @@ mux_confirm_remote_forward(struct ssh *ssh, int type, u_int32_t seq, void *ctxt)
 	    rfwd->connect_host, rfwd->connect_port);
 	if (type == SSH2_MSG_REQUEST_SUCCESS) {
 		if (rfwd->listen_port == 0) {
-			rfwd->allocated_port = packet_get_int();
+			if ((r = sshpkt_get_u32(ssh, &port)) != 0)
+				fatal("%s: packet error: %s",
+				    __func__, ssh_err(r));
+			if (port > 65535) {
+				fatal("Invalid allocated port %u for "
+				    "mux remote forward to %s:%d", port,
+				    rfwd->connect_host, rfwd->connect_port);
+			}
+			rfwd->allocated_port = (int)port;
 			debug("Allocated port %u for mux remote forward"
 			    " to %s:%d", rfwd->allocated_port,
 			    rfwd->connect_host, rfwd->connect_port);
@@ -1406,7 +1415,8 @@ mux_session_confirm(struct ssh *ssh, int id, int success, void *arg)
 	if (cctx->want_agent_fwd && options.forward_agent) {
 		debug("Requesting authentication agent forwarding.");
 		channel_request_start(ssh, id, "auth-agent-req@openssh.com", 0);
-		packet_send();
+		if ((r = sshpkt_send(ssh)) != 0)
+			fatal("%s: packet error: %s", __func__, ssh_err(r));
 	}
 
 	client_session2_setup(ssh, id, cctx->want_tty, cctx->want_subsys,
@@ -1482,7 +1492,7 @@ mux_client_read(int fd, struct sshbuf *b, size_t need)
 			return -1;
 		}
 		len = read(fd, p + have, need - have);
-		if (len < 0) {
+		if (len == -1) {
 			switch (errno) {
 #if defined(EWOULDBLOCK) && (EWOULDBLOCK != EAGAIN)
 			case EWOULDBLOCK:
@@ -1531,7 +1541,7 @@ mux_client_write_packet(int fd, struct sshbuf *m)
 			return -1;
 		}
 		len = write(fd, ptr + have, need - have);
-		if (len < 0) {
+		if (len == -1) {
 			switch (errno) {
 #if defined(EWOULDBLOCK) && (EWOULDBLOCK != EAGAIN)
 			case EWOULDBLOCK:
@@ -1901,7 +1911,7 @@ mux_client_request_session(int fd)
 		return -1;
 	}
 
-	signal(SIGPIPE, SIG_IGN);
+	ssh_signal(SIGPIPE, SIG_IGN);
 
 	if (stdin_null_flag) {
 		if ((devnull = open(_PATH_DEVNULL, O_RDONLY)) == -1)
@@ -1977,6 +1987,7 @@ mux_client_request_session(int fd)
 	case MUX_S_SESSION_OPENED:
 		if ((r = sshbuf_get_u32(m, &sid)) != 0)
 			fatal("%s: decode ID: %s", __func__, ssh_err(r));
+		debug("%s: master session id: %u", __func__, sid);
 		break;
 	case MUX_S_PERMISSION_DENIED:
 		if ((r = sshbuf_get_cstring(m, &e, NULL)) != 0)
@@ -2002,10 +2013,10 @@ mux_client_request_session(int fd)
 		fatal("%s pledge(): %s", __func__, strerror(errno));
 	platform_pledge_mux();
 
-	signal(SIGHUP, control_client_sighandler);
-	signal(SIGINT, control_client_sighandler);
-	signal(SIGTERM, control_client_sighandler);
-	signal(SIGWINCH, control_client_sigrelay);
+	ssh_signal(SIGHUP, control_client_sighandler);
+	ssh_signal(SIGINT, control_client_sighandler);
+	ssh_signal(SIGTERM, control_client_sighandler);
+	ssh_signal(SIGWINCH, control_client_sigrelay);
 
 	rawmode = tty_flag;
 	if (tty_flag)
@@ -2135,7 +2146,7 @@ mux_client_request_stdio_fwd(int fd)
 		return -1;
 	}
 
-	signal(SIGPIPE, SIG_IGN);
+	ssh_signal(SIGPIPE, SIG_IGN);
 
 	if (stdin_null_flag) {
 		if ((devnull = open(_PATH_DEVNULL, O_RDONLY)) == -1)
@@ -2209,10 +2220,10 @@ mux_client_request_stdio_fwd(int fd)
 	}
 	muxclient_request_id++;
 
-	signal(SIGHUP, control_client_sighandler);
-	signal(SIGINT, control_client_sighandler);
-	signal(SIGTERM, control_client_sighandler);
-	signal(SIGWINCH, control_client_sigrelay);
+	ssh_signal(SIGHUP, control_client_sighandler);
+	ssh_signal(SIGINT, control_client_sighandler);
+	ssh_signal(SIGTERM, control_client_sighandler);
+	ssh_signal(SIGWINCH, control_client_sigrelay);
 
 	/*
 	 * Stick around until the controlee closes the client_fd.
@@ -2314,7 +2325,7 @@ muxclient(const char *path)
 		fatal("ControlPath too long ('%s' >= %u bytes)", path,
 		     (unsigned int)sizeof(addr.sun_path));
 
-	if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0)
+	if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) == -1)
 		fatal("%s socket(): %s", __func__, strerror(errno));
 
 	if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
