@@ -1,4 +1,4 @@
-From f2697f0c5ff23bc13dce1c90fb4c1c934c02070b Mon Sep 17 00:00:00 2001
+From a73fcc8bab768900ca16d3121303941511b28d45 Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Thu, 30 Aug 2018 00:58:56 +0100
 Subject: Work around conch interoperability failure
@@ -18,10 +18,10 @@ Patch-Name: conch-old-privkey-format.patch
  3 files changed, 14 insertions(+), 2 deletions(-)
 
 diff --git a/regress/Makefile b/regress/Makefile
-index 62794d25f..53a50ffca 100644
+index 8b4ed9de3..f50d189bb 100644
 --- a/regress/Makefile
 +++ b/regress/Makefile
-@@ -121,7 +121,7 @@ CLEANFILES=	*.core actual agent-key.* authorized_keys_${USERNAME} \
+@@ -122,7 +122,7 @@ CLEANFILES=	*.core actual agent-key.* authorized_keys_${USERNAME} \
  		rsa_ssh2_crnl.prv scp-ssh-wrapper.exe \
  		scp-ssh-wrapper.scp setuid-allowed sftp-server.log \
  		sftp-server.sh sftp.log ssh-log-wrapper.sh ssh.log \

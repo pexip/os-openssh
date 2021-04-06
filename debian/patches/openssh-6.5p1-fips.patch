@@ -1106,23 +1106,23 @@ Index: openssh/readconf.c
  	all_key = sshkey_alg_list(0, 0, 1, ',');
  	all_sig = sshkey_alg_list(0, 1, 1, ',');
  	/* remove unsupported algos from default lists */
--	def_cipher = match_filter_whitelist(KEX_CLIENT_ENCRYPT, all_cipher);
--	def_mac = match_filter_whitelist(KEX_CLIENT_MAC, all_mac);
--	def_kex = match_filter_whitelist(KEX_CLIENT_KEX, all_kex);
--	def_key = match_filter_whitelist(KEX_DEFAULT_PK_ALG, all_key);
--	def_sig = match_filter_whitelist(SSH_ALLOWED_CA_SIGALGS, all_sig);
+-	def_cipher = match_filter_allowlist(KEX_CLIENT_ENCRYPT, all_cipher);
+-	def_mac = match_filter_allowlist(KEX_CLIENT_MAC, all_mac);
+-	def_kex = match_filter_allowlist(KEX_CLIENT_KEX, all_kex);
+-	def_key = match_filter_allowlist(KEX_DEFAULT_PK_ALG, all_key);
+-	def_sig = match_filter_allowlist(SSH_ALLOWED_CA_SIGALGS, all_sig);
 +	if (fips_mode()) {
-+		def_cipher = match_filter_whitelist(KEX_FIPS_140_2_CLIENT_ENCRYPT, all_cipher);
-+		def_mac = match_filter_whitelist(KEX_FIPS_140_2_CLIENT_MAC, all_mac);
-+		def_kex = match_filter_whitelist(KEX_FIPS_140_2_CLIENT_KEX, all_kex);
-+		def_key = match_filter_whitelist(KEX_FIPS_140_2_PK_ALG, all_key);
-+		def_sig = match_filter_whitelist(SSH_FIPS_140_2_ALLOWED_CA_SIGALGS, all_sig);
++		def_cipher = match_filter_allowlist(KEX_FIPS_140_2_CLIENT_ENCRYPT, all_cipher);
++		def_mac = match_filter_allowlist(KEX_FIPS_140_2_CLIENT_MAC, all_mac);
++		def_kex = match_filter_allowlist(KEX_FIPS_140_2_CLIENT_KEX, all_kex);
++		def_key = match_filter_allowlist(KEX_FIPS_140_2_PK_ALG, all_key);
++		def_sig = match_filter_allowlist(SSH_FIPS_140_2_ALLOWED_CA_SIGALGS, all_sig);
 +	} else {
-+		def_cipher = match_filter_whitelist(KEX_CLIENT_ENCRYPT, all_cipher);
-+		def_mac = match_filter_whitelist(KEX_CLIENT_MAC, all_mac);
-+		def_kex = match_filter_whitelist(KEX_CLIENT_KEX, all_kex);
-+		def_key = match_filter_whitelist(KEX_DEFAULT_PK_ALG, all_key);
-+		def_sig = match_filter_whitelist(SSH_ALLOWED_CA_SIGALGS, all_sig);
++		def_cipher = match_filter_allowlist(KEX_CLIENT_ENCRYPT, all_cipher);
++		def_mac = match_filter_allowlist(KEX_CLIENT_MAC, all_mac);
++		def_kex = match_filter_allowlist(KEX_CLIENT_KEX, all_kex);
++		def_key = match_filter_allowlist(KEX_DEFAULT_PK_ALG, all_key);
++		def_sig = match_filter_allowlist(SSH_ALLOWED_CA_SIGALGS, all_sig);
 +	}
  #define ASSEMBLE(what, defaults, all) \
  	do { \
@@ -1143,23 +1143,23 @@ Index: openssh/servconf.c
  	all_key = sshkey_alg_list(0, 0, 1, ',');
  	all_sig = sshkey_alg_list(0, 1, 1, ',');
  	/* remove unsupported algos from default lists */
--	def_cipher = match_filter_whitelist(KEX_SERVER_ENCRYPT, all_cipher);
--	def_mac = match_filter_whitelist(KEX_SERVER_MAC, all_mac);
--	def_kex = match_filter_whitelist(KEX_SERVER_KEX, all_kex);
--	def_key = match_filter_whitelist(KEX_DEFAULT_PK_ALG, all_key);
--	def_sig = match_filter_whitelist(SSH_ALLOWED_CA_SIGALGS, all_sig);
+-	def_cipher = match_filter_allowlist(KEX_SERVER_ENCRYPT, all_cipher);
+-	def_mac = match_filter_allowlist(KEX_SERVER_MAC, all_mac);
+-	def_kex = match_filter_allowlist(KEX_SERVER_KEX, all_kex);
+-	def_key = match_filter_allowlist(KEX_DEFAULT_PK_ALG, all_key);
+-	def_sig = match_filter_allowlist(SSH_ALLOWED_CA_SIGALGS, all_sig);
 +	if (fips_mode()) {
-+		def_cipher = match_filter_whitelist(KEX_FIPS_140_2_SERVER_ENCRYPT, all_cipher);
-+		def_mac = match_filter_whitelist(KEX_FIPS_140_2_SERVER_MAC, all_mac);
-+		def_kex = match_filter_whitelist(KEX_FIPS_140_2_SERVER_KEX, all_kex);
-+		def_key = match_filter_whitelist(KEX_FIPS_140_2_PK_ALG, all_key);
-+		def_sig = match_filter_whitelist(SSH_FIPS_140_2_ALLOWED_CA_SIGALGS, all_sig);
++		def_cipher = match_filter_allowlist(KEX_FIPS_140_2_SERVER_ENCRYPT, all_cipher);
++		def_mac = match_filter_allowlist(KEX_FIPS_140_2_SERVER_MAC, all_mac);
++		def_kex = match_filter_allowlist(KEX_FIPS_140_2_SERVER_KEX, all_kex);
++		def_key = match_filter_allowlist(KEX_FIPS_140_2_PK_ALG, all_key);
++		def_sig = match_filter_allowlist(SSH_FIPS_140_2_ALLOWED_CA_SIGALGS, all_sig);
 +	} else {
-+		def_cipher = match_filter_whitelist(KEX_SERVER_ENCRYPT, all_cipher);
-+		def_mac = match_filter_whitelist(KEX_SERVER_MAC, all_mac);
-+		def_kex = match_filter_whitelist(KEX_SERVER_KEX, all_kex);
-+		def_key = match_filter_whitelist(KEX_DEFAULT_PK_ALG, all_key);
-+		def_sig = match_filter_whitelist(SSH_ALLOWED_CA_SIGALGS, all_sig);
++		def_cipher = match_filter_allowlist(KEX_SERVER_ENCRYPT, all_cipher);
++		def_mac = match_filter_allowlist(KEX_SERVER_MAC, all_mac);
++		def_kex = match_filter_allowlist(KEX_SERVER_KEX, all_kex);
++		def_key = match_filter_allowlist(KEX_DEFAULT_PK_ALG, all_key);
++		def_sig = match_filter_allowlist(SSH_ALLOWED_CA_SIGALGS, all_sig);
 +	}
  #define ASSEMBLE(what, defaults, all) \
  	do { \

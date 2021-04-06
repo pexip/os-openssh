@@ -1,4 +1,4 @@
-From 34bf12a8e8fcc7720168dac307ef9388af93b947 Mon Sep 17 00:00:00 2001
+From 6bcbfca92b58917dba48b696dd63529fa5dcbb82 Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:10:09 +0000
 Subject: Adjust various OpenBSD-specific references in manual pages
@@ -44,10 +44,10 @@ index ef0de0850..149846c8c 100644
  .Sh SEE ALSO
  .Xr ssh-keygen 1 ,
 diff --git a/ssh-keygen.1 b/ssh-keygen.1
-index 059c1b034..45866f931 100644
+index 3ae596caa..836174fb6 100644
 --- a/ssh-keygen.1
 +++ b/ssh-keygen.1
-@@ -197,9 +197,7 @@ key in
+@@ -202,9 +202,7 @@ key in
  .Pa ~/.ssh/id_ed25519_sk
  or
  .Pa ~/.ssh/id_rsa .
@@ -58,7 +58,7 @@ index 059c1b034..45866f931 100644
  .Pp
  Normally this program generates the key and asks for a file in which
  to store the private key.
-@@ -262,9 +260,7 @@ If
+@@ -269,9 +267,7 @@ If
  .Fl f
  has also been specified, its argument is used as a prefix to the
  default path for the resulting host key files.
@@ -69,7 +69,7 @@ index 059c1b034..45866f931 100644
  .It Fl a Ar rounds
  When saving a private key, this option specifies the number of KDF
  (key derivation function) rounds used.
-@@ -787,7 +783,7 @@ option.
+@@ -804,7 +800,7 @@ option.
  Valid generator values are 2, 3, and 5.
  .Pp
  Screened DH groups may be installed in
@@ -78,7 +78,7 @@ index 059c1b034..45866f931 100644
  It is important that this file contains moduli of a range of bit lengths and
  that both ends of a connection share common moduli.
  .Pp
-@@ -1158,7 +1154,7 @@ on all machines
+@@ -1185,7 +1181,7 @@ on all machines
  where the user wishes to log in using public key authentication.
  There is no need to keep the contents of this file secret.
  .Pp
@@ -88,7 +88,7 @@ index 059c1b034..45866f931 100644
  The file format is described in
  .Xr moduli 5 .
 diff --git a/ssh.1 b/ssh.1
-index a80be8efe..566fdba6b 100644
+index 5d613076c..1880c032d 100644
 --- a/ssh.1
 +++ b/ssh.1
 @@ -890,6 +890,10 @@ implements public key authentication protocol automatically,
@@ -103,7 +103,7 @@ index a80be8efe..566fdba6b 100644
  .Pp
  The file
 diff --git a/sshd.8 b/sshd.8
-index 730520231..5ce0ea4fa 100644
+index 97d547ffa..7895a6a94 100644
 --- a/sshd.8
 +++ b/sshd.8
 @@ -65,7 +65,7 @@ over an insecure network.
@@ -115,7 +115,7 @@ index 730520231..5ce0ea4fa 100644
  It forks a new
  daemon for each incoming connection.
  The forked daemons handle
-@@ -904,7 +904,7 @@ This file is for host-based authentication (see
+@@ -911,7 +911,7 @@ This file is for host-based authentication (see
  .Xr ssh 1 ) .
  It should only be writable by root.
  .Pp
@@ -124,7 +124,7 @@ index 730520231..5ce0ea4fa 100644
  Contains Diffie-Hellman groups used for the "Diffie-Hellman Group Exchange"
  key exchange method.
  The file format is described in
-@@ -1002,7 +1002,6 @@ The content of this file is not sensitive; it can be world-readable.
+@@ -1009,7 +1009,6 @@ The content of this file is not sensitive; it can be world-readable.
  .Xr ssh-keyscan 1 ,
  .Xr chroot 2 ,
  .Xr hosts_access 5 ,
@@ -133,7 +133,7 @@ index 730520231..5ce0ea4fa 100644
  .Xr sshd_config 5 ,
  .Xr inetd 8 ,
 diff --git a/sshd_config.5 b/sshd_config.5
-index 753ceda10..c27f99937 100644
+index 33dc0c675..32ae46476 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
 @@ -385,8 +385,7 @@ Certificates signed using other algorithms will not be accepted for

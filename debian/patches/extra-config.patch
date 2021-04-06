@@ -3,7 +3,7 @@ Index: openssh/ssh_config
 --- openssh.orig/ssh_config
 +++ openssh/ssh_config
 @@ -47,4 +47,9 @@ Host *
- #   RekeyLimit 1G 1h
+ #   UserKnownHostsFile ~/.ssh/known_hosts.d/%k
      SendEnv LANG LC_*
      HashKnownHosts yes
 -    GSSAPIAuthentication yes

@@ -65,6 +65,10 @@ ifeq ($(DEB_HOST_ARCH_OS),hurd)
 confflags += --with-libs=-lcrypt
 endif
 
+# Avoid using libmd even if it's installed; see
+# https://bugs.debian.org/982705.
+confflags += ac_cv_header_sha2_h=false
+
 # Everything above here is common to the deb and udeb builds.
 confflags_udeb := $(confflags)
 

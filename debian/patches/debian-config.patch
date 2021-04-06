@@ -1,4 +1,4 @@
-From 08ca1225e6979fc6b5b6e7f85ce5cb0ac5cc7405 Mon Sep 17 00:00:00 2001
+From a0c9f82b05d33f3e2cf8e5442cee47c09d1a1dd8 Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:10:18 +0000
 Subject: Various Debian-specific configuration changes
@@ -30,7 +30,7 @@ Document all of this.
 
 Author: Russ Allbery <rra@debian.org>
 Forwarded: not-needed
-Last-Update: 2020-02-21
+Last-Update: 2020-10-18
 
 Patch-Name: debian-config.patch
 ---
@@ -43,10 +43,10 @@ Patch-Name: debian-config.patch
  6 files changed, 98 insertions(+), 9 deletions(-)
 
 diff --git a/readconf.c b/readconf.c
-index 5bf0afbb4..87b0dc62a 100644
+index f4f273c96..e676b6be6 100644
 --- a/readconf.c
 +++ b/readconf.c
-@@ -2111,7 +2111,7 @@ fill_default_options(Options * options)
+@@ -2153,7 +2153,7 @@ fill_default_options(Options * options)
  	if (options->forward_x11 == -1)
  		options->forward_x11 = 0;
  	if (options->forward_x11_trusted == -1)
@@ -56,7 +56,7 @@ index 5bf0afbb4..87b0dc62a 100644
  		options->forward_x11_timeout = 1200;
  	/*
 diff --git a/ssh.1 b/ssh.1
-index 5a31b5dde..035823da3 100644
+index 76ddd89b5..ad48fc8c8 100644
 --- a/ssh.1
 +++ b/ssh.1
 @@ -812,6 +812,16 @@ directive in
@@ -98,7 +98,7 @@ index 5a31b5dde..035823da3 100644
  Send log information using the
  .Xr syslog 3
 diff --git a/ssh_config b/ssh_config
-index 1ff999b68..8a55237b9 100644
+index 52aae8692..09a17cf18 100644
 --- a/ssh_config
 +++ b/ssh_config
 @@ -17,9 +17,12 @@
@@ -115,15 +115,15 @@ index 1ff999b68..8a55237b9 100644
  #   PasswordAuthentication yes
  #   HostbasedAuthentication no
  #   GSSAPIAuthentication no
-@@ -45,3 +48,6 @@
- #   VisualHostKey no
+@@ -46,3 +49,6 @@
  #   ProxyCommand ssh -q -W %h:%p gateway.example.com
  #   RekeyLimit 1G 1h
+ #   UserKnownHostsFile ~/.ssh/known_hosts.d/%k
 +    SendEnv LANG LC_*
 +    HashKnownHosts yes
 +    GSSAPIAuthentication yes
 diff --git a/ssh_config.5 b/ssh_config.5
-index dd8241df1..aac3fabb7 100644
+index 96ca7a5df..6d6c59521 100644
 --- a/ssh_config.5
 +++ b/ssh_config.5
 @@ -71,6 +71,29 @@ Since the first obtained value for each parameter is used, more
@@ -156,7 +156,7 @@ index dd8241df1..aac3fabb7 100644
  The file contains keyword-argument pairs, one per line.
  Lines starting with
  .Ql #
-@@ -729,11 +752,12 @@ elapsed.
+@@ -742,11 +765,12 @@ elapsed.
  .It Cm ForwardX11Trusted
  If this option is set to
  .Cm yes ,
@@ -229,7 +229,7 @@ index 2c48105f8..459c1b230 100644
  # Example of overriding settings on a per-user basis
  #Match User anoncvs
 diff --git a/sshd_config.5 b/sshd_config.5
-index c27f99937..b38025dbf 100644
+index 32ae46476..472001dd1 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
 @@ -56,6 +56,35 @@ Arguments may optionally be enclosed in double quotes

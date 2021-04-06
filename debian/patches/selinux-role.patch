@@ -1,4 +1,4 @@
-From 8641a3f57e67e087b4500beb9916e06c4d0ba94c Mon Sep 17 00:00:00 2001
+From c574865182e2c5dfa183b577f49ac602d16df5c0 Mon Sep 17 00:00:00 2001
 From: Manoj Srivastava <srivasta@debian.org>
 Date: Sun, 9 Feb 2014 16:09:49 +0000
 Subject: Handle SELinux authorisation roles
@@ -9,7 +9,7 @@ SELinux maintainer, so we'll keep it until we have something better.
 
 Bug: https://bugzilla.mindrot.org/show_bug.cgi?id=1641
 Bug-Debian: http://bugs.debian.org/394795
-Last-Update: 2020-02-21
+Last-Update: 2020-10-18
 
 Patch-Name: selinux-role.patch
 ---
@@ -43,7 +43,7 @@ index becc672b5..5da9fe75f 100644
  	/* Method lists for multiple authentication */
  	char		**auth_methods;	/* modified from server config */
 diff --git a/auth2.c b/auth2.c
-index a4a5e0069..05d6c2447 100644
+index 9fa1404b3..d8363bdba 100644
 --- a/auth2.c
 +++ b/auth2.c
 @@ -265,7 +265,7 @@ input_userauth_request(int type, u_int32_t seq, struct ssh *ssh)
@@ -81,7 +81,7 @@ index a4a5e0069..05d6c2447 100644
  		if (auth2_setup_methods_lists(authctxt) != 0)
  			ssh_packet_disconnect(ssh,
 diff --git a/monitor.c b/monitor.c
-index 5347e900d..8002aca86 100644
+index 11868952b..98362948f 100644
 --- a/monitor.c
 +++ b/monitor.c
 @@ -118,6 +118,7 @@ int mm_answer_sign(struct ssh *, int, struct sshbuf *);
@@ -154,7 +154,7 @@ index 5347e900d..8002aca86 100644
  	return (0);
  }
  
-@@ -1553,7 +1582,7 @@ mm_answer_pty(struct ssh *ssh, int sock, struct sshbuf *m)
+@@ -1566,7 +1595,7 @@ mm_answer_pty(struct ssh *ssh, int sock, struct sshbuf *m)
  	res = pty_allocate(&s->ptyfd, &s->ttyfd, s->tty, sizeof(s->tty));
  	if (res == 0)
  		goto error;
@@ -177,7 +177,7 @@ index 2b1a2d590..4d87284aa 100644
  
  struct ssh;
 diff --git a/monitor_wrap.c b/monitor_wrap.c
-index 6edb509a3..b49c268d3 100644
+index 0e78cd006..d41d3949d 100644
 --- a/monitor_wrap.c
 +++ b/monitor_wrap.c
 @@ -364,10 +364,10 @@ mm_auth2_read_banner(void)
@@ -231,13 +231,13 @@ index 6edb509a3..b49c268d3 100644
  int
  mm_auth_password(struct ssh *ssh, char *password)
 diff --git a/monitor_wrap.h b/monitor_wrap.h
-index 485590c18..370b08e17 100644
+index 75aef1c74..c39e5dd8b 100644
 --- a/monitor_wrap.h
 +++ b/monitor_wrap.h
-@@ -47,7 +47,8 @@ DH *mm_choose_dh(int, int, int);
- #endif
+@@ -48,7 +48,8 @@ DH *mm_choose_dh(int, int, int);
  int mm_sshkey_sign(struct ssh *, struct sshkey *, u_char **, size_t *,
-     const u_char *, size_t, const char *, const char *, u_int compat);
+     const u_char *, size_t, const char *, const char *,
+     const char *, u_int compat);
 -void mm_inform_authserv(char *, char *);
 +void mm_inform_authserv(char *, char *, char *);
 +void mm_inform_authrole(char *);
@@ -363,10 +363,10 @@ index ea4f9c584..60d72ffe7 100644
  char *platform_krb5_get_principal_name(const char *);
  int platform_sys_dir_uid(uid_t);
 diff --git a/session.c b/session.c
-index f9c2c866e..837a8bacf 100644
+index 857f17b3c..b1796a803 100644
 --- a/session.c
 +++ b/session.c
-@@ -1360,7 +1360,7 @@ safely_chroot(const char *path, uid_t uid)
+@@ -1364,7 +1364,7 @@ safely_chroot(const char *path, uid_t uid)
  
  /* Set login name, uid, gid, and groups. */
  void
@@ -375,7 +375,7 @@ index f9c2c866e..837a8bacf 100644
  {
  	char uidstr[32], *chroot_path, *tmp;
  
-@@ -1388,7 +1388,7 @@ do_setusercontext(struct passwd *pw)
+@@ -1392,7 +1392,7 @@ do_setusercontext(struct passwd *pw)
  		endgrent();
  #endif
  
@@ -384,7 +384,7 @@ index f9c2c866e..837a8bacf 100644
  
  		if (!in_chroot && options.chroot_directory != NULL &&
  		    strcasecmp(options.chroot_directory, "none") != 0) {
-@@ -1529,7 +1529,7 @@ do_child(struct ssh *ssh, Session *s, const char *command)
+@@ -1536,7 +1536,7 @@ do_child(struct ssh *ssh, Session *s, const char *command)
  
  	/* Force a password change */
  	if (s->authctxt->force_pwchange) {
@@ -393,7 +393,7 @@ index f9c2c866e..837a8bacf 100644
  		child_close_fds(ssh);
  		do_pwchange(s);
  		exit(1);
-@@ -1547,7 +1547,7 @@ do_child(struct ssh *ssh, Session *s, const char *command)
+@@ -1554,7 +1554,7 @@ do_child(struct ssh *ssh, Session *s, const char *command)
  	/* When PAM is enabled we rely on it to do the nologin check */
  	if (!options.use_pam)
  		do_nologin(pw);
@@ -402,7 +402,7 @@ index f9c2c866e..837a8bacf 100644
  	/*
  	 * PAM session modules in do_setusercontext may have
  	 * generated messages, so if this in an interactive
-@@ -1946,7 +1946,7 @@ session_pty_req(struct ssh *ssh, Session *s)
+@@ -1953,7 +1953,7 @@ session_pty_req(struct ssh *ssh, Session *s)
  		sshpkt_fatal(ssh, r, "%s: parse packet", __func__);
  
  	if (!use_privsep)
@@ -425,7 +425,7 @@ index ce59dabd9..675c91146 100644
  const char	*session_get_remote_name_or_ip(struct ssh *, u_int, int);
  
 diff --git a/sshd.c b/sshd.c
-index e96d90809..e8b332ca4 100644
+index a50ec3584..38d281ab4 100644
 --- a/sshd.c
 +++ b/sshd.c
 @@ -594,7 +594,7 @@ privsep_postauth(struct ssh *ssh, Authctxt *authctxt)
