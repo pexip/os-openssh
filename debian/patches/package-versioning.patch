@@ -25,8 +25,8 @@ index 751cfc710..ce7bb5b3b 100644
  	if (version_addendum != NULL && *version_addendum == '\0')
  		version_addendum = NULL;
  	if ((r = sshbuf_putf(our_version, "SSH-%d.%d-%.100s%s%s\r\n",
--	   PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_VERSION,
-+	   PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_RELEASE,
+-	    PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_VERSION,
++	    PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_RELEASE,
  	    version_addendum == NULL ? "" : " ",
  	    version_addendum == NULL ? "" : version_addendum)) != 0) {
  		oerrno = errno;
@@ -35,7 +35,7 @@ index c2f9c55bb..480cd59e1 100644
 --- a/version.h
 +++ b/version.h
 @@ -3,4 +3,9 @@
- #define SSH_VERSION	"OpenSSH_8.5"
+ #define SSH_VERSION	"OpenSSH_8.6"
  
  #define SSH_PORTABLE	"p1"
 -#define SSH_RELEASE	SSH_VERSION SSH_PORTABLE

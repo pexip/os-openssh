@@ -132,8 +132,8 @@ index 8c5d5822e..a50ec3584 100644
 --- a/sshd.c
 +++ b/sshd.c
 @@ -124,6 +124,13 @@
- #include "sk-api.h"
  #include "srclimit.h"
+ #include "dh.h"
  
 +#ifdef LIBWRAP
 +#include <tcpd.h>
