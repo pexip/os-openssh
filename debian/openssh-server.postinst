@@ -132,8 +132,6 @@ create_keys() {
 
 	create_key "Creating SSH2 RSA key; this may take some time ..." \
 		"$hostkeys" /etc/ssh/ssh_host_rsa_key -t rsa
-	create_key "Creating SSH2 DSA key; this may take some time ..." \
-		"$hostkeys" /etc/ssh/ssh_host_dsa_key -t dsa
 	create_key "Creating SSH2 ECDSA key; this may take some time ..." \
 		"$hostkeys" /etc/ssh/ssh_host_ecdsa_key -t ecdsa
 	if [ ! -e /etc/fips/enabled ]; then
@@ -182,7 +180,6 @@ Port 22
 Protocol 2
 # HostKeys for protocol version 2
 HostKey /etc/ssh/ssh_host_rsa_key
-HostKey /etc/ssh/ssh_host_dsa_key
 HostKey /etc/ssh/ssh_host_ecdsa_key
 HostKey /etc/ssh/ssh_host_ed25519_key
 #Privilege Separation is turned on for security
@@ -354,6 +351,11 @@ if [ "$action" = configure ]; then
 	    # maintainer scripts will have saved the old file as .dpkg-bak,
 	    # which we now move back into place.
 	    mv /etc/ssh/moduli.dpkg-bak /etc/ssh/moduli
+	fi
+	if dpkg --compare-versions "$2" lt-nl 1:8.6p1-0pexip3; then
+	    # Remove legacy DSA host key
+	    rm -f /etc/ssh/ssh_host_dsa_key
+	    rm -f /etc/ssh/ssh_host_dsa_key.pub
 	fi
 fi
 
