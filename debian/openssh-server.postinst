@@ -167,6 +167,7 @@ PermitTunnel no
 MaxSessions 10
 Compression delayed
 ClientAliveInterval 180
+DebianBanner no
 
 Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com
 MACs hmac-sha2-256,hmac-sha2-512,hmac-sha1
