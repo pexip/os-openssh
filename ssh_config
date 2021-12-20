@@ -49,4 +49,9 @@ Host *
 #   UserKnownHostsFile ~/.ssh/known_hosts.d/%k
     SendEnv LANG LC_*
     HashKnownHosts yes
-    GSSAPIAuthentication yes
+    GSSAPIAuthentication no
+    Tunnel no
+    ForwardX11 no
+    GatewayPorts no
+    Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,aes192-cbc,aes256-cbc
+    MACs hmac-sha2-256,hmac-sha2-512,hmac-sha1
