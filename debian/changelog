@@ -1,3 +1,9 @@
+openssh (1:8.8p1-0pexip1) pexip; urgency=medium
+
+  * New upstream release
+
+ -- John-Mark Bell <jmb@pexip.com>  Mon, 20 Dec 2021 15:29:09 +0000
+
 openssh (1:8.6p1-0pexip3) pexip; urgency=medium
 
   * Remove legacy DSA host key

@@ -188,17 +188,17 @@ index 2c48105f8..459c1b230 100644
  #PermitEmptyPasswords no
  
 -# Change to no to disable s/key passwords
--#ChallengeResponseAuthentication yes
+-#KbdInteractiveAuthentication yes
 +# Change to yes to enable challenge-response passwords (beware issues with
 +# some PAM modules and threads)
-+ChallengeResponseAuthentication no
++KbdInteractiveAuthentication no
  
  # Kerberos options
  #KerberosAuthentication no
 @@ -81,16 +84,16 @@ AuthorizedKeysFile	.ssh/authorized_keys
  # If you just want the PAM account and session checks to run without
  # PAM authentication, then enable this but set PasswordAuthentication
- # and ChallengeResponseAuthentication to 'no'.
+ # and KbdInteractiveAuthentication to 'no'.
 -#UsePAM no
 +UsePAM yes
  

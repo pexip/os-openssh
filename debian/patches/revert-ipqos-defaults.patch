@@ -38,7 +38,7 @@ index e676b6be6..c60df5602 100644
 +		options->ip_qos_bulk = IPTOS_THROUGHPUT;
  	if (options->request_tty == -1)
  		options->request_tty = REQUEST_TTY_AUTO;
- 	if (options->proxy_use_fdpass == -1)
+ 	if (options->session_type == -1)
 diff --git a/servconf.c b/servconf.c
 index f9eb778d6..98afcfcec 100644
 --- a/servconf.c

@@ -68,18 +68,19 @@ diff --git a/misc.c b/misc.c
 index 4623b5755..c75a795c2 100644
 --- a/misc.c
 +++ b/misc.c
-@@ -55,8 +55,9 @@
+@@ -55,9 +55,9 @@
  #include <netdb.h>
  #ifdef HAVE_PATHS_H
  # include <paths.h>
 -#include <pwd.h>
+-#include <grp.h>
  #endif
 +#include <pwd.h>
 +#include <grp.h>
  #ifdef SSH_TUN_OPENBSD
  #include <net/if.h>
  #endif
-@@ -1271,6 +1272,55 @@ percent_dollar_expand(const char *string, ...)
+@@ -1271,6 +1271,55 @@ percent_dollar_expand(const char *string, ...)
  	return ret;
  }
  
@@ -135,7 +136,7 @@ index 4623b5755..c75a795c2 100644
  int
  tun_open(int tun, int mode, char **ifname)
  {
-@@ -2056,8 +2106,7 @@ safe_path(const char *name, struct stat *stp, const char *pw_dir,
+@@ -2056,8 +2105,7 @@ safe_path(const char *name, struct stat *stp, const char *pw_dir,
  		snprintf(err, errlen, "%s is not a regular file", buf);
  		return -1;
  	}
@@ -145,7 +146,7 @@ index 4623b5755..c75a795c2 100644
  		snprintf(err, errlen, "bad ownership or modes for file %s",
  		    buf);
  		return -1;
-@@ -2072,8 +2121,7 @@ safe_path(const char *name, struct stat *stp, const char *pw_dir,
+@@ -2072,8 +2120,7 @@ safe_path(const char *name, struct stat *stp, const char *pw_dir,
  		strlcpy(buf, cp, sizeof(buf));
  
  		if (stat(buf, &st) == -1 ||

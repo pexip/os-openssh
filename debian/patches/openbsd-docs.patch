@@ -75,9 +75,9 @@ index 3ae596caa..836174fb6 100644
  Screened DH groups may be installed in
 -.Pa /etc/moduli .
 +.Pa /etc/ssh/moduli .
- It is important that this file contains moduli of a range of bit lengths and
- that both ends of a connection share common moduli.
+ It is important that this file contains moduli of a range of bit lengths.
  .Pp
+ A number of options are available for moduli generation and screening via the
 @@ -1185,7 +1181,7 @@ on all machines
  where the user wishes to log in using public key authentication.
  There is no need to keep the contents of this file secret.
@@ -132,17 +132,3 @@ index 97d547ffa..7895a6a94 100644
  .Xr moduli 5 ,
  .Xr sshd_config 5 ,
  .Xr inetd 8 ,
-diff --git a/sshd_config.5 b/sshd_config.5
-index 33dc0c675..32ae46476 100644
---- a/sshd_config.5
-+++ b/sshd_config.5
-@@ -385,8 +385,7 @@ Certificates signed using other algorithms will not be accepted for
- public key or host-based authentication.
- .It Cm ChallengeResponseAuthentication
- Specifies whether challenge-response authentication is allowed (e.g. via
--PAM or through authentication styles supported in
--.Xr login.conf 5 )
-+PAM).
- The default is
- .Cm yes .
- .It Cm ChrootDirectory

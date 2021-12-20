@@ -336,9 +336,9 @@ Index: openssh/myproposal.h
  #define	KEX_DEFAULT_PK_ALG	\
  	"ssh-ed25519-cert-v01@openssh.com," \
  	"ecdsa-sha2-nistp256-cert-v01@openssh.com," \
-@@ -116,6 +127,22 @@
- 	"rsa-sha2-256," \
- 	"ssh-rsa"
+@@ -116,6 +127,20 @@
+ 	"rsa-sha2-512," \
+ 	"rsa-sha2-256"
  
 +#define	KEX_FIPS_140_2_PK_ALG      \
 +	"ecdsa-sha2-nistp256-cert-v01@openssh.com," \
@@ -347,19 +347,17 @@ Index: openssh/myproposal.h
 +	"sk-ecdsa-sha2-nistp256-cert-v01@openssh.com," \
 +	"rsa-sha2-512-cert-v01@openssh.com," \
 +	"rsa-sha2-256-cert-v01@openssh.com," \
-+	"ssh-rsa-cert-v01@openssh.com," \
 +	"ecdsa-sha2-nistp256," \
 +	"ecdsa-sha2-nistp384," \
 +	"ecdsa-sha2-nistp521," \
 +	"sk-ecdsa-sha2-nistp256@openssh.com," \
 +	"rsa-sha2-512," \
-+	"rsa-sha2-256," \
-+	"ssh-rsa"
++	"rsa-sha2-256"
 +
  #define	KEX_SERVER_ENCRYPT \
  	"chacha20-poly1305@openssh.com," \
  	"aes128-ctr,aes192-ctr,aes256-ctr," \
-@@ -125,6 +152,12 @@
+@@ -125,6 +150,12 @@
  
  #define KEX_CLIENT_ENCRYPT KEX_SERVER_ENCRYPT
  
@@ -372,7 +370,7 @@ Index: openssh/myproposal.h
  #define	KEX_SERVER_MAC \
  	"umac-64-etm@openssh.com," \
  	"umac-128-etm@openssh.com," \
-@@ -139,6 +172,13 @@
+@@ -139,6 +170,13 @@
  
  #define KEX_CLIENT_MAC KEX_SERVER_MAC
  
@@ -386,7 +384,7 @@ Index: openssh/myproposal.h
  /* Not a KEX value, but here so all the algorithm defaults are together */
  #define	SSH_ALLOWED_CA_SIGALGS	\
  	"ssh-ed25519," \
-@@ -148,6 +188,14 @@
+@@ -148,6 +186,14 @@
  	"sk-ecdsa-sha2-nistp256@openssh.com," \
  	"rsa-sha2-512," \
  	"rsa-sha2-256"
@@ -1166,11 +1164,11 @@ Index: openssh/servconf.c
  		if ((r = kex_assemble_names(&o->what, defaults, all)) != 0) \
 @@ -2132,6 +2139,9 @@ process_server_config_line(ServerOptions
  		if ((value = ssh_digest_alg_by_name(arg)) == -1)
- 			fatal("%.200s line %d: Invalid hash algorithm \"%s\".",
- 			    filename, linenum, arg);
+ 			fatal("%.200s line %d: Invalid %s algorithm \"%s\".",
+ 			    filename, linenum, keyword, arg);
 +		if (fips_mode() && value == SSH_DIGEST_MD5)
-+			fatal("%.200s line %d: Hash algorithm not permitted \"%s\".",
-+			    filename, linenum, arg);
++			fatal("%.200s line %d: %s algorithm not permitted \"%s\".",
++			    filename, linenum, keyword, arg);
  		if (*activep)
  			options->fingerprint_hash = value;
  		break;

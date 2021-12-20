@@ -103,9 +103,9 @@ index bd86d000c..3ceb800ba 100644
 +and
 +.Cm SetupTimeOut
 +are Debian-specific compatibility aliases for this option.
- .It Cm SetEnv
- Directly specify one or more environment variables and their contents to
- be sent to the server.
+ .It Cm SessionType
+ May be used to either request invocation of a subsystem on the remote system,
+ or to prevent the execution of a remote command at all.
 @@ -1704,6 +1715,12 @@ Specifies whether the system should send TCP keepalive messages to the
  other side.
  If they are sent, death of the connection or crash of one
