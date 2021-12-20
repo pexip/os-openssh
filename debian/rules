@@ -116,6 +116,9 @@ ifeq ($(shell dpkg-vendor --is Ubuntu && echo yes) $(DEB_HOST_ARCH), yes i386)
 endif
 
 %:
+	chmod a+x debian/openssh-server.ssh.init debian/systemd/ssh-session-cleanup
+	chmod a+x debian/openssh-client.install debian/openssh-server.install debian/ssh-askpass-gnome.install
+	chmod a+x debian/adjust-openssl-dependencies debian/agent-launch debian/run-tests debian/keygen-test/keygen-test debian/tests/regress
 	dh $@ --with=autoreconf,systemd $(BUILD_PACKAGES)
 
 autoreconf:
