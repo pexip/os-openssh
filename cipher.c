@@ -48,6 +48,7 @@
 #include "sshbuf.h"
 #include "ssherr.h"
 #include "digest.h"
+#include "fips.h"
 
 #include "openbsd-compat/openssl-compat.h"
 
@@ -112,7 +113,35 @@ static const struct sshcipher ciphers[] = {
 	{ NULL,			0, 0, 0, 0, 0, NULL }
 };
 
+static const struct sshcipher ciphers_fips140_2[] = {
+	{ "aes128-cbc",		16, 16, 0, 0, CFLAG_CBC, EVP_aes_128_cbc },
+	{ "aes192-cbc",		16, 24, 0, 0, CFLAG_CBC, EVP_aes_192_cbc },
+	{ "aes256-cbc",		16, 32, 0, 0, CFLAG_CBC, EVP_aes_256_cbc },
+	{ "aes128-ctr",		16, 16, 0, 0, 0, EVP_aes_128_ctr },
+	{ "aes192-ctr",		16, 24, 0, 0, 0, EVP_aes_192_ctr },
+	{ "aes256-ctr",		16, 32, 0, 0, 0, EVP_aes_256_ctr },
+# ifdef OPENSSL_HAVE_EVPGCM
+	{ "aes128-gcm@openssh.com",
+				16, 16, 12, 16, 0, EVP_aes_128_gcm },
+	{ "aes256-gcm@openssh.com",
+				16, 32, 12, 16, 0, EVP_aes_256_gcm },
+# endif /* OPENSSL_HAVE_EVPGCM */
+	{ "none",		8, 0, 0, 0, CFLAG_NONE, NULL },
+
+	{ NULL,			0, 0, 0, 0, 0, NULL }
+};
+
 /*--*/
+
+static const struct sshcipher *
+fips_select_ciphers(void)
+{
+	if (fips_mode()) {
+		return ciphers_fips140_2;
+	}
+
+	return ciphers;
+}
 
 /* Returns a comma-separated list of supported ciphers. */
 char *
@@ -122,7 +151,7 @@ cipher_alg_list(char sep, int auth_only)
 	size_t nlen, rlen = 0;
 	const struct sshcipher *c;
 
-	for (c = ciphers; c->name != NULL; c++) {
+	for (c = fips_select_ciphers(); c->name != NULL; c++) {
 		if ((c->flags & CFLAG_INTERNAL) != 0)
 			continue;
 		if (auth_only && c->auth_len == 0)
@@ -205,7 +234,7 @@ const struct sshcipher *
 cipher_by_name(const char *name)
 {
 	const struct sshcipher *c;
-	for (c = ciphers; c->name != NULL; c++)
+	for (c = fips_select_ciphers(); c->name != NULL; c++)
 		if (strcmp(c->name, name) == 0)
 			return c;
 	return NULL;

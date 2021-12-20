@@ -38,6 +38,7 @@
 #include "misc.h"
 #include "ssherr.h"
 #include "sshbuf.h"
+#include "fips.h"
 
 #include "openbsd-compat/openssl-compat.h"
 
@@ -79,6 +80,26 @@ static const struct macalg macs[] = {
 	{ NULL,					0, 0, 0, 0, 0, 0 }
 };
 
+static const struct macalg macs_fips140_2[] = {
+	{ "hmac-sha1",				SSH_DIGEST, SSH_DIGEST_SHA1, 0, 0, 0, 0 },
+	{ "hmac-sha2-256",			SSH_DIGEST, SSH_DIGEST_SHA256, 0, 0, 0, 0 },
+	{ "hmac-sha2-512",			SSH_DIGEST, SSH_DIGEST_SHA512, 0, 0, 0, 0 },
+	{ "hmac-sha1-etm@openssh.com",		SSH_DIGEST, SSH_DIGEST_SHA1, 0, 0, 0, 1 },
+	{ "hmac-sha2-256-etm@openssh.com",	SSH_DIGEST, SSH_DIGEST_SHA256, 0, 0, 0, 1 },
+	{ "hmac-sha2-512-etm@openssh.com",	SSH_DIGEST, SSH_DIGEST_SHA512, 0, 0, 0, 1 },
+	{ NULL,					0, 0, 0, 0, 0, 0 }
+};
+
+static const struct macalg *
+fips_select_macs(void)
+{
+	if (fips_mode()) {
+		return macs_fips140_2;
+	}
+
+	return macs;
+}
+
 /* Returns a list of supported MACs separated by the specified char. */
 char *
 mac_alg_list(char sep)
@@ -87,7 +108,7 @@ mac_alg_list(char sep)
 	size_t nlen, rlen = 0;
 	const struct macalg *m;
 
-	for (m = macs; m->name != NULL; m++) {
+	for (m = fips_select_macs(); m->name != NULL; m++) {
 		if (ret != NULL)
 			ret[rlen++] = sep;
 		nlen = strlen(m->name);
@@ -126,7 +147,7 @@ mac_setup(struct sshmac *mac, char *name)
 {
 	const struct macalg *m;
 
-	for (m = macs; m->name != NULL; m++) {
+	for (m = fips_select_macs(); m->name != NULL; m++) {
 		if (strcmp(name, m->name) != 0)
 			continue;
 		if (mac != NULL)

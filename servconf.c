@@ -70,6 +70,7 @@
 #include "auth.h"
 #include "myproposal.h"
 #include "digest.h"
+#include "fips.h"
 
 static void add_listen_addr(ServerOptions *, const char *,
     const char *, int);
@@ -218,11 +219,19 @@ assemble_algorithms(ServerOptions *o)
 	all_key = sshkey_alg_list(0, 0, 1, ',');
 	all_sig = sshkey_alg_list(0, 1, 1, ',');
 	/* remove unsupported algos from default lists */
-	def_cipher = match_filter_allowlist(KEX_SERVER_ENCRYPT, all_cipher);
-	def_mac = match_filter_allowlist(KEX_SERVER_MAC, all_mac);
-	def_kex = match_filter_allowlist(KEX_SERVER_KEX, all_kex);
-	def_key = match_filter_allowlist(KEX_DEFAULT_PK_ALG, all_key);
-	def_sig = match_filter_allowlist(SSH_ALLOWED_CA_SIGALGS, all_sig);
+	if (fips_mode()) {
+		def_cipher = match_filter_allowlist(KEX_FIPS_140_2_SERVER_ENCRYPT, all_cipher);
+		def_mac = match_filter_allowlist(KEX_FIPS_140_2_SERVER_MAC, all_mac);
+		def_kex = match_filter_allowlist(KEX_FIPS_140_2_SERVER_KEX, all_kex);
+		def_key = match_filter_allowlist(KEX_FIPS_140_2_PK_ALG, all_key);
+		def_sig = match_filter_allowlist(SSH_FIPS_140_2_ALLOWED_CA_SIGALGS, all_sig);
+	} else {
+		def_cipher = match_filter_allowlist(KEX_SERVER_ENCRYPT, all_cipher);
+		def_mac = match_filter_allowlist(KEX_SERVER_MAC, all_mac);
+		def_kex = match_filter_allowlist(KEX_SERVER_KEX, all_kex);
+		def_key = match_filter_allowlist(KEX_DEFAULT_PK_ALG, all_key);
+		def_sig = match_filter_allowlist(SSH_ALLOWED_CA_SIGALGS, all_sig);
+	}
 #define ASSEMBLE(what, defaults, all) \
 	do { \
 		if ((r = kex_assemble_names(&o->what, defaults, all)) != 0) \
@@ -2411,6 +2420,9 @@ process_server_config_line_depth(ServerOptions *options, char *line,
 			    filename, linenum, keyword);
 		if ((value = ssh_digest_alg_by_name(arg)) == -1)
 			fatal("%.200s line %d: Invalid %s algorithm \"%s\".",
+			    filename, linenum, keyword, arg);
+		if (fips_mode() && value == SSH_DIGEST_MD5)
+			fatal("%.200s line %d: %s algorithm not permitted \"%s\".",
 			    filename, linenum, keyword, arg);
 		if (*activep)
 			options->fingerprint_hash = value;

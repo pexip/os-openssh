@@ -38,6 +38,17 @@
 
 #define KEX_CLIENT_KEX KEX_SERVER_KEX
 
+#define KEX_FIPS_140_2_SERVER_KEX \
+	"ecdh-sha2-nistp256," \
+	"ecdh-sha2-nistp384," \
+	"ecdh-sha2-nistp521," \
+	"diffie-hellman-group-exchange-sha256," \
+	"diffie-hellman-group16-sha512," \
+	"diffie-hellman-group18-sha512," \
+	"diffie-hellman-group14-sha256"
+
+#define KEX_FIPS_140_2_CLIENT_KEX KEX_FIPS_140_2_SERVER_KEX
+
 #define	KEX_DEFAULT_PK_ALG	\
 	"ssh-ed25519-cert-v01@openssh.com," \
 	"ecdsa-sha2-nistp256-cert-v01@openssh.com," \
@@ -56,12 +67,32 @@
 	"rsa-sha2-512," \
 	"rsa-sha2-256"
 
+#define	KEX_FIPS_140_2_PK_ALG      \
+	"ecdsa-sha2-nistp256-cert-v01@openssh.com," \
+	"ecdsa-sha2-nistp384-cert-v01@openssh.com," \
+	"ecdsa-sha2-nistp521-cert-v01@openssh.com," \
+	"sk-ecdsa-sha2-nistp256-cert-v01@openssh.com," \
+	"rsa-sha2-512-cert-v01@openssh.com," \
+	"rsa-sha2-256-cert-v01@openssh.com," \
+	"ecdsa-sha2-nistp256," \
+	"ecdsa-sha2-nistp384," \
+	"ecdsa-sha2-nistp521," \
+	"sk-ecdsa-sha2-nistp256@openssh.com," \
+	"rsa-sha2-512," \
+	"rsa-sha2-256"
+
 #define	KEX_SERVER_ENCRYPT \
 	"chacha20-poly1305@openssh.com," \
 	"aes128-ctr,aes192-ctr,aes256-ctr," \
 	"aes128-gcm@openssh.com,aes256-gcm@openssh.com"
 
 #define KEX_CLIENT_ENCRYPT KEX_SERVER_ENCRYPT
+
+#define	KEX_FIPS_140_2_SERVER_ENCRYPT \
+	"aes128-ctr,aes192-ctr,aes256-ctr," \
+	"aes128-gcm@openssh.com,aes256-gcm@openssh.com"
+
+#define	KEX_FIPS_140_2_CLIENT_ENCRYPT KEX_FIPS_140_2_SERVER_ENCRYPT
 
 #define	KEX_SERVER_MAC \
 	"umac-64-etm@openssh.com," \
@@ -77,6 +108,16 @@
 
 #define KEX_CLIENT_MAC KEX_SERVER_MAC
 
+#define	KEX_FIPS_140_2_SERVER_MAC		\
+	"hmac-sha2-256-etm@openssh.com," \
+	"hmac-sha2-512-etm@openssh.com," \
+	"hmac-sha1-etm@openssh.com," \
+	"hmac-sha2-256," \
+	"hmac-sha2-512," \
+	"hmac-sha1"
+
+#define	KEX_FIPS_140_2_CLIENT_MAC KEX_FIPS_140_2_SERVER_MAC
+
 /* Not a KEX value, but here so all the algorithm defaults are together */
 #define	SSH_ALLOWED_CA_SIGALGS	\
 	"ssh-ed25519," \
@@ -84,6 +125,14 @@
 	"ecdsa-sha2-nistp384," \
 	"ecdsa-sha2-nistp521," \
 	"sk-ssh-ed25519@openssh.com," \
+	"sk-ecdsa-sha2-nistp256@openssh.com," \
+	"rsa-sha2-512," \
+	"rsa-sha2-256"
+
+#define	SSH_FIPS_140_2_ALLOWED_CA_SIGALGS	\
+	"ecdsa-sha2-nistp256," \
+	"ecdsa-sha2-nistp384," \
+	"ecdsa-sha2-nistp521," \
 	"sk-ecdsa-sha2-nistp256@openssh.com," \
 	"rsa-sha2-512," \
 	"rsa-sha2-256"

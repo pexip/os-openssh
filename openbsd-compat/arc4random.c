@@ -215,29 +215,53 @@ _rs_random_u32(u_int32_t *val)
 	return;
 }
 
+#include <openssl/crypto.h>
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+#include <openssl/provider.h>
+#endif
+static int
+fips_mode(void)
+{
+	static int fips_state = -1;
+	if (-1 == fips_state) {
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+		fips_state = FIPS_mode();
+#else
+		fips_state = OSSL_PROVIDER_available(NULL, "fips");
+#endif
+		if (fips_state)
+			debug("FIPS mode initialized");
+	}
+	return fips_state;
+}
+
 void
 arc4random_stir(void)
 {
-	_ARC4_LOCK();
-	_rs_stir();
-	_ARC4_UNLOCK();
+	if (!fips_mode()) {
+		_ARC4_LOCK();
+		_rs_stir();
+		_ARC4_UNLOCK();
+	}
 }
 
 void
 arc4random_addrandom(u_char *dat, int datlen)
 {
-	int m;
+	if (!fips_mode()) {
+		int m;
 
-	_ARC4_LOCK();
-	if (!rs_initialized)
-		_rs_stir();
-	while (datlen > 0) {
-		m = MINIMUM(datlen, KEYSZ + IVSZ);
-		_rs_rekey(dat, m);
-		dat += m;
-		datlen -= m;
+		_ARC4_LOCK();
+		if (!rs_initialized)
+			_rs_stir();
+		while (datlen > 0) {
+			m = MINIMUM(datlen, KEYSZ + IVSZ);
+			_rs_rekey(dat, m);
+			dat += m;
+			datlen -= m;
+		}
+		_ARC4_UNLOCK();
 	}
-	_ARC4_UNLOCK();
 }
 
 u_int32_t
@@ -246,7 +270,11 @@ arc4random(void)
 	u_int32_t val;
 
 	_ARC4_LOCK();
-	_rs_random_u32(&val);
+	if (fips_mode()) {
+		RAND_bytes((u_int8_t *)&val, sizeof(val));
+	} else {
+		_rs_random_u32(&val);
+	}
 	_ARC4_UNLOCK();
 	return val;
 }
@@ -260,7 +288,11 @@ void
 arc4random_buf(void *buf, size_t n)
 {
 	_ARC4_LOCK();
-	_rs_random_buf(buf, n);
+	if (fips_mode()) {
+		RAND_bytes(buf, n);
+	} else {
+		_rs_random_buf(buf, n);
+	}
 	_ARC4_UNLOCK();
 }
 # endif /* !HAVE_ARC4RANDOM_BUF */

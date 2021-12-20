@@ -67,6 +67,7 @@
 #include "uidswap.h"
 #include "myproposal.h"
 #include "digest.h"
+#include "fips.h"
 
 /* Format of the configuration file:
 
@@ -2652,11 +2653,19 @@ fill_default_options(Options * options)
 	all_key = sshkey_alg_list(0, 0, 1, ',');
 	all_sig = sshkey_alg_list(0, 1, 1, ',');
 	/* remove unsupported algos from default lists */
-	def_cipher = match_filter_allowlist(KEX_CLIENT_ENCRYPT, all_cipher);
-	def_mac = match_filter_allowlist(KEX_CLIENT_MAC, all_mac);
-	def_kex = match_filter_allowlist(KEX_CLIENT_KEX, all_kex);
-	def_key = match_filter_allowlist(KEX_DEFAULT_PK_ALG, all_key);
-	def_sig = match_filter_allowlist(SSH_ALLOWED_CA_SIGALGS, all_sig);
+	if (fips_mode()) {
+		def_cipher = match_filter_allowlist(KEX_FIPS_140_2_CLIENT_ENCRYPT, all_cipher);
+		def_mac = match_filter_allowlist(KEX_FIPS_140_2_CLIENT_MAC, all_mac);
+		def_kex = match_filter_allowlist(KEX_FIPS_140_2_CLIENT_KEX, all_kex);
+		def_key = match_filter_allowlist(KEX_FIPS_140_2_PK_ALG, all_key);
+		def_sig = match_filter_allowlist(SSH_FIPS_140_2_ALLOWED_CA_SIGALGS, all_sig);
+	} else {
+		def_cipher = match_filter_allowlist(KEX_CLIENT_ENCRYPT, all_cipher);
+		def_mac = match_filter_allowlist(KEX_CLIENT_MAC, all_mac);
+		def_kex = match_filter_allowlist(KEX_CLIENT_KEX, all_kex);
+		def_key = match_filter_allowlist(KEX_DEFAULT_PK_ALG, all_key);
+		def_sig = match_filter_allowlist(SSH_ALLOWED_CA_SIGALGS, all_sig);
+	}
 #define ASSEMBLE(what, defaults, all) \
 	do { \
 		if ((r = kex_assemble_names(&options->what, \

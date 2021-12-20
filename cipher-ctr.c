@@ -26,6 +26,7 @@
 
 #include "xmalloc.h"
 #include "log.h"
+#include "fips.h"
 
 /* compatibility with old or broken OpenSSL versions */
 #include "openbsd-compat/openssl-compat.h"
@@ -139,6 +140,8 @@ evp_aes_128_ctr(void)
 #ifndef SSH_OLD_EVP
 	aes_ctr.flags = EVP_CIPH_CBC_MODE | EVP_CIPH_VARIABLE_LENGTH |
 	    EVP_CIPH_ALWAYS_CALL_INIT | EVP_CIPH_CUSTOM_IV;
+	if (fips_mode())
+		aes_ctr.flags |= EVP_CIPH_FLAG_FIPS;
 #endif
 	return (&aes_ctr);
 }

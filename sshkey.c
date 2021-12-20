@@ -58,6 +58,7 @@
 #include "sshkey.h"
 #include "match.h"
 #include "ssh-sk.h"
+#include "fips.h"
 
 #ifdef WITH_XMSS
 #include "sshkey-xmss.h"
@@ -165,12 +166,61 @@ static const struct keytype keytypes[] = {
 	{ NULL, NULL, NULL, -1, -1, 0, 0 }
 };
 
+static const struct keytype keytypes_fips140_2[] = {
+#ifdef WITH_OPENSSL
+	{ "ssh-rsa", "RSA", NULL, KEY_RSA, 0, 0, 0 },
+	{ "rsa-sha2-256", "RSA", NULL, KEY_RSA, 0, 0, 1 },
+	{ "rsa-sha2-512", "RSA", NULL, KEY_RSA, 0, 0, 1 },
+	{ "ssh-dss", "DSA", NULL, KEY_DSA, 0, 0, 0 },
+# ifdef OPENSSL_HAS_ECC
+	{ "ecdsa-sha2-nistp256", "ECDSA", NULL, KEY_ECDSA, NID_X9_62_prime256v1, 0, 0 },
+	{ "ecdsa-sha2-nistp384", "ECDSA", NULL, KEY_ECDSA, NID_secp384r1, 0, 0 },
+#  ifdef OPENSSL_HAS_NISTP521
+	{ "ecdsa-sha2-nistp521", "ECDSA", NULL, KEY_ECDSA, NID_secp521r1, 0, 0 },
+#  endif /* OPENSSL_HAS_NISTP521 */
+	{ "sk-ecdsa-sha2-nistp256@openssh.com", "ECDSA-SK", NULL,
+	    KEY_ECDSA_SK, NID_X9_62_prime256v1, 0, 0 },
+	{ "webauthn-sk-ecdsa-sha2-nistp256@openssh.com", "ECDSA-SK", NULL,
+	    KEY_ECDSA_SK, NID_X9_62_prime256v1, 0, 1 },
+# endif /* OPENSSL_HAS_ECC */
+	{ "ssh-rsa-cert-v01@openssh.com", "RSA-CERT", NULL, KEY_RSA_CERT, 0, 1, 0 },
+	{ "rsa-sha2-256-cert-v01@openssh.com", "RSA-CERT",
+	    "rsa-sha2-256", KEY_RSA_CERT, 0, 1, 1 },
+	{ "rsa-sha2-512-cert-v01@openssh.com", "RSA-CERT",
+	    "rsa-sha2-512", KEY_RSA_CERT, 0, 1, 1 },
+	{ "ssh-dss-cert-v01@openssh.com", "DSA-CERT", NULL, KEY_DSA_CERT, 0, 1, 0 },
+# ifdef OPENSSL_HAS_ECC
+	{ "ecdsa-sha2-nistp256-cert-v01@openssh.com", "ECDSA-CERT", NULL,
+	    KEY_ECDSA_CERT, NID_X9_62_prime256v1, 1, 0 },
+	{ "ecdsa-sha2-nistp384-cert-v01@openssh.com", "ECDSA-CERT", NULL,
+	    KEY_ECDSA_CERT, NID_secp384r1, 1, 0 },
+#  ifdef OPENSSL_HAS_NISTP521
+	{ "ecdsa-sha2-nistp521-cert-v01@openssh.com", "ECDSA-CERT", NULL,
+	    KEY_ECDSA_CERT, NID_secp521r1, 1, 0 },
+#  endif /* OPENSSL_HAS_NISTP521 */
+	{ "sk-ecdsa-sha2-nistp256-cert-v01@openssh.com", "ECDSA-SK-CERT", NULL,
+	    KEY_ECDSA_SK_CERT, NID_X9_62_prime256v1, 1, 0 },
+# endif /* OPENSSL_HAS_ECC */
+#endif /* WITH_OPENSSL */
+	{ NULL, NULL, NULL, -1, -1, 0, 0 }
+};
+
+static const struct keytype *
+fips_select_keytypes(void)
+{
+	if (fips_mode()) {
+		return keytypes_fips140_2;
+	}
+
+	return keytypes;
+}
+
 const char *
 sshkey_type(const struct sshkey *k)
 {
 	const struct keytype *kt;
 
-	for (kt = keytypes; kt->type != -1; kt++) {
+	for (kt = fips_select_keytypes(); kt->type != -1; kt++) {
 		if (kt->type == k->type)
 			return kt->shortname;
 	}
@@ -182,7 +232,7 @@ sshkey_ssh_name_from_type_nid(int type, int nid)
 {
 	const struct keytype *kt;
 
-	for (kt = keytypes; kt->type != -1; kt++) {
+	for (kt = fips_select_keytypes(); kt->type != -1; kt++) {
 		if (kt->type == type && (kt->nid == 0 || kt->nid == nid))
 			return kt->name;
 	}
@@ -194,7 +244,7 @@ sshkey_type_is_cert(int type)
 {
 	const struct keytype *kt;
 
-	for (kt = keytypes; kt->type != -1; kt++) {
+	for (kt = fips_select_keytypes(); kt->type != -1; kt++) {
 		if (kt->type == type)
 			return kt->cert;
 	}
@@ -219,7 +269,7 @@ sshkey_type_from_name(const char *name)
 {
 	const struct keytype *kt;
 
-	for (kt = keytypes; kt->type != -1; kt++) {
+	for (kt = fips_select_keytypes(); kt->type != -1; kt++) {
 		/* Only allow shortname matches for plain key types */
 		if ((kt->name != NULL && strcmp(name, kt->name) == 0) ||
 		    (!kt->cert && strcasecmp(kt->shortname, name) == 0))
@@ -246,7 +296,7 @@ sshkey_ecdsa_nid_from_name(const char *name)
 {
 	const struct keytype *kt;
 
-	for (kt = keytypes; kt->type != -1; kt++) {
+	for (kt = fips_select_keytypes(); kt->type != -1; kt++) {
 		if (!key_type_is_ecdsa_variant(kt->type))
 			continue;
 		if (kt->name != NULL && strcmp(name, kt->name) == 0)
@@ -285,7 +335,7 @@ sshkey_alg_list(int certs_only, int plain_only, int include_sigonly, char sep)
 	size_t nlen, rlen = 0;
 	const struct keytype *kt;
 
-	for (kt = keytypes; kt->type != -1; kt++) {
+	for (kt = fips_select_keytypes(); kt->type != -1; kt++) {
 		if (kt->name == NULL)
 			continue;
 		if (!include_sigonly && kt->sigonly)
@@ -327,7 +377,7 @@ sshkey_names_valid2(const char *names, int allow_wildcard)
 				 * If any has a positive or negative match then
 				 * the component is accepted.
 				 */
-				for (kt = keytypes; kt->type != -1; kt++) {
+				for (kt = fips_select_keytypes(); kt->type != -1; kt++) {
 					if (match_pattern_list(kt->name,
 					    p, 0) != 0)
 						break;
@@ -1820,6 +1870,10 @@ sshkey_generate(int type, u_int bits, struct sshkey **keyp)
 		return SSH_ERR_ALLOC_FAIL;
 	switch (type) {
 	case KEY_ED25519:
+		if (fips_mode()) {
+			/* ED25519 disabled in FIPS mode */
+			break;
+		}
 		if ((k->ed25519_pk = malloc(ED25519_PK_SZ)) == NULL ||
 		    (k->ed25519_sk = malloc(ED25519_SK_SZ)) == NULL) {
 			ret = SSH_ERR_ALLOC_FAIL;
@@ -5107,6 +5161,10 @@ sshkey_private_to_fileblob(struct sshkey *key, struct sshbuf *blob,
 #ifdef WITH_OPENSSL
 	case KEY_ECDSA_SK:
 #endif /* WITH_OPENSSL */
+		if (fips_mode() && key->type != KEY_ECDSA_SK) {
+			/* ED25519 not supported in FIPS mode */
+			return SSH_ERR_KEY_TYPE_UNKNOWN;
+		}
 		return sshkey_private_to_blob2(key, blob, passphrase,
 		    comment, openssh_format_cipher, openssh_format_rounds);
 	default:
@@ -5114,6 +5172,8 @@ sshkey_private_to_fileblob(struct sshkey *key, struct sshbuf *blob,
 	}
 
 #ifdef WITH_OPENSSL
+	if (fips_mode())
+	    format = SSHKEY_PRIVATE_PEM;
 	switch (format) {
 	case SSHKEY_PRIVATE_OPENSSH:
 		return sshkey_private_to_blob2(key, blob, passphrase,
@@ -5388,12 +5448,20 @@ sshkey_parse_private_fileblob_type(struct sshbuf *blob, int type,
 	switch (type) {
 	case KEY_ED25519:
 	case KEY_XMSS:
+		if (fips_mode()) {
+			/* ED25519 keys unavailable in FIPS mode */
+			return SSH_ERR_INVALID_FORMAT;
+		}
 		/* No fallback for new-format-only keys */
 		return sshkey_parse_private2(blob, type, passphrase,
 		    keyp, commentp);
 	default:
-		r = sshkey_parse_private2(blob, type, passphrase, keyp,
-		    commentp);
+		if (!fips_mode()) {
+			r = sshkey_parse_private2(blob, type, passphrase, keyp,
+			    commentp);
+		} else {
+			r = SSH_ERR_INVALID_FORMAT; /* to force fallback below */
+		}
 		/* Only fallback to PEM parser if a format error occurred. */
 		if (r != SSH_ERR_INVALID_FORMAT)
 			return r;

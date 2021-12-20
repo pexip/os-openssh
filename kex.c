@@ -61,6 +61,7 @@
 #include "ssherr.h"
 #include "sshbuf.h"
 #include "digest.h"
+#include "fips.h"
 
 /* prototype */
 static int kex_choose_conf(struct ssh *);
@@ -118,6 +119,39 @@ static const struct kexalg kexalgs[] = {
 	{ NULL, 0, -1, -1},
 };
 
+static const struct kexalg kexalgs_fips140_2[] = {
+	{ KEX_DH1, KEX_DH_GRP1_SHA1, 0, SSH_DIGEST_SHA1 },
+	{ KEX_DH14_SHA1, KEX_DH_GRP14_SHA1, 0, SSH_DIGEST_SHA1 },
+	{ KEX_DH14_SHA256, KEX_DH_GRP14_SHA256, 0, SSH_DIGEST_SHA256 },
+	{ KEX_DH16_SHA512, KEX_DH_GRP16_SHA512, 0, SSH_DIGEST_SHA512 },
+	{ KEX_DH18_SHA512, KEX_DH_GRP18_SHA512, 0, SSH_DIGEST_SHA512 },
+	{ KEX_DHGEX_SHA1, KEX_DH_GEX_SHA1, 0, SSH_DIGEST_SHA1 },
+#ifdef HAVE_EVP_SHA256
+	{ KEX_DHGEX_SHA256, KEX_DH_GEX_SHA256, 0, SSH_DIGEST_SHA256 },
+#endif
+#ifdef OPENSSL_HAS_ECC
+	{ KEX_ECDH_SHA2_NISTP256, KEX_ECDH_SHA2,
+	    NID_X9_62_prime256v1, SSH_DIGEST_SHA256 },
+	{ KEX_ECDH_SHA2_NISTP384, KEX_ECDH_SHA2, NID_secp384r1,
+	    SSH_DIGEST_SHA384 },
+# ifdef OPENSSL_HAS_NISTP521
+	{ KEX_ECDH_SHA2_NISTP521, KEX_ECDH_SHA2, NID_secp521r1,
+	    SSH_DIGEST_SHA512 },
+# endif
+#endif
+	{ NULL, 0, -1, -1},
+};
+
+static const struct kexalg *
+fips_select_kexalgs(void)
+{
+	if (fips_mode()) {
+		return kexalgs_fips140_2;
+	}
+
+	return kexalgs;
+}
+
 char *
 kex_alg_list(char sep)
 {
@@ -125,7 +159,7 @@ kex_alg_list(char sep)
 	size_t nlen, rlen = 0;
 	const struct kexalg *k;
 
-	for (k = kexalgs; k->name != NULL; k++) {
+	for (k = fips_select_kexalgs(); k->name != NULL; k++) {
 		if (ret != NULL)
 			ret[rlen++] = sep;
 		nlen = strlen(k->name);
@@ -145,7 +179,7 @@ kex_alg_by_name(const char *name)
 {
 	const struct kexalg *k;
 
-	for (k = kexalgs; k->name != NULL; k++) {
+	for (k = fips_select_kexalgs(); k->name != NULL; k++) {
 		if (strcmp(k->name, name) == 0)
 			return k;
 	}
