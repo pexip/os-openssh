@@ -87,7 +87,9 @@ tests(void)
 
 #ifdef WITH_OPENSSL
 	OpenSSL_add_all_algorithms();
+# if OPENSSL_VERSION_NUMBER < 0x30000000L
 	ERR_load_CRYPTO_strings();
+# endif
 #endif
 
 	TEST_START("load data");

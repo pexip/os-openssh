@@ -484,9 +484,10 @@ pkcs11_rsa_start_wrapper(void)
 /* redirect private key operations for rsa key to pkcs11 token */
 static int
 pkcs11_rsa_wrap(struct pkcs11_provider *provider, CK_ULONG slotidx,
-    CK_ATTRIBUTE *keyid_attrib, RSA *rsa)
+    CK_ATTRIBUTE *keyid_attrib, EVP_PKEY *pkey)
 {
 	struct pkcs11_key	*k11;
+	RSA			*rsa;
 
 	if (pkcs11_rsa_start_wrapper() == -1)
 		return (-1);
@@ -502,6 +503,7 @@ pkcs11_rsa_wrap(struct pkcs11_provider *provider, CK_ULONG slotidx,
 		memcpy(k11->keyid, keyid_attrib->pValue, k11->keyid_len);
 	}
 
+	rsa = EVP_PKEY_get0_RSA(pkey);
 	RSA_set_method(rsa, rsa_method);
 	RSA_set_ex_data(rsa, rsa_idx, k11);
 	return (0);
@@ -598,9 +600,10 @@ pkcs11_ecdsa_start_wrapper(void)
 
 static int
 pkcs11_ecdsa_wrap(struct pkcs11_provider *provider, CK_ULONG slotidx,
-    CK_ATTRIBUTE *keyid_attrib, EC_KEY *ec)
+    CK_ATTRIBUTE *keyid_attrib, EVP_PKEY *pkey)
 {
 	struct pkcs11_key	*k11;
+	EC_KEY			*ec;
 
 	if (pkcs11_ecdsa_start_wrapper() == -1)
 		return (-1);
@@ -615,6 +618,8 @@ pkcs11_ecdsa_wrap(struct pkcs11_provider *provider, CK_ULONG slotidx,
 		k11->keyid = xmalloc(k11->keyid_len);
 		memcpy(k11->keyid, keyid_attrib->pValue, k11->keyid_len);
 	}
+
+	ec = EVP_PKEY_get0_EC_KEY(pkey);
 	EC_KEY_set_method(ec, ec_key_method);
 	EC_KEY_set_ex_data(ec, ec_key_idx, k11);
 
@@ -705,7 +710,10 @@ pkcs11_fetch_ecdsa_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
 	CK_FUNCTION_LIST	*f = NULL;
 	CK_RV			 rv;
 	ASN1_OCTET_STRING	*octet = NULL;
-	EC_KEY			*ec = NULL;
+	OSSL_PARAM_BLD		*bld = NULL;
+	OSSL_PARAM		*params = NULL;
+	EVP_PKEY_CTX		*pctx = NULL;
+	EVP_PKEY		*ec = NULL;
 	EC_GROUP		*group = NULL;
 	struct sshkey		*key = NULL;
 	const unsigned char	*attrp = NULL;
@@ -750,21 +758,10 @@ pkcs11_fetch_ecdsa_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
 		goto fail;
 	}
 
-	ec = EC_KEY_new();
-	if (ec == NULL) {
-		error("EC_KEY_new failed");
-		goto fail;
-	}
-
 	attrp = key_attr[2].pValue;
 	group = d2i_ECPKParameters(NULL, &attrp, key_attr[2].ulValueLen);
 	if (group == NULL) {
 		ossl_error("d2i_ECPKParameters failed");
-		goto fail;
-	}
-
-	if (EC_KEY_set_group(ec, group) == 0) {
-		ossl_error("EC_KEY_set_group failed");
 		goto fail;
 	}
 
@@ -779,9 +776,28 @@ pkcs11_fetch_ecdsa_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
 		ossl_error("d2i_ASN1_OCTET_STRING failed");
 		goto fail;
 	}
-	attrp = octet->data;
-	if (o2i_ECPublicKey(&ec, &attrp, octet->length) == NULL) {
-		ossl_error("o2i_ECPublicKey failed");
+
+	bld = OSSL_PARAM_BLD_new();
+	if (bld == NULL) {
+		ossl_error("OSSL_PARAM_BLD_new failed");
+		goto fail;
+	}
+	if (OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_PKEY_PARAM_GROUP_NAME,
+	    OBJ_nid2sn(EC_GROUP_get_curve_name(group)), 0) == 0 ||
+	    OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PUB_KEY,
+	    octet->data, octet->length) == 0) {
+		ossl_error("OSSL_PARAM_BLD_push_* failed");
+		goto fail;
+	}
+	params = OSSL_PARAM_BLD_to_param(bld);
+	if (params == NULL) {
+		ossl_error("OSSL_PARAM_BLD_to_param failed");
+		goto fail;
+	}
+	pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
+	if (pctx == NULL || EVP_PKEY_fromdata_init(pctx) <= 0 ||
+	    EVP_PKEY_fromdata(pctx, &ec, EVP_PKEY_PUBLIC_KEY, params) <= 0) {
+		ossl_error("Failed creating pkey");
 		goto fail;
 	}
 
@@ -809,8 +825,10 @@ pkcs11_fetch_ecdsa_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
 fail:
 	for (i = 0; i < 3; i++)
 		free(key_attr[i].pValue);
-	if (ec)
-		EC_KEY_free(ec);
+	EVP_PKEY_free(ec);
+	EVP_PKEY_CTX_free(pctx);
+	OSSL_PARAM_free(params);
+	OSSL_PARAM_BLD_free(bld);
 	if (group)
 		EC_GROUP_free(group);
 	if (octet)
@@ -828,8 +846,11 @@ pkcs11_fetch_rsa_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
 	CK_SESSION_HANDLE	 session;
 	CK_FUNCTION_LIST	*f = NULL;
 	CK_RV			 rv;
-	RSA			*rsa = NULL;
-	BIGNUM			*rsa_n, *rsa_e;
+	OSSL_PARAM_BLD		*bld = NULL;
+	OSSL_PARAM		*params = NULL;
+	EVP_PKEY_CTX		*pctx = NULL;
+	EVP_PKEY		*rsa = NULL;
+	BIGNUM			*rsa_n = NULL, *rsa_e = NULL;
 	struct sshkey		*key = NULL;
 	int			 i;
 
@@ -871,21 +892,34 @@ pkcs11_fetch_rsa_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
 		goto fail;
 	}
 
-	rsa = RSA_new();
-	if (rsa == NULL) {
-		error("RSA_new failed");
-		goto fail;
-	}
-
 	rsa_n = BN_bin2bn(key_attr[1].pValue, key_attr[1].ulValueLen, NULL);
 	rsa_e = BN_bin2bn(key_attr[2].pValue, key_attr[2].ulValueLen, NULL);
 	if (rsa_n == NULL || rsa_e == NULL) {
 		error("BN_bin2bn failed");
 		goto fail;
 	}
-	if (!RSA_set0_key(rsa, rsa_n, rsa_e, NULL))
-		fatal_f("set key");
-	rsa_n = rsa_e = NULL; /* transferred */
+
+	bld = OSSL_PARAM_BLD_new();
+	if (bld == NULL) {
+		error("OSSL_PARAM_BLD_new failed");
+		goto fail;
+	}
+	if (OSSL_PARAM_BLD_push_BN(bld,	OSSL_PKEY_PARAM_RSA_E, rsa_e) == 0 ||
+	    OSSL_PARAM_BLD_push_BN(bld,	OSSL_PKEY_PARAM_RSA_N, rsa_n) == 0) {
+		error("OSSL_PARAM_BLD_push_BN failed");
+		goto fail;
+	}
+	params = OSSL_PARAM_BLD_to_param(bld);
+	if (params == NULL) {
+		error("OSSL_PARAM_BLD_to_param failed");
+		goto fail;
+	}
+	pctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
+	if (pctx == NULL || EVP_PKEY_fromdata_init(pctx) <= 0 ||
+	    EVP_PKEY_fromdata(pctx, &rsa, EVP_PKEY_PUBLIC_KEY, params) <= 0) {
+		error("Failed creating pkey");
+		goto fail;
+	}
 
 	if (pkcs11_rsa_wrap(p, slotidx, &key_attr[0], rsa))
 		goto fail;
@@ -904,7 +938,12 @@ pkcs11_fetch_rsa_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
 fail:
 	for (i = 0; i < 3; i++)
 		free(key_attr[i].pValue);
-	RSA_free(rsa);
+	EVP_PKEY_free(rsa);
+	EVP_PKEY_CTX_free(pctx);
+	OSSL_PARAM_free(params);
+	OSSL_PARAM_BLD_free(bld);
+	BN_clear_free(rsa_e);
+	BN_clear_free(rsa_n);
 
 	return (key);
 }
@@ -919,11 +958,7 @@ pkcs11_fetch_x509_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
 	CK_RV			 rv;
 	X509			*x509 = NULL;
 	X509_NAME		*x509_name = NULL;
-	EVP_PKEY		*evp;
-	RSA			*rsa = NULL;
-#ifdef OPENSSL_HAS_ECC
-	EC_KEY			*ec = NULL;
-#endif
+	EVP_PKEY		*evp = NULL;
 	struct sshkey		*key = NULL;
 	int			 i;
 #if defined(OPENSSL_HAS_ECC) && defined(HAVE_EC_KEY_METHOD_NEW)
@@ -993,16 +1028,7 @@ pkcs11_fetch_x509_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
 	}
 
 	if (EVP_PKEY_base_id(evp) == EVP_PKEY_RSA) {
-		if (EVP_PKEY_get0_RSA(evp) == NULL) {
-			error("invalid x509; no rsa key");
-			goto out;
-		}
-		if ((rsa = RSAPublicKey_dup(EVP_PKEY_get0_RSA(evp))) == NULL) {
-			error("RSAPublicKey_dup failed");
-			goto out;
-		}
-
-		if (pkcs11_rsa_wrap(p, slotidx, &cert_attr[0], rsa))
+		if (pkcs11_rsa_wrap(p, slotidx, &cert_attr[0], evp))
 			goto out;
 
 		key = sshkey_new(KEY_UNSPEC);
@@ -1011,28 +1037,19 @@ pkcs11_fetch_x509_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
 			goto out;
 		}
 
-		key->rsa = rsa;
+		key->rsa = evp;
 		key->type = KEY_RSA;
 		key->flags |= SSHKEY_FLAG_EXT;
-		rsa = NULL;	/* now owned by key */
+		evp = NULL;	/* now owned by key */
 #if defined(OPENSSL_HAS_ECC) && defined(HAVE_EC_KEY_METHOD_NEW)
 	} else if (EVP_PKEY_base_id(evp) == EVP_PKEY_EC) {
-		if (EVP_PKEY_get0_EC_KEY(evp) == NULL) {
-			error("invalid x509; no ec key");
-			goto out;
-		}
-		if ((ec = EC_KEY_dup(EVP_PKEY_get0_EC_KEY(evp))) == NULL) {
-			error("EC_KEY_dup failed");
-			goto out;
-		}
-
-		nid = sshkey_ecdsa_key_to_nid(ec);
+		nid = sshkey_ecdsa_key_to_nid(evp);
 		if (nid < 0) {
 			error("couldn't get curve nid");
 			goto out;
 		}
 
-		if (pkcs11_ecdsa_wrap(p, slotidx, &cert_attr[0], ec))
+		if (pkcs11_ecdsa_wrap(p, slotidx, &cert_attr[0], evp))
 			goto out;
 
 		key = sshkey_new(KEY_UNSPEC);
@@ -1041,11 +1058,11 @@ pkcs11_fetch_x509_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
 			goto out;
 		}
 
-		key->ecdsa = ec;
+		key->ecdsa = evp;
 		key->ecdsa_nid = nid;
 		key->type = KEY_ECDSA;
 		key->flags |= SSHKEY_FLAG_EXT;
-		ec = NULL;	/* now owned by key */
+		evp = NULL;	/* now owned by key */
 #endif /* OPENSSL_HAS_ECC && HAVE_EC_KEY_METHOD_NEW */
 	} else {
 		error("unknown certificate key type");
@@ -1054,11 +1071,8 @@ pkcs11_fetch_x509_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
  out:
 	for (i = 0; i < 3; i++)
 		free(cert_attr[i].pValue);
+	EVP_PKEY_free(evp);
 	X509_free(x509);
-	RSA_free(rsa);
-#ifdef OPENSSL_HAS_ECC
-	EC_KEY_free(ec);
-#endif
 	if (key == NULL) {
 		free(subject);
 		return -1;

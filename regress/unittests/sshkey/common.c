@@ -83,81 +83,269 @@ load_bignum(const char *name)
 	return ret;
 }
 
-const BIGNUM *
-rsa_n(struct sshkey *k)
+int
+has_rsa_n(struct sshkey *k)
 {
-	const BIGNUM *n = NULL;
+	BIGNUM *n = NULL;
+	int r = 0;
 
 	ASSERT_PTR_NE(k, NULL);
 	ASSERT_PTR_NE(k->rsa, NULL);
-	RSA_get0_key(k->rsa, &n, NULL, NULL);
-	return n;
+	if (EVP_PKEY_get_bn_param(k->rsa, OSSL_PKEY_PARAM_RSA_N, &n) == 1) {
+		BN_clear_free(n);
+		r = 1;
+	}
+	return r;
 }
 
-const BIGNUM *
-rsa_e(struct sshkey *k)
+int
+has_rsa_e(struct sshkey *k)
 {
-	const BIGNUM *e = NULL;
+	BIGNUM *e = NULL;
+	int r = 0;
 
 	ASSERT_PTR_NE(k, NULL);
 	ASSERT_PTR_NE(k->rsa, NULL);
-	RSA_get0_key(k->rsa, NULL, &e, NULL);
-	return e;
+	if (EVP_PKEY_get_bn_param(k->rsa, OSSL_PKEY_PARAM_RSA_E, &e) == 1) {
+		BN_clear_free(e);
+		r = 1;
+	}
+	return r;
 }
 
-const BIGNUM *
-rsa_p(struct sshkey *k)
+int
+has_rsa_p(struct sshkey *k)
 {
-	const BIGNUM *p = NULL;
+	BIGNUM *p = NULL;
+	int r = 0;
 
 	ASSERT_PTR_NE(k, NULL);
 	ASSERT_PTR_NE(k->rsa, NULL);
-	RSA_get0_factors(k->rsa, &p, NULL);
-	return p;
+	if (EVP_PKEY_get_bn_param(k->rsa, OSSL_PKEY_PARAM_RSA_FACTOR1, &p)
+	    == 1) {
+		BN_clear_free(p);
+		r = 1;
+	}
+	return r;
 }
 
-const BIGNUM *
-rsa_q(struct sshkey *k)
+int
+has_rsa_q(struct sshkey *k)
 {
-	const BIGNUM *q = NULL;
+	BIGNUM *q = NULL;
+	int r = 0;
 
 	ASSERT_PTR_NE(k, NULL);
 	ASSERT_PTR_NE(k->rsa, NULL);
-	RSA_get0_factors(k->rsa, NULL, &q);
-	return q;
+	if (EVP_PKEY_get_bn_param(k->rsa, OSSL_PKEY_PARAM_RSA_FACTOR2, &q)
+	    == 1) {
+		BN_clear_free(q);
+		r = 1;
+	}
+	return r;
 }
 
-const BIGNUM *
-dsa_g(struct sshkey *k)
+int
+has_dsa_g(struct sshkey *k)
 {
-	const BIGNUM *g = NULL;
+	BIGNUM *g = NULL;
+	int r = 0;
 
 	ASSERT_PTR_NE(k, NULL);
 	ASSERT_PTR_NE(k->dsa, NULL);
-	DSA_get0_pqg(k->dsa, NULL, NULL, &g);
-	return g;
+	if (EVP_PKEY_get_bn_param(k->dsa, OSSL_PKEY_PARAM_FFC_G, &g) == 1) {
+		BN_clear_free(g);
+		r = 1;
+	}
+	return r;
 }
 
-const BIGNUM *
-dsa_pub_key(struct sshkey *k)
+int
+has_dsa_pub_key(struct sshkey *k)
 {
-	const BIGNUM *pub_key = NULL;
+	BIGNUM *pub_key = NULL;
+	int r = 0;
 
 	ASSERT_PTR_NE(k, NULL);
 	ASSERT_PTR_NE(k->dsa, NULL);
-	DSA_get0_key(k->dsa, &pub_key, NULL);
-	return pub_key;
+	if (EVP_PKEY_get_bn_param(k->dsa, OSSL_PKEY_PARAM_PUB_KEY, &pub_key)
+	    == 1) {
+		BN_clear_free(pub_key);
+		r = 1;
+	}
+	return r;
 }
 
-const BIGNUM *
-dsa_priv_key(struct sshkey *k)
+int
+has_dsa_priv_key(struct sshkey *k)
 {
-	const BIGNUM *priv_key = NULL;
+	BIGNUM *priv_key = NULL;
+	int r = 0;
 
 	ASSERT_PTR_NE(k, NULL);
 	ASSERT_PTR_NE(k->dsa, NULL);
-	DSA_get0_key(k->dsa, NULL, &priv_key);
-	return priv_key;
+	if (EVP_PKEY_get_bn_param(k->dsa, OSSL_PKEY_PARAM_PRIV_KEY, &priv_key)
+	    == 1) {
+		BN_clear_free(priv_key);
+		r = 1;
+	}
+	return r;
 }
+
+int
+has_ec_pub_key(struct sshkey *k)
+{
+	char pubbuf[4096];
+	size_t publen = 0;
+	int r = 0;
+
+	ASSERT_PTR_NE(k, NULL);
+	ASSERT_PTR_NE(k->ecdsa, NULL);
+	if (EVP_PKEY_get_octet_string_param(k->ecdsa, OSSL_PKEY_PARAM_PUB_KEY,
+	    NULL, 0, &publen) == 1) {
+		ASSERT_SIZE_T_LT(publen, sizeof(pubbuf));
+		if (publen > 0 && EVP_PKEY_get_octet_string_param(k->ecdsa,
+		    OSSL_PKEY_PARAM_PUB_KEY, pubbuf, publen, NULL) == 1)
+			r = 1;
+	}
+	return r;
+}
+
+int
+has_ec_priv_key(struct sshkey *k)
+{
+	BIGNUM *priv_key = NULL;
+	int r = 0;
+
+	ASSERT_PTR_NE(k, NULL);
+	ASSERT_PTR_NE(k->ecdsa, NULL);
+	if (EVP_PKEY_get_bn_param(k->ecdsa, OSSL_PKEY_PARAM_PRIV_KEY,
+	    &priv_key) == 1) {
+		BN_clear_free(priv_key);
+		r = 1;
+	}
+	return r;
+}
+
+int
+with_rsa_n(struct sshkey *k, const BIGNUM *exp)
+{
+	BIGNUM *n = NULL;
+	int r;
+
+	ASSERT_PTR_NE(k, NULL);
+	ASSERT_PTR_NE(k->rsa, NULL);
+	ASSERT_INT_EQ(EVP_PKEY_get_bn_param(k->rsa,
+	    OSSL_PKEY_PARAM_RSA_N, &n), 1);
+	r = BN_cmp(n, exp);
+	BN_clear_free(n);
+	return r == 0;
+}
+
+int
+with_rsa_e(struct sshkey *k, const BIGNUM *exp)
+{
+	BIGNUM *e = NULL;
+	int r;
+
+	ASSERT_PTR_NE(k, NULL);
+	ASSERT_PTR_NE(k->rsa, NULL);
+	ASSERT_INT_EQ(EVP_PKEY_get_bn_param(k->rsa,
+	    OSSL_PKEY_PARAM_RSA_E, &e), 1);
+	r = BN_cmp(e, exp);
+	BN_clear_free(e);
+	return r == 0;
+}
+
+int
+with_rsa_p(struct sshkey *k, const BIGNUM *exp)
+{
+	BIGNUM *p = NULL;
+	int r;
+
+	ASSERT_PTR_NE(k, NULL);
+	ASSERT_PTR_NE(k->rsa, NULL);
+	ASSERT_INT_EQ(EVP_PKEY_get_bn_param(k->rsa,
+	    OSSL_PKEY_PARAM_RSA_FACTOR1, &p), 1);
+	r = BN_cmp(p, exp);
+	BN_clear_free(p);
+	return r == 0;
+}
+
+int
+with_rsa_q(struct sshkey *k, const BIGNUM *exp)
+{
+	BIGNUM *q = NULL;
+	int r;
+
+	ASSERT_PTR_NE(k, NULL);
+	ASSERT_PTR_NE(k->rsa, NULL);
+	ASSERT_INT_EQ(EVP_PKEY_get_bn_param(k->rsa,
+	    OSSL_PKEY_PARAM_RSA_FACTOR2, &q), 1);
+	r = BN_cmp(q, exp);
+	BN_clear_free(q);
+	return r == 0;
+}
+
+int
+with_dsa_g(struct sshkey *k, const BIGNUM *exp)
+{
+	BIGNUM *g = NULL;
+	int r;
+
+	ASSERT_PTR_NE(k, NULL);
+	ASSERT_PTR_NE(k->dsa, NULL);
+	ASSERT_INT_EQ(EVP_PKEY_get_bn_param(k->dsa,
+	    OSSL_PKEY_PARAM_FFC_G, &g), 1);
+	r = BN_cmp(g, exp);
+	BN_clear_free(g);
+	return r == 0;
+}
+
+int
+with_dsa_pub_key(struct sshkey *k, const BIGNUM *exp)
+{
+	BIGNUM *pub_key = NULL;
+	int r;
+
+	ASSERT_PTR_NE(k, NULL);
+	ASSERT_PTR_NE(k->dsa, NULL);
+	ASSERT_INT_EQ(EVP_PKEY_get_bn_param(k->dsa,
+	    OSSL_PKEY_PARAM_PUB_KEY, &pub_key), 1);
+	r = BN_cmp(pub_key, exp);
+	BN_clear_free(pub_key);
+	return r == 0;
+}
+
+int
+with_dsa_priv_key(struct sshkey *k, const BIGNUM *exp)
+{
+	BIGNUM *priv_key = NULL;
+	int r;
+
+	ASSERT_PTR_NE(k, NULL);
+	ASSERT_PTR_NE(k->dsa, NULL);
+	ASSERT_INT_EQ(EVP_PKEY_get_bn_param(k->dsa,
+	    OSSL_PKEY_PARAM_PRIV_KEY, &priv_key), 1);
+	r = BN_cmp(priv_key, exp);
+	BN_clear_free(priv_key);
+	return r == 0;
+}
+
+int
+rsa_n_size(struct sshkey *k)
+{
+	BIGNUM *n = NULL;
+	int r;
+
+	ASSERT_PTR_NE(k, NULL);
+	ASSERT_PTR_NE(k->rsa, NULL);
+	ASSERT_INT_EQ(EVP_PKEY_get_bn_param(k->rsa,
+	    OSSL_PKEY_PARAM_RSA_N, &n), 1);
+	r = BN_num_bits(n);
+	BN_clear_free(n);
+	return r;
+}
+
 #endif /* WITH_OPENSSL */
 

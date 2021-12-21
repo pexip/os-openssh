@@ -80,8 +80,10 @@ ssh_libcrypto_init(void)
 
 #ifdef	USE_OPENSSL_ENGINE
 	/* Enable use of crypto hardware */
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
 	ENGINE_load_builtin_engines();
 	ENGINE_register_all_complete();
+#endif
 
 	/* Load the libcrypto config file to pick up engines defined there */
 # if defined(HAVE_OPENSSL_INIT_CRYPTO) && defined(OPENSSL_INIT_LOAD_CONFIG)

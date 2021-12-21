@@ -130,7 +130,7 @@ main(int argc, char **argv)
 	int ch;
 
 	seed_rng();
-#ifdef WITH_OPENSSL
+#if defined(WITH_OPENSSL) && OPENSSL_VERSION_NUMBER < 0x30000000L
 	ERR_load_CRYPTO_strings();
 #endif
 

@@ -50,11 +50,15 @@ int
 ssh_ecdsa_sign(const struct sshkey *key, u_char **sigp, size_t *lenp,
     const u_char *data, size_t datalen, u_int compat)
 {
+	EVP_PKEY_CTX *sctx = NULL;
 	ECDSA_SIG *sig = NULL;
 	const BIGNUM *sig_r, *sig_s;
 	int hash_alg;
 	u_char digest[SSH_DIGEST_MAX_LENGTH];
 	size_t len, dlen;
+	const unsigned char *psig;
+	unsigned char *tsig = NULL;
+	size_t tsiglen = 0;
 	struct sshbuf *b = NULL, *bb = NULL;
 	int ret = SSH_ERR_INTERNAL_ERROR;
 
@@ -74,7 +78,24 @@ ssh_ecdsa_sign(const struct sshkey *key, u_char **sigp, size_t *lenp,
 	    digest, sizeof(digest))) != 0)
 		goto out;
 
-	if ((sig = ECDSA_do_sign(digest, dlen, key->ecdsa)) == NULL) {
+	if ((sctx = EVP_PKEY_CTX_new(key->ecdsa, NULL)) == NULL) {
+		ret =  SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if (EVP_PKEY_sign_init(sctx) <= 0 ||
+	    EVP_PKEY_sign(sctx, NULL, &tsiglen, digest, dlen) <= 0) {
+		ret = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if ((psig = tsig = malloc(tsiglen)) == NULL) {
+		ret = SSH_ERR_ALLOC_FAIL;
+		goto out;
+	}
+	if (EVP_PKEY_sign(sctx, tsig, &tsiglen, digest, dlen) <= 0) {
+		ret = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if (d2i_ECDSA_SIG(&sig, &psig, tsiglen) == NULL) {
 		ret = SSH_ERR_LIBCRYPTO_ERROR;
 		goto out;
 	}
@@ -103,6 +124,8 @@ ssh_ecdsa_sign(const struct sshkey *key, u_char **sigp, size_t *lenp,
 	ret = 0;
  out:
 	explicit_bzero(digest, sizeof(digest));
+	EVP_PKEY_CTX_free(sctx);
+	freezero(tsig, tsiglen);
 	sshbuf_free(b);
 	sshbuf_free(bb);
 	ECDSA_SIG_free(sig);
@@ -115,11 +138,14 @@ ssh_ecdsa_verify(const struct sshkey *key,
     const u_char *signature, size_t signaturelen,
     const u_char *data, size_t datalen, u_int compat)
 {
+	EVP_PKEY_CTX *sctx = NULL;
 	ECDSA_SIG *sig = NULL;
 	BIGNUM *sig_r = NULL, *sig_s = NULL;
 	int hash_alg;
 	u_char digest[SSH_DIGEST_MAX_LENGTH];
 	size_t dlen;
+	unsigned char *tsig = NULL;
+	size_t tsiglen = 0;
 	int ret = SSH_ERR_INTERNAL_ERROR;
 	struct sshbuf *b = NULL, *sigbuf = NULL;
 	char *ktype = NULL;
@@ -170,11 +196,23 @@ ssh_ecdsa_verify(const struct sshkey *key,
 		ret = SSH_ERR_UNEXPECTED_TRAILING_DATA;
 		goto out;
 	}
+	if ((tsiglen = i2d_ECDSA_SIG(sig, &tsig)) <= 0) {
+		ret = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
 	if ((ret = ssh_digest_memory(hash_alg, data, datalen,
 	    digest, sizeof(digest))) != 0)
 		goto out;
 
-	switch (ECDSA_do_verify(digest, dlen, sig, key->ecdsa)) {
+	if ((sctx = EVP_PKEY_CTX_new(key->ecdsa, NULL)) == NULL) {
+		ret = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if (EVP_PKEY_verify_init(sctx) <= 0) {
+		ret = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	switch (EVP_PKEY_verify(sctx, tsig, tsiglen, digest, dlen)) {
 	case 1:
 		ret = 0;
 		break;
@@ -187,6 +225,8 @@ ssh_ecdsa_verify(const struct sshkey *key,
 	}
 
  out:
+	EVP_PKEY_CTX_free(sctx);
+	freezero(tsig, tsiglen);
 	explicit_bzero(digest, sizeof(digest));
 	sshbuf_free(sigbuf);
 	sshbuf_free(b);

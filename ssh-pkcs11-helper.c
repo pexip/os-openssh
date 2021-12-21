@@ -45,6 +45,7 @@
 #ifdef ENABLE_PKCS11
 
 #ifdef WITH_OPENSSL
+#include <openssl/rsa.h>
 
 /* borrows code from sftp-server and ssh-agent */
 
@@ -201,30 +202,39 @@ process_sign(void)
 	else {
 		if ((found = lookup_key(key)) != NULL) {
 #ifdef WITH_OPENSSL
-			int ret;
+			EVP_PKEY_CTX *ctx;
 
 			if (key->type == KEY_RSA) {
-				slen = RSA_size(key->rsa);
+				if ((ctx = EVP_PKEY_CTX_new(found->rsa, NULL))
+				    == NULL)
+					fatal_f("EVP_PKEY_CTX_new failed");
+				if (EVP_PKEY_sign_init(ctx) <= 0 ||
+				    EVP_PKEY_CTX_set_rsa_padding(ctx,
+				    RSA_PKCS1_PADDING) <= 0 ||
+				    EVP_PKEY_sign(ctx, NULL, &slen,
+				    data, dlen) <= 0)
+					fatal_f("Failed configuring context");
 				signature = xmalloc(slen);
-				ret = RSA_private_encrypt(dlen, data, signature,
-				    found->rsa, RSA_PKCS1_PADDING);
-				if (ret != -1) {
-					slen = ret;
-					ok = 0;
-				}
+				if (EVP_PKEY_sign(ctx, signature, &slen,
+				    data, dlen) <= 0)
+					fatal_f("EVP_PKEY_sign failed");
+				EVP_PKEY_CTX_free(ctx);
+				ok = 0;
 #ifdef OPENSSL_HAS_ECC
 			} else if (key->type == KEY_ECDSA) {
-				u_int xslen = ECDSA_size(key->ecdsa);
-
-				signature = xmalloc(xslen);
-				/* "The parameter type is ignored." */
-				ret = ECDSA_sign(-1, data, dlen, signature,
-				    &xslen, found->ecdsa);
-				if (ret != 0)
-					ok = 0;
-				else
-					error_f("ECDSA_sign returned %d", ret);
-				slen = xslen;
+				if ((ctx = EVP_PKEY_CTX_new(found->ecdsa,
+				    NULL)) == NULL)
+					fatal_f("EVP_PKEY_CTX_new failed");
+				if (EVP_PKEY_sign_init(ctx) <= 0 ||
+				    EVP_PKEY_sign(ctx, NULL, &slen,
+				    data, dlen) <= 0)
+					fatal_f("Failed configuring context");
+				signature = xmalloc(slen);
+				if (EVP_PKEY_sign(ctx, signature, &slen,
+				    data, dlen) <= 0)
+					fatal_f("EVP_PKEY_sign failed");
+				EVP_PKEY_CTX_free(ctx);
+				ok = 0;
 #endif /* OPENSSL_HAS_ECC */
 			} else
 				error_f("don't know how to sign with key "

@@ -35,7 +35,7 @@
 #include <limits.h>
 
 #include <openssl/bn.h>
-#include <openssl/dh.h>
+#include <openssl/evp.h>
 
 #include "dh.h"
 #include "pathnames.h"
@@ -155,7 +155,7 @@ parse_prime(int linenum, char *line, struct dhgroup *dhg)
 	return 0;
 }
 
-DH *
+EVP_PKEY *
 choose_dh(int min, int wantbits, int max)
 {
 	FILE *f;
@@ -233,32 +233,39 @@ choose_dh(int min, int wantbits, int max)
 /* diffie-hellman-groupN-sha1 */
 
 int
-dh_pub_is_valid(const DH *dh, const BIGNUM *dh_pub)
+dh_pub_is_valid(const EVP_PKEY *dh, const BIGNUM *dh_pub)
 {
 	int i;
 	int n = BN_num_bits(dh_pub);
 	int bits_set = 0;
+	BIGNUM *dh_p = NULL;
 	BIGNUM *tmp;
-	const BIGNUM *dh_p;
 
-	DH_get0_pqg(dh, &dh_p, NULL, NULL);
+	if (EVP_PKEY_get_bn_param(dh, OSSL_PKEY_PARAM_FFC_P, &dh_p) == 0) {
+		logit("failed retrieving modulus");
+		return 0;
+	}
 
 	if (BN_is_negative(dh_pub)) {
+		BN_clear_free(dh_p);
 		logit("invalid public DH value: negative");
 		return 0;
 	}
 	if (BN_cmp(dh_pub, BN_value_one()) != 1) {	/* pub_exp <= 1 */
+		BN_clear_free(dh_p);
 		logit("invalid public DH value: <= 1");
 		return 0;
 	}
 
 	if ((tmp = BN_new()) == NULL) {
+		BN_clear_free(dh_p);
 		error_f("BN_new failed");
 		return 0;
 	}
 	if (!BN_sub(tmp, dh_p, BN_value_one()) ||
 	    BN_cmp(dh_pub, tmp) != -1) {		/* pub_exp > p-2 */
 		BN_clear_free(tmp);
+		BN_clear_free(dh_p);
 		logit("invalid public DH value: >= p-1");
 		return 0;
 	}
@@ -275,56 +282,69 @@ dh_pub_is_valid(const DH *dh, const BIGNUM *dh_pub)
 	if (bits_set < 4) {
 		logit("invalid public DH value (%d/%d)",
 		    bits_set, BN_num_bits(dh_p));
+		BN_clear_free(dh_p);
 		return 0;
 	}
+	BN_clear_free(dh_p);
 	return 1;
 }
 
 int
-dh_gen_key(DH *dh, int need)
+dh_gen_key(EVP_PKEY *dh, int need)
 {
+	EVP_PKEY_CTX *pctx = NULL;
 	int pbits;
-	const BIGNUM *dh_p, *pub_key;
+	BIGNUM *dh_p = NULL, *pub_key = NULL;
+	int ret = 0;
 
-	DH_get0_pqg(dh, &dh_p, NULL, NULL);
+	if (EVP_PKEY_get_bn_param(dh, OSSL_PKEY_PARAM_FFC_P, &dh_p) == 0) {
+		ret = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
 
 	if (need < 0 || dh_p == NULL ||
 	    (pbits = BN_num_bits(dh_p)) <= 0 ||
-	    need > INT_MAX / 2 || 2 * need > pbits)
-		return SSH_ERR_INVALID_ARGUMENT;
+	    need > INT_MAX / 2 || 2 * need > pbits) {
+		ret = SSH_ERR_INVALID_ARGUMENT;
+		goto out;
+	}
 	if (need < 256)
 		need = 256;
-	/*
-	 * Pollard Rho, Big step/Little Step attacks are O(sqrt(n)),
-	 * so double requested need here.
-	 */
-	if (!DH_set_length(dh, MINIMUM(need * 2, pbits - 1)))
-		return SSH_ERR_LIBCRYPTO_ERROR;
 
-	if (DH_generate_key(dh) == 0)
-		return SSH_ERR_LIBCRYPTO_ERROR;
-	DH_get0_key(dh, &pub_key, NULL);
-	if (!dh_pub_is_valid(dh, pub_key))
-		return SSH_ERR_INVALID_FORMAT;
-	return 0;
+	if ((pctx = EVP_PKEY_CTX_new(dh, NULL)) == NULL) {
+		ret = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if (EVP_PKEY_keygen_init(pctx) <= 0 ||
+	    EVP_PKEY_generate(pctx, &dh) <= 0) {
+		ret = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if (EVP_PKEY_get_bn_param(dh,
+	    OSSL_PKEY_PARAM_PUB_KEY, &pub_key) == 0) {
+		ret = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if (!dh_pub_is_valid(dh, pub_key)) {
+		ret = SSH_ERR_INVALID_FORMAT;
+		goto out;
+	}
+out:
+	BN_clear_free(dh_p);
+	BN_clear_free(pub_key);
+	return ret;
 }
 
-DH *
+EVP_PKEY *
 dh_new_group_asc(const char *gen, const char *modulus)
 {
-	DH *dh;
 	BIGNUM *dh_p = NULL, *dh_g = NULL;
 
-	if ((dh = DH_new()) == NULL)
-		return NULL;
 	if (BN_hex2bn(&dh_p, modulus) == 0 ||
 	    BN_hex2bn(&dh_g, gen) == 0)
 		goto fail;
-	if (!DH_set0_pqg(dh, dh_p, NULL, dh_g))
-		goto fail;
-	return dh;
+	return dh_new_group(dh_g, dh_p);
  fail:
-	DH_free(dh);
 	BN_clear_free(dh_p);
 	BN_clear_free(dh_g);
 	return NULL;
@@ -334,23 +354,37 @@ dh_new_group_asc(const char *gen, const char *modulus)
  * This just returns the group, we still need to generate the exchange
  * value.
  */
-DH *
+EVP_PKEY *
 dh_new_group(BIGNUM *gen, BIGNUM *modulus)
 {
-	DH *dh;
+	OSSL_PARAM_BLD *bld = NULL;
+	OSSL_PARAM *params = NULL;
+	EVP_PKEY_CTX *pctx = NULL;
+	EVP_PKEY *dh = NULL;
 
-	if ((dh = DH_new()) == NULL)
-		return NULL;
-	if (!DH_set0_pqg(dh, modulus, NULL, gen)) {
-		DH_free(dh);
-		return NULL;
-	}
-
+	if ((bld = OSSL_PARAM_BLD_new()) == NULL)
+		goto out;
+	if (OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_FFC_P, modulus) == 0 ||
+	    OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_FFC_G, gen) == 0)
+		goto out;
+	if ((params = OSSL_PARAM_BLD_to_param(bld)) == NULL)
+		goto out;
+	if ((pctx = EVP_PKEY_CTX_new_from_name(NULL, "DH", NULL)) == NULL)
+		goto out;
+	if (EVP_PKEY_fromdata_init(pctx) <= 0 ||
+	    EVP_PKEY_fromdata(pctx, &dh, EVP_PKEY_KEY_PARAMETERS, params) <= 0)
+		goto out;
+ out:
+	EVP_PKEY_CTX_free(pctx);
+	OSSL_PARAM_free(params);
+	OSSL_PARAM_BLD_free(bld);
+	BN_clear_free(modulus);
+	BN_clear_free(gen);
 	return dh;
 }
 
 /* rfc2409 "Second Oakley Group" (1024 bits) */
-DH *
+EVP_PKEY *
 dh_new_group1(void)
 {
 	static char *gen = "2", *group1 =
@@ -365,7 +399,7 @@ dh_new_group1(void)
 }
 
 /* rfc3526 group 14 "2048-bit MODP Group" */
-DH *
+EVP_PKEY *
 dh_new_group14(void)
 {
 	static char *gen = "2", *group14 =
@@ -385,7 +419,7 @@ dh_new_group14(void)
 }
 
 /* rfc3526 group 16 "4096-bit MODP Group" */
-DH *
+EVP_PKEY *
 dh_new_group16(void)
 {
 	static char *gen = "2", *group16 =
@@ -416,7 +450,7 @@ dh_new_group16(void)
 }
 
 /* rfc3526 group 18 "8192-bit MODP Group" */
-DH *
+EVP_PKEY *
 dh_new_group18(void)
 {
 	static char *gen = "2", *group18 =
@@ -468,7 +502,7 @@ dh_new_group18(void)
 }
 
 /* Select fallback group used by DH-GEX if moduli file cannot be read. */
-DH *
+EVP_PKEY *
 dh_new_group_fallback(int max)
 {
 	debug3_f("requested max size %d", max);

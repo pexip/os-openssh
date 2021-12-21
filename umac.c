@@ -158,13 +158,41 @@ typedef unsigned int	UWORD;  /* Register */
 #ifdef WITH_OPENSSL
 #include "openbsd-compat/openssl-compat.h"
 #ifndef USE_BUILTIN_RIJNDAEL
-# include <openssl/aes.h>
+# include <openssl/evp.h>
 #endif
-typedef AES_KEY aes_int_key[1];
-#define aes_encryption(in,out,int_key)                  \
-  AES_encrypt((u_char *)(in),(u_char *)(out),(AES_KEY *)int_key)
-#define aes_key_setup(key,int_key)                      \
-  AES_set_encrypt_key((const u_char *)(key),UMAC_KEY_LEN*8,int_key)
+typedef struct {
+    unsigned char key[16];
+} _aes_int_key;
+typedef _aes_int_key aes_int_key[1];
+static void _aes_encryption(const unsigned char *in, unsigned char *out,
+                    const _aes_int_key *key)
+{
+    EVP_CIPHER_CTX *ctx;
+    int outl = AES_BLOCK_LEN;
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL)
+        return;
+
+    if (EVP_EncryptInit(ctx, EVP_aes_128_ecb(), key->key, NULL) == 1 &&
+        EVP_CIPHER_CTX_set_padding(ctx, 0) == 1 &&
+        EVP_EncryptUpdate(ctx, out, &outl, in, AES_BLOCK_LEN) == 1 &&
+	outl == 0 &&
+        EVP_EncryptFinal_ex(ctx, NULL, &outl) == 1) {
+        /* Nothing to do */
+    }
+
+    EVP_CIPHER_CTX_free(ctx);
+}
+static int _aes_key_setup(const unsigned char *key, _aes_int_key *int_key)
+{
+    memcpy(int_key->key, key, sizeof(int_key->key));
+    return 0;
+}
+#define aes_encryption(in, out, key) \
+  _aes_encryption((in), (out), (_aes_int_key *) (key))
+#define aes_key_setup(key, int_key) \
+  _aes_key_setup((key), (_aes_int_key *) (int_key))
 #else
 #include "rijndael.h"
 #define AES_ROUNDS ((UMAC_KEY_LEN / 4) + 6)

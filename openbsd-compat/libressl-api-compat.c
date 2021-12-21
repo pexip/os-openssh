@@ -335,6 +335,7 @@ RSA_set0_factors(RSA *r, BIGNUM *p, BIGNUM *q)
 #endif /* HAVE_RSA_SET0_FACTORS */
 
 #ifndef HAVE_EVP_CIPHER_CTX_GET_IV
+#ifndef HAVE_EVP_CIPHER_CTX_GET_UPDATED_IV
 int
 EVP_CIPHER_CTX_get_iv(const EVP_CIPHER_CTX *ctx, unsigned char *iv, size_t len)
 {
@@ -361,36 +362,8 @@ EVP_CIPHER_CTX_get_iv(const EVP_CIPHER_CTX *ctx, unsigned char *iv, size_t len)
 	}
 	return 1;
 }
+#endif /* HAVE_EVP_CIPHER_CTX_GET_UPDATED_IV */
 #endif /* HAVE_EVP_CIPHER_CTX_GET_IV */
-
-#ifndef HAVE_EVP_CIPHER_CTX_SET_IV
-int
-EVP_CIPHER_CTX_set_iv(EVP_CIPHER_CTX *ctx, const unsigned char *iv, size_t len)
-{
-	if (ctx == NULL)
-		return 0;
-	if (EVP_CIPHER_CTX_iv_length(ctx) < 0)
-		return 0;
-	if (len != (size_t)EVP_CIPHER_CTX_iv_length(ctx))
-		return 0;
-	if (len > EVP_MAX_IV_LENGTH)
-		return 0; /* sanity check; shouldn't happen */
-	/*
-	 * Skip the memcpy entirely when the requested IV length is zero,
-	 * since the iv pointer may be NULL or invalid.
-	 */
-	if (len != 0) {
-		if (iv == NULL)
-			return 0;
-# ifdef HAVE_EVP_CIPHER_CTX_IV_NOCONST
-		memcpy(EVP_CIPHER_CTX_iv_noconst(ctx), iv, len);
-# else
-		memcpy(ctx->iv, iv, len);
-# endif /* HAVE_EVP_CIPHER_CTX_IV_NOCONST */
-	}
-	return 1;
-}
-#endif /* HAVE_EVP_CIPHER_CTX_SET_IV */
 
 #ifndef HAVE_DSA_SIG_GET0
 void
@@ -636,5 +609,100 @@ EVP_MD_CTX_free(EVP_MD_CTX *ctx)
 	free(ctx);
 }
 #endif /* HAVE_EVP_MD_CTX_FREE */
+
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+//XXX(ossl3): separate method tests
+static int EVP_PKEY_is_a(const EVP_PKEY *pkey, const char *name)
+{
+	int rc = 0;
+
+	if (strcmp(name, "DSA") == 0 &&
+			EVP_PKEY_get0_DSA((EVP_PKEY *) pkey) != NULL) {
+		rc = 1;
+	} else if (strcmp(name, "RSA") == 0 &&
+			EVP_PKEY_get0_RSA((EVP_PKEY *) pkey) != NULL) {
+		rc = 1;
+	}
+
+	return rc;
+}
+
+static int EVP_PKEY_get_bn_param(const EVP_PKEY *pkey,
+				 const char *key_name,
+				 BIGNUM **bn)
+{
+	DSA *dsa = EVP_PKEY_is_a(pkey, "DSA") ?
+	    EVP_PKEY_get0_DSA((EVP_PKEY *) pkey) : NULL;
+	RSA *rsa = EVP_PKEY_is_a(pkey, "RSA") ?
+	    EVP_PKEY_get0_RSA((EVP_PKEY *) pkey) : NULL;
+	const BIGNUM *val = NULL;
+	int rc = 0;
+
+	if (dsa != NULL) {
+		if (strcmp(key_name, OSSL_PKEY_PARAM_PUB_KEY) == 0) {
+			DSA_get0_key(dsa, &val, NULL);
+		} else if (strcmp(key_name, OSSL_PKEY_PARAM_PRIV_KEY) == 0) {
+			DSA_get0_key(dsa, NULL, &val);
+		} else if (strcmp(key_name, OSSL_PKEY_PARAM_FFC_P) == 0) {
+			DSA_get0_pqg(dsa, &val, NULL, NULL);
+		} else if (strcmp(key_name, OSSL_PKEY_PARAM_FFC_Q) == 0) {
+			DSA_get0_pqg(dsa, NULL, &val, NULL);
+		} else if (strcmp(key_name, OSSL_PKEY_PARAM_FFC_G) == 0) {
+			DSA_get0_pqg(dsa, NULL, NULL, &val);
+		}
+	} else if (rsa != NULL) {
+		if (strcmp(key_name, OSSL_PKEY_PARAM_RSA_N) == 0) {
+			RSA_get0_key(rsa, &val, NULL, NULL);
+		} else if (strcmp(key_name, OSSL_PKEY_PARAM_RSA_E) == 0) {
+			RSA_get0_key(rsa, NULL, &val, NULL);
+		} else if (strcmp(key_name, OSSL_PKEY_PARAM_RSA_D) == 0) {
+			RSA_get0_key(rsa, NULL, NULL, &val);
+		}
+	}
+
+	if (val != NULL) {
+		*bn = BN_dup(val);
+		rc = 1;
+	}
+
+	return rc;
+}
+
+int EVP_PKEY_print_public_fp(FILE *fp, const EVP_PKEY *pkey, int indent,
+    ASN1_PCTX *pctx)
+{
+	int ret = 0;
+	BIO *out = BIO_new_fd(fileno(fd), BIO_NOCLOSE);
+	if (out != NULL) {
+		ret = EVP_PKEY_print_public(out, pkey, indent, pctx);
+		BIO_free(out);
+	}
+	return ret;
+}
+
+int EVP_PKEY_print_private_fp(FILE *fp, const EVP_PKEY *pkey, int indent,
+    ASN1_PCTX *pctx)
+{
+	int ret = 0;
+	BIO *out = BIO_new_fd(fileno(fd), BIO_NOCLOSE);
+	if (out != NULL) {
+		ret = EVP_PKEY_print_private(out, pkey, indent, pctx);
+		BIO_free(out);
+	}
+	return ret;
+}
+
+int EVP_PKEY_print_params_fp(FILE *fp, const EVP_PKEY *pkey, int indent,
+    ASN1_PCTX *pctx)
+{
+	int ret = 0;
+	BIO *out = BIO_new_fd(fileno(fd), BIO_NOCLOSE);
+	if (out != NULL) {
+		ret = EVP_PKEY_print_params(out, pkey, indent, pctx);
+		BIO_free(out);
+	}
+	return ret;
+}
+#endif
 
 #endif /* WITH_OPENSSL */

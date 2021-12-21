@@ -18,9 +18,14 @@
 #include <string.h>
 
 #include <openssl/bn.h>
+#include <openssl/evp.h>
 #include <openssl/objects.h>
 #ifdef OPENSSL_HAS_NISTP256
 # include <openssl/ec.h>
+#endif
+#if (OPENSSL_VERSION_NUMBER >= 0x30000000L)
+#include <openssl/core_names.h>
+#include <openssl/param_build.h>
 #endif
 
 #include "../test_helper/test_helper.h"
@@ -66,8 +71,14 @@ sshbuf_getput_crypto_tests(void)
 		0xc8, 0xf9, 0xa3, 0x5e, 0x42, 0xbd, 0xd0, 0x47,
 		0x55, 0x0f, 0x69, 0xd8, 0x0e, 0xc2, 0x3c, 0xd4
 	};
-	EC_KEY *eck;
+	EC_GROUP *ecg;
 	EC_POINT *ecp;
+	char ec_pub_buf[1024];
+	size_t ec_pub_len;
+	OSSL_PARAM_BLD *bld;
+	OSSL_PARAM *params;
+	EVP_PKEY_CTX *pctx;
+	EVP_PKEY *pkey;
 #endif
 	int r;
 
@@ -224,51 +235,75 @@ sshbuf_getput_crypto_tests(void)
 
 #if defined(OPENSSL_HAS_ECC) && defined(OPENSSL_HAS_NISTP256)
 	TEST_START("sshbuf_put_ec");
-	eck = EC_KEY_new_by_curve_name(ec256_nid);
-	ASSERT_PTR_NE(eck, NULL);
-	ecp = EC_POINT_new(EC_KEY_get0_group(eck));
+	ecg = EC_GROUP_new_by_curve_name(ec256_nid);
+	ASSERT_PTR_NE(ecg, NULL);
+	ecp = EC_POINT_new(ecg);
 	ASSERT_PTR_NE(ecp, NULL);
 	MKBN(ec256_x, bn_x);
 	MKBN(ec256_y, bn_y);
-	ASSERT_INT_EQ(EC_POINT_set_affine_coordinates_GFp(
-	    EC_KEY_get0_group(eck), ecp, bn_x, bn_y, NULL), 1);
-	ASSERT_INT_EQ(EC_KEY_set_public_key(eck, ecp), 1);
+	ASSERT_INT_EQ(EC_POINT_set_affine_coordinates(
+	    ecg, ecp, bn_x, bn_y, NULL), 1);
+	ec_pub_len = EC_POINT_point2oct(ecg, ecp,
+	    POINT_CONVERSION_UNCOMPRESSED, NULL, 0, NULL);
+	ASSERT_SIZE_T_LE(ec_pub_len, sizeof(ec_pub_buf));
+	ASSERT_SIZE_T_NE(EC_POINT_point2oct(ecg, ecp,
+	    POINT_CONVERSION_UNCOMPRESSED, ec_pub_buf, ec_pub_len, NULL), 0);
+	bld = OSSL_PARAM_BLD_new();
+	ASSERT_PTR_NE(bld, NULL);
+	ASSERT_INT_EQ(OSSL_PARAM_BLD_push_utf8_string(bld,
+	    OSSL_PKEY_PARAM_GROUP_NAME, OBJ_nid2sn(ec256_nid), 0), 1);
+	ASSERT_INT_EQ(OSSL_PARAM_BLD_push_octet_string(bld,
+	    OSSL_PKEY_PARAM_PUB_KEY, ec_pub_buf, ec_pub_len), 1);
+	params = OSSL_PARAM_BLD_to_param(bld);
+	ASSERT_PTR_NE(params, NULL);
+	pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
+	ASSERT_PTR_NE(pctx, NULL);
+	ASSERT_INT_EQ(EVP_PKEY_fromdata_init(pctx), 1);
+	pkey = NULL;
+	ASSERT_INT_EQ(EVP_PKEY_fromdata(pctx, &pkey, EVP_PKEY_PUBLIC_KEY,
+	    params), 1);
 	BN_free(bn_x);
 	BN_free(bn_y);
+	EVP_PKEY_CTX_free(pctx);
+	OSSL_PARAM_free(params);
+	OSSL_PARAM_BLD_free(bld);
 	EC_POINT_free(ecp);
+	EC_GROUP_free(ecg);
 	p1 = sshbuf_new();
 	ASSERT_PTR_NE(p1, NULL);
-	ASSERT_INT_EQ(sshbuf_put_eckey(p1, eck), 0);
+	ASSERT_INT_EQ(sshbuf_put_eckey(p1, pkey), 0);
 	ASSERT_INT_EQ(sshbuf_get_string_direct(p1, &d, &s), 0);
 	ASSERT_SIZE_T_EQ(s, sizeof(expec256));
 	ASSERT_MEM_EQ(d, expec256, sizeof(expec256));
 	sshbuf_free(p1);
-	EC_KEY_free(eck);
+	EVP_PKEY_free(pkey);
 	TEST_DONE();
 
 	TEST_START("sshbuf_get_ec");
-	eck = EC_KEY_new_by_curve_name(ec256_nid);
-	ASSERT_PTR_NE(eck, NULL);
+	ecg = EC_GROUP_new_by_curve_name(ec256_nid);
+	ASSERT_PTR_NE(ecg, NULL);
 	p1 = sshbuf_new();
 	ASSERT_PTR_NE(p1, NULL);
 	ASSERT_INT_EQ(sshbuf_put_string(p1, expec256, sizeof(expec256)), 0);
 	ASSERT_SIZE_T_EQ(sshbuf_len(p1), sizeof(expec256) + 4);
 	ASSERT_INT_EQ(sshbuf_put_u8(p1, 0x00), 0);
-	ASSERT_INT_EQ(sshbuf_get_eckey(p1, eck), 0);
+	ecp = EC_POINT_new(ecg);
+	ASSERT_PTR_NE(ecp, NULL);
+	ASSERT_INT_EQ(sshbuf_get_ec(p1, ecp, ecg), 0);
 	bn_x = BN_new();
 	bn_y = BN_new();
 	ASSERT_PTR_NE(bn_x, NULL);
 	ASSERT_PTR_NE(bn_y, NULL);
-	ASSERT_INT_EQ(EC_POINT_get_affine_coordinates_GFp(
-	    EC_KEY_get0_group(eck), EC_KEY_get0_public_key(eck),
-	    bn_x, bn_y, NULL), 1);
+	ASSERT_INT_EQ(EC_POINT_get_affine_coordinates(
+	    ecg, ecp, bn_x, bn_y, NULL), 1);
 	MKBN(ec256_x, bn);
 	MKBN(ec256_y, bn2);
 	ASSERT_INT_EQ(BN_cmp(bn_x, bn), 0);
 	ASSERT_INT_EQ(BN_cmp(bn_y, bn2), 0);
 	ASSERT_SIZE_T_EQ(sshbuf_len(p1), 1);
+	EC_POINT_free(ecp);
+	EC_GROUP_free(ecg);
 	sshbuf_free(p1);
-	EC_KEY_free(eck);
 	BN_free(bn_x);
 	BN_free(bn_y);
 	BN_free(bn);

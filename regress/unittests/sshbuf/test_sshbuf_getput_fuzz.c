@@ -36,7 +36,8 @@ attempt_parse_blob(u_char *blob, size_t len)
 #ifdef WITH_OPENSSL
 	BIGNUM *bn;
 #if defined(OPENSSL_HAS_ECC) && defined(OPENSSL_HAS_NISTP256)
-	EC_KEY *eck;
+	EC_GROUP *ecg;
+	EC_POINT *ecp;
 #endif /* defined(OPENSSL_HAS_ECC) && defined(OPENSSL_HAS_NISTP256) */
 #endif /* WITH_OPENSSL */
 	u_char *s;
@@ -62,10 +63,13 @@ attempt_parse_blob(u_char *blob, size_t len)
 	sshbuf_get_bignum2(p1, &bn);
 	BN_clear_free(bn);
 #if defined(OPENSSL_HAS_ECC) && defined(OPENSSL_HAS_NISTP256)
-	eck = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
-	ASSERT_PTR_NE(eck, NULL);
-	sshbuf_get_eckey(p1, eck);
-	EC_KEY_free(eck);
+	ecg = EC_GROUP_new_by_curve_name(NID_X9_62_prime256v1);
+	ASSERT_PTR_NE(ecg, NULL);
+	ecp = EC_POINT_new(ecg);
+	ASSERT_PTR_NE(ecp, NULL);
+	sshbuf_get_ec(p1, ecp, ecg);
+	EC_POINT_free(ecp);
+	EC_GROUP_free(ecg);
 #endif /* defined(OPENSSL_HAS_ECC) && defined(OPENSSL_HAS_NISTP256) */
 #endif /* WITH_OPENSSL */
 	sshbuf_free(p1);

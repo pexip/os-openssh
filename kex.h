@@ -31,7 +31,7 @@
 
 #ifdef WITH_OPENSSL
 # include <openssl/bn.h>
-# include <openssl/dh.h>
+# include <openssl/evp.h>
 # include <openssl/ecdsa.h>
 # ifdef OPENSSL_HAS_ECC
 #  include <openssl/ec.h>
@@ -41,7 +41,7 @@
 #  define EC_POINT	void
 # endif /* OPENSSL_HAS_ECC */
 #else /* WITH_OPENSSL */
-# define DH		void
+# define EVP_PKEY	void
 # define BIGNUM		void
 # define EC_KEY		void
 # define EC_GROUP	void
@@ -168,10 +168,10 @@ struct kex {
 	    u_char **, size_t *, const u_char *, size_t, const char *);
 	int	(*kex[KEX_MAX])(struct ssh *);
 	/* kex specific state */
-	DH	*dh;			/* DH */
+	EVP_PKEY *dh;			/* DH */
 	u_int	min, max, nbits;	/* GEX */
-	EC_KEY	*ec_client_key;		/* ECDH */
-	const EC_GROUP *ec_group;	/* ECDH */
+	EVP_PKEY *ec_client_key;	/* ECDH */
+	EC_GROUP *ec_group;		/* ECDH */
 	u_char c25519_client_key[CURVE25519_SIZE]; /* 25519 + KEM */
 	u_char c25519_client_pubkey[CURVE25519_SIZE]; /* 25519 */
 	u_char sntrup761_client_key[crypto_kem_sntrup761_SECRETKEYBYTES]; /* KEM */

@@ -52,10 +52,14 @@ int
 ssh_dss_sign(const struct sshkey *key, u_char **sigp, size_t *lenp,
     const u_char *data, size_t datalen, u_int compat)
 {
+	EVP_PKEY_CTX *sctx = NULL;
 	DSA_SIG *sig = NULL;
 	const BIGNUM *sig_r, *sig_s;
 	u_char digest[SSH_DIGEST_MAX_LENGTH], sigblob[SIGBLOB_LEN];
 	size_t rlen, slen, len, dlen = ssh_digest_bytes(SSH_DIGEST_SHA1);
+	const unsigned char *psig;
+	unsigned char *tsig = NULL;
+	size_t tsiglen = 0;
 	struct sshbuf *b = NULL;
 	int ret = SSH_ERR_INVALID_ARGUMENT;
 
@@ -74,7 +78,24 @@ ssh_dss_sign(const struct sshkey *key, u_char **sigp, size_t *lenp,
 	    digest, sizeof(digest))) != 0)
 		goto out;
 
-	if ((sig = DSA_do_sign(digest, dlen, key->dsa)) == NULL) {
+	if ((sctx = EVP_PKEY_CTX_new(key->dsa, NULL)) == NULL) {
+		ret =  SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if (EVP_PKEY_sign_init(sctx) <= 0 ||
+	    EVP_PKEY_sign(sctx, NULL, &tsiglen, digest, dlen) <= 0) {
+		ret = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if ((psig = tsig = malloc(tsiglen)) == NULL) {
+		ret = SSH_ERR_ALLOC_FAIL;
+		goto out;
+	}
+	if (EVP_PKEY_sign(sctx, tsig, &tsiglen, digest, dlen) <= 0) {
+		ret = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if (d2i_DSA_SIG(&sig, &psig, tsiglen) == NULL) {
 		ret = SSH_ERR_LIBCRYPTO_ERROR;
 		goto out;
 	}
@@ -111,6 +132,8 @@ ssh_dss_sign(const struct sshkey *key, u_char **sigp, size_t *lenp,
 	ret = 0;
  out:
 	explicit_bzero(digest, sizeof(digest));
+	EVP_PKEY_CTX_free(sctx);
+	freezero(tsig, tsiglen);
 	DSA_SIG_free(sig);
 	sshbuf_free(b);
 	return ret;
@@ -121,10 +144,13 @@ ssh_dss_verify(const struct sshkey *key,
     const u_char *signature, size_t signaturelen,
     const u_char *data, size_t datalen, u_int compat)
 {
+	EVP_PKEY_CTX *sctx = NULL;
 	DSA_SIG *sig = NULL;
 	BIGNUM *sig_r = NULL, *sig_s = NULL;
 	u_char digest[SSH_DIGEST_MAX_LENGTH], *sigblob = NULL;
 	size_t len, dlen = ssh_digest_bytes(SSH_DIGEST_SHA1);
+	unsigned char *tsig = NULL;
+	size_t tsiglen = 0;
 	int ret = SSH_ERR_INTERNAL_ERROR;
 	struct sshbuf *b = NULL;
 	char *ktype = NULL;
@@ -176,12 +202,26 @@ ssh_dss_verify(const struct sshkey *key,
 	}
 	sig_r = sig_s = NULL; /* transferred */
 
+	if ((tsiglen = i2d_DSA_SIG(sig, &tsig)) <= 0) {
+		ret = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+
 	/* sha1 the data */
 	if ((ret = ssh_digest_memory(SSH_DIGEST_SHA1, data, datalen,
 	    digest, sizeof(digest))) != 0)
 		goto out;
 
-	switch (DSA_do_verify(digest, dlen, sig, key->dsa)) {
+	if ((sctx = EVP_PKEY_CTX_new(key->dsa, NULL)) == NULL) {
+		ret = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if (EVP_PKEY_verify_init(sctx) <= 0) {
+		ret = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+
+	switch (EVP_PKEY_verify(sctx, tsig, tsiglen, digest, dlen)) {
 	case 1:
 		ret = 0;
 		break;
@@ -194,6 +234,8 @@ ssh_dss_verify(const struct sshkey *key,
 	}
 
  out:
+	EVP_PKEY_CTX_free(sctx);
+	freezero(tsig, tsiglen);
 	explicit_bzero(digest, sizeof(digest));
 	DSA_SIG_free(sig);
 	BN_clear_free(sig_r);

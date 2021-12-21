@@ -29,6 +29,12 @@
 #include <openssl/ecdsa.h>
 #endif
 #include <openssl/dh.h>
+#if (OPENSSL_VERSION_NUMBER >= 0x30000000L)
+#include <openssl/core_names.h>
+#include <openssl/decoder.h>
+#include <openssl/encoder.h>
+#include <openssl/param_build.h>
+#endif
 
 int ssh_compatible_openssl(long, long);
 void ssh_libcrypto_init(void);
@@ -120,11 +126,6 @@ int EVP_CIPHER_CTX_get_iv(const EVP_CIPHER_CTX *ctx,
     unsigned char *iv, size_t len);
 # endif /* HAVE_EVP_CIPHER_CTX_GET_UPDATED_IV */
 #endif /* HAVE_EVP_CIPHER_CTX_GET_IV */
-
-#ifndef HAVE_EVP_CIPHER_CTX_SET_IV
-int EVP_CIPHER_CTX_set_iv(EVP_CIPHER_CTX *ctx,
-    const unsigned char *iv, size_t len);
-#endif /* HAVE_EVP_CIPHER_CTX_SET_IV */
 
 #ifndef HAVE_RSA_GET0_KEY
 void RSA_get0_key(const RSA *r, const BIGNUM **n, const BIGNUM **e,
@@ -232,6 +233,27 @@ EVP_MD_CTX *EVP_MD_CTX_new(void);
 #ifndef HAVE_EVP_MD_CTX_free
 void EVP_MD_CTX_free(EVP_MD_CTX *ctx);
 #endif /* HAVE_EVP_MD_CTX_free */
+
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+//XXX(ossl3): test for each method separately
+#define OSSL_PKEY_PARAM_PUB_KEY "pub"
+#define OSSL_PKEY_PARAM_PRIV_KEY "priv"
+#define OSSL_PKEY_PARAM_FFC_P "p"
+#define OSSL_PKEY_PARAM_FFC_Q "q"
+#define OSSL_PKEY_PARAM_FFC_G "g"
+#define OSSL_PKEY_PARAM_RSA_N "n"
+#define OSSL_PKEY_PARAM_RSA_E "e"
+#define OSSL_PKEY_PARAM_RSA_D "d"
+int EVP_PKEY_is_a(const EVP_PKEY *pkey, const char *name);
+int EVP_PKEY_get_bn_param(const EVP_PKEY *pkey, const char *key_name,
+    BIGNUM **bn);
+int EVP_PKEY_print_public_fp(FILE *fp, const EVP_PKEY *pkey, int indent,
+    ASN1_PCTX *pctx);
+int EVP_PKEY_print_private_fp(FILE *fp, const EVP_PKEY *pkey, int indent,
+    ASN1_PCTX *pctx);
+int EVP_PKEY_print_params_fp(FILE *fp, const EVP_PKEY *pkey, int indent,
+    ASN1_PCTX *pctx);
+#endif /* OPENSSL_VERSION_NUMBER < 0x30000000L */
 
 #endif /* WITH_OPENSSL */
 #endif /* _OPENSSL_COMPAT_H */

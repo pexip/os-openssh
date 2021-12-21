@@ -26,6 +26,9 @@
 #ifdef OPENSSL_HAS_NISTP256
 # include <openssl/ec.h>
 #endif /* OPENSSL_HAS_NISTP256 */
+#if (OPENSSL_VERSION_NUMBER >= 0x30000000L)
+#include <openssl/core_names.h>
+#endif /* OPENSSL_VERSION_NUMBER > 3 */
 #endif /* WITH_OPENSSL */
 
 #include "../test_helper/test_helper.h"
@@ -46,7 +49,11 @@ sshkey_file_tests(void)
 	struct sshkey *k1, *k2;
 	struct sshbuf *buf, *pw;
 #ifdef WITH_OPENSSL
-	BIGNUM *a, *b, *c;
+	BIGNUM *a, *b, *c, *ec_priv_key;
+	char ec_pub_buf[1024];
+	size_t ec_pub_len = 0;
+	EC_POINT *ec_pub_key;
+	EC_GROUP *ec_group;
 #endif
 	char *cp;
 
@@ -64,9 +71,9 @@ sshkey_file_tests(void)
 	a = load_bignum("rsa_1.param.n");
 	b = load_bignum("rsa_1.param.p");
 	c = load_bignum("rsa_1.param.q");
-	ASSERT_BIGNUM_EQ(rsa_n(k1), a);
-	ASSERT_BIGNUM_EQ(rsa_p(k1), b);
-	ASSERT_BIGNUM_EQ(rsa_q(k1), c);
+	ASSERT_INT_EQ(with_rsa_n(k1, a), 1);
+	ASSERT_INT_EQ(with_rsa_p(k1, b), 1);
+	ASSERT_INT_EQ(with_rsa_q(k1, c), 1);
 	BN_free(a);
 	BN_free(b);
 	BN_free(c);
@@ -173,9 +180,9 @@ sshkey_file_tests(void)
 	a = load_bignum("dsa_1.param.g");
 	b = load_bignum("dsa_1.param.priv");
 	c = load_bignum("dsa_1.param.pub");
-	ASSERT_BIGNUM_EQ(dsa_g(k1), a);
-	ASSERT_BIGNUM_EQ(dsa_priv_key(k1), b);
-	ASSERT_BIGNUM_EQ(dsa_pub_key(k1), c);
+	ASSERT_INT_EQ(with_dsa_g(k1, a), 1);
+	ASSERT_INT_EQ(with_dsa_priv_key(k1, b), 1);
+	ASSERT_INT_EQ(with_dsa_pub_key(k1, c), 1);
 	BN_free(a);
 	BN_free(b);
 	BN_free(c);
@@ -268,12 +275,28 @@ sshkey_file_tests(void)
 	sshbuf_free(buf);
 	a = load_bignum("ecdsa_1.param.priv");
 	b = load_bignum("ecdsa_1.param.pub");
-	c = EC_POINT_point2bn(EC_KEY_get0_group(k1->ecdsa),
-	    EC_KEY_get0_public_key(k1->ecdsa), POINT_CONVERSION_UNCOMPRESSED,
-	    NULL, NULL);
+	ASSERT_INT_EQ(EVP_PKEY_get_octet_string_param(k1->ecdsa,
+	    OSSL_PKEY_PARAM_PUB_KEY, NULL, 0, &ec_pub_len), 1);
+	ASSERT_INT_LE(ec_pub_len, sizeof(ec_pub_buf));
+	ASSERT_INT_EQ(EVP_PKEY_get_octet_string_param(k1->ecdsa,
+	    OSSL_PKEY_PARAM_PUB_KEY, ec_pub_buf, ec_pub_len, NULL), 1);
+	ec_group = EC_GROUP_new_by_curve_name(k1->ecdsa_nid);
+	ASSERT_PTR_NE(ec_group, NULL);
+	ec_pub_key = EC_POINT_new(ec_group);
+	ASSERT_PTR_NE(ec_pub_key, NULL);
+	ASSERT_INT_EQ(EC_POINT_oct2point(ec_group, ec_pub_key, ec_pub_buf,
+	    ec_pub_len, NULL), 1);
+	c = EC_POINT_point2bn(ec_group, ec_pub_key,
+	    POINT_CONVERSION_UNCOMPRESSED, NULL, NULL);
 	ASSERT_PTR_NE(c, NULL);
-	ASSERT_BIGNUM_EQ(EC_KEY_get0_private_key(k1->ecdsa), a);
+	ec_priv_key = NULL;
+	ASSERT_INT_EQ(EVP_PKEY_get_bn_param(k1->ecdsa,
+	    OSSL_PKEY_PARAM_PRIV_KEY, &ec_priv_key), 1);
+	ASSERT_BIGNUM_EQ(ec_priv_key, a);
 	ASSERT_BIGNUM_EQ(b, c);
+	BN_free(ec_priv_key);
+	EC_POINT_free(ec_pub_key);
+	EC_GROUP_free(ec_group);
 	BN_free(a);
 	BN_free(b);
 	BN_free(c);

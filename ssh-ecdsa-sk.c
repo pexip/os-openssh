@@ -144,6 +144,7 @@ ssh_ecdsa_sk_verify(const struct sshkey *key,
     const u_char *data, size_t datalen, u_int compat,
     struct sshkey_sig_details **detailsp)
 {
+	EVP_PKEY_CTX *sctx = NULL;
 	ECDSA_SIG *sig = NULL;
 	BIGNUM *sig_r = NULL, *sig_s = NULL;
 	u_char sig_flags;
@@ -154,6 +155,8 @@ ssh_ecdsa_sk_verify(const struct sshkey *key,
 	struct sshbuf *webauthn_wrapper = NULL, *webauthn_exts = NULL;
 	char *ktype = NULL, *webauthn_origin = NULL;
 	struct sshkey_sig_details *details = NULL;
+	unsigned char *tsig = NULL;
+	size_t tsiglen = 0;
 #ifdef DEBUG_SK
 	char *tmp = NULL;
 #endif
@@ -241,6 +244,11 @@ ssh_ecdsa_sk_verify(const struct sshkey *key,
 	}
 	sig_r = sig_s = NULL; /* transferred */
 
+	if ((tsiglen = i2d_ECDSA_SIG(sig, &tsig)) <= 0) {
+		ret = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+
 	/* Reconstruct data that was supposedly signed */
 	if ((original_signed = sshbuf_new()) == NULL) {
 		ret = SSH_ERR_ALLOC_FAIL;
@@ -285,7 +293,15 @@ ssh_ecdsa_sk_verify(const struct sshkey *key,
 #endif
 
 	/* Verify it */
-	switch (ECDSA_do_verify(sighash, sizeof(sighash), sig, key->ecdsa)) {
+	if ((sctx = EVP_PKEY_CTX_new(key->ecdsa, NULL)) == NULL) {
+		ret = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if (EVP_PKEY_verify_init(sctx) <= 0) {
+		ret = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	switch (EVP_PKEY_verify(sctx, tsig, tsiglen, sighash, sizeof(sighash))) {
 	case 1:
 		ret = 0;
 		break;
@@ -302,6 +318,8 @@ ssh_ecdsa_sk_verify(const struct sshkey *key,
 		details = NULL;
 	}
  out:
+	EVP_PKEY_CTX_free(sctx);
+	freezero(tsig, tsiglen);
 	explicit_bzero(&sig_flags, sizeof(sig_flags));
 	explicit_bzero(&sig_counter, sizeof(sig_counter));
 	explicit_bzero(msghash, sizeof(msghash));

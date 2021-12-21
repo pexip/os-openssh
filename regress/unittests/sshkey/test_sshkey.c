@@ -204,14 +204,14 @@ sshkey_tests(void)
 	TEST_START("new/free KEY_RSA");
 	k1 = sshkey_new(KEY_RSA);
 	ASSERT_PTR_NE(k1, NULL);
-	ASSERT_PTR_NE(k1->rsa, NULL);
+	ASSERT_PTR_EQ(k1->rsa, NULL); /* Blank until loaded/generated */
 	sshkey_free(k1);
 	TEST_DONE();
 
 	TEST_START("new/free KEY_DSA");
 	k1 = sshkey_new(KEY_DSA);
 	ASSERT_PTR_NE(k1, NULL);
-	ASSERT_PTR_NE(k1->dsa, NULL);
+	ASSERT_PTR_EQ(k1->dsa, NULL); /* Blank until loaded/generated */
 	sshkey_free(k1);
 	TEST_DONE();
 
@@ -267,18 +267,18 @@ sshkey_tests(void)
 	ASSERT_INT_EQ(sshkey_generate(KEY_RSA, 1024, &kr), 0);
 	ASSERT_PTR_NE(kr, NULL);
 	ASSERT_PTR_NE(kr->rsa, NULL);
-	ASSERT_PTR_NE(rsa_n(kr), NULL);
-	ASSERT_PTR_NE(rsa_e(kr), NULL);
-	ASSERT_PTR_NE(rsa_p(kr), NULL);
-	ASSERT_INT_EQ(BN_num_bits(rsa_n(kr)), 1024);
+	ASSERT_INT_EQ(has_rsa_n(kr), 1);
+	ASSERT_INT_EQ(has_rsa_e(kr), 1);
+	ASSERT_INT_EQ(has_rsa_p(kr), 1);
+	ASSERT_INT_EQ(rsa_n_size(kr), 1024);
 	TEST_DONE();
 
 	TEST_START("generate KEY_DSA");
 	ASSERT_INT_EQ(sshkey_generate(KEY_DSA, 1024, &kd), 0);
 	ASSERT_PTR_NE(kd, NULL);
 	ASSERT_PTR_NE(kd->dsa, NULL);
-	ASSERT_PTR_NE(dsa_g(kd), NULL);
-	ASSERT_PTR_NE(dsa_priv_key(kd), NULL);
+	ASSERT_INT_EQ(has_dsa_g(kd), 1);
+	ASSERT_INT_EQ(has_dsa_priv_key(kd), 1);
 	TEST_DONE();
 
 #ifdef OPENSSL_HAS_ECC
@@ -286,8 +286,8 @@ sshkey_tests(void)
 	ASSERT_INT_EQ(sshkey_generate(KEY_ECDSA, 256, &ke), 0);
 	ASSERT_PTR_NE(ke, NULL);
 	ASSERT_PTR_NE(ke->ecdsa, NULL);
-	ASSERT_PTR_NE(EC_KEY_get0_public_key(ke->ecdsa), NULL);
-	ASSERT_PTR_NE(EC_KEY_get0_private_key(ke->ecdsa), NULL);
+	ASSERT_INT_EQ(has_ec_pub_key(ke), 1);
+	ASSERT_INT_EQ(has_ec_priv_key(ke), 1);
 	TEST_DONE();
 #endif /* OPENSSL_HAS_ECC */
 #endif /* WITH_OPENSSL */
@@ -307,9 +307,9 @@ sshkey_tests(void)
 	ASSERT_PTR_NE(kr, k1);
 	ASSERT_INT_EQ(k1->type, KEY_RSA);
 	ASSERT_PTR_NE(k1->rsa, NULL);
-	ASSERT_PTR_NE(rsa_n(k1), NULL);
-	ASSERT_PTR_NE(rsa_e(k1), NULL);
-	ASSERT_PTR_EQ(rsa_p(k1), NULL);
+	ASSERT_INT_EQ(has_rsa_n(k1), 1);
+	ASSERT_INT_EQ(has_rsa_e(k1), 1);
+	ASSERT_INT_EQ(has_rsa_p(k1), 0);
 	TEST_DONE();
 
 	TEST_START("equal KEY_RSA/demoted KEY_RSA");
@@ -323,8 +323,8 @@ sshkey_tests(void)
 	ASSERT_PTR_NE(kd, k1);
 	ASSERT_INT_EQ(k1->type, KEY_DSA);
 	ASSERT_PTR_NE(k1->dsa, NULL);
-	ASSERT_PTR_NE(dsa_g(k1), NULL);
-	ASSERT_PTR_EQ(dsa_priv_key(k1), NULL);
+	ASSERT_INT_EQ(has_dsa_g(k1), 1);
+	ASSERT_INT_EQ(has_dsa_priv_key(k1), 0);
 	TEST_DONE();
 
 	TEST_START("equal KEY_DSA/demoted KEY_DSA");
@@ -340,8 +340,8 @@ sshkey_tests(void)
 	ASSERT_INT_EQ(k1->type, KEY_ECDSA);
 	ASSERT_PTR_NE(k1->ecdsa, NULL);
 	ASSERT_INT_EQ(k1->ecdsa_nid, ke->ecdsa_nid);
-	ASSERT_PTR_NE(EC_KEY_get0_public_key(ke->ecdsa), NULL);
-	ASSERT_PTR_EQ(EC_KEY_get0_private_key(k1->ecdsa), NULL);
+	ASSERT_INT_EQ(has_ec_pub_key(k1), 1);
+	ASSERT_INT_EQ(has_ec_priv_key(k1), 0);
 	TEST_DONE();
 
 	TEST_START("equal KEY_ECDSA/demoted KEY_ECDSA");

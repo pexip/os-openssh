@@ -34,7 +34,6 @@
 #include <signal.h>
 
 #include "openbsd-compat/openssl-compat.h"
-#include <openssl/dh.h>
 
 #include "sshkey.h"
 #include "kex.h"
@@ -72,17 +71,21 @@ kex_dh_keygen(struct kex *kex)
 int
 kex_dh_compute_key(struct kex *kex, BIGNUM *dh_pub, struct sshbuf *out)
 {
-	BIGNUM *shared_secret = NULL;
+	OSSL_PARAM_BLD *bld = NULL;
+	OSSL_PARAM *params = NULL;
+	EVP_PKEY_CTX *pctx = NULL;
+	EVP_PKEY *peer_key = NULL;
+	BIGNUM *dh_p = NULL, *dh_g = NULL, *shared_secret = NULL;
 	u_char *kbuf = NULL;
 	size_t klen = 0;
-	int kout, r;
+	int r;
 
 #ifdef DEBUG_KEXDH
 	fprintf(stderr, "dh_pub= ");
 	BN_print_fp(stderr, dh_pub);
 	fprintf(stderr, "\n");
 	debug("bits %d", BN_num_bits(dh_pub));
-	DHparams_print_fp(stderr, kex->dh);
+	EVP_PKEY_print_params_fp(stderr, kex->dh, 0, NULL);
 	fprintf(stderr, "\n");
 #endif
 
@@ -90,44 +93,100 @@ kex_dh_compute_key(struct kex *kex, BIGNUM *dh_pub, struct sshbuf *out)
 		r = SSH_ERR_MESSAGE_INCOMPLETE;
 		goto out;
 	}
-	klen = DH_size(kex->dh);
+
+	if (EVP_PKEY_get_bn_param(kex->dh,
+	    OSSL_PKEY_PARAM_FFC_P, &dh_p) == 0 ||
+	    EVP_PKEY_get_bn_param(kex->dh,
+	    OSSL_PKEY_PARAM_FFC_G, &dh_g) == 0) {
+		r = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if ((bld = OSSL_PARAM_BLD_new()) == NULL) {
+		r = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if (OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_FFC_P, dh_p) == 0 ||
+	    OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_FFC_G, dh_g) == 0 ||
+	    OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_PUB_KEY, dh_pub) == 0) {
+		r = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if ((params = OSSL_PARAM_BLD_to_param(bld)) == NULL) {
+		r = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if ((pctx = EVP_PKEY_CTX_new_from_name(NULL, "DH", NULL)) == NULL) {
+		r = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if (EVP_PKEY_fromdata_init(pctx) <= 0 ||
+	    EVP_PKEY_fromdata(pctx, &peer_key,
+	    EVP_PKEY_PUBLIC_KEY, params) <= 0) {
+		r = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	EVP_PKEY_CTX_free(pctx);
+
+	if ((pctx = EVP_PKEY_CTX_new(kex->dh, NULL)) == NULL) {
+		r = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if (EVP_PKEY_derive_init(pctx) <= 0 ||
+	    EVP_PKEY_derive_set_peer(pctx, peer_key) <= 0 ||
+	    EVP_PKEY_derive(pctx, NULL, &klen) <= 0) {
+		r = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
 	if ((kbuf = malloc(klen)) == NULL ||
 	    (shared_secret = BN_new()) == NULL) {
 		r = SSH_ERR_ALLOC_FAIL;
 		goto out;
 	}
-	if ((kout = DH_compute_key(kbuf, dh_pub, kex->dh)) < 0 ||
-	    BN_bin2bn(kbuf, kout, shared_secret) == NULL) {
+	if (EVP_PKEY_derive(pctx, kbuf, &klen) <= 0 ||
+	    BN_bin2bn(kbuf, (int) klen, shared_secret) == NULL) {
 		r = SSH_ERR_LIBCRYPTO_ERROR;
 		goto out;
 	}
+
 #ifdef DEBUG_KEXDH
-	dump_digest("shared secret", kbuf, kout);
+	dump_digest("shared secret", kbuf, klen);
 #endif
 	r = sshbuf_put_bignum2(out, shared_secret);
  out:
 	freezero(kbuf, klen);
 	BN_clear_free(shared_secret);
+	EVP_PKEY_CTX_free(pctx);
+	EVP_PKEY_free(peer_key);
+	OSSL_PARAM_free(params);
+	OSSL_PARAM_BLD_free(bld);
+	BN_clear_free(dh_p);
+	BN_clear_free(dh_g);
 	return r;
 }
 
 int
 kex_dh_keypair(struct kex *kex)
 {
-	const BIGNUM *pub_key;
+	BIGNUM *pub_key = NULL;
 	struct sshbuf *buf = NULL;
 	int r;
 
 	if ((r = kex_dh_keygen(kex)) != 0)
 		return r;
-	DH_get0_key(kex->dh, &pub_key, NULL);
-	if ((buf = sshbuf_new()) == NULL)
-		return SSH_ERR_ALLOC_FAIL;
+	if (EVP_PKEY_get_bn_param(kex->dh,
+	    OSSL_PKEY_PARAM_PUB_KEY, &pub_key) == 0) {
+		r = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
+	if ((buf = sshbuf_new()) == NULL) {
+		r = SSH_ERR_ALLOC_FAIL;
+		goto out;
+	}
 	if ((r = sshbuf_put_bignum2(buf, pub_key)) != 0 ||
 	    (r = sshbuf_get_u32(buf, NULL)) != 0)
 		goto out;
 #ifdef DEBUG_KEXDH
-	DHparams_print_fp(stderr, kex->dh);
+	EVP_PKEY_print_params_fp(stderr, kex->dh, 0, NULL);
 	fprintf(stderr, "pub= ");
 	BN_print_fp(stderr, pub_key);
 	fprintf(stderr, "\n");
@@ -136,6 +195,7 @@ kex_dh_keypair(struct kex *kex)
 	buf = NULL;
  out:
 	sshbuf_free(buf);
+	BN_clear_free(pub_key);
 	return r;
 }
 
@@ -143,7 +203,7 @@ int
 kex_dh_enc(struct kex *kex, const struct sshbuf *client_blob,
     struct sshbuf **server_blobp, struct sshbuf **shared_secretp)
 {
-	const BIGNUM *pub_key;
+	BIGNUM *pub_key = NULL;
 	struct sshbuf *server_blob = NULL;
 	int r;
 
@@ -152,7 +212,11 @@ kex_dh_enc(struct kex *kex, const struct sshbuf *client_blob,
 
 	if ((r = kex_dh_keygen(kex)) != 0)
 		goto out;
-	DH_get0_key(kex->dh, &pub_key, NULL);
+	if (EVP_PKEY_get_bn_param(kex->dh,
+	    OSSL_PKEY_PARAM_PUB_KEY, &pub_key) == 0) {
+		r = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
 	if ((server_blob = sshbuf_new()) == NULL) {
 		r = SSH_ERR_ALLOC_FAIL;
 		goto out;
@@ -165,7 +229,8 @@ kex_dh_enc(struct kex *kex, const struct sshbuf *client_blob,
 	*server_blobp = server_blob;
 	server_blob = NULL;
  out:
-	DH_free(kex->dh);
+	BN_clear_free(pub_key);
+	EVP_PKEY_free(kex->dh);
 	kex->dh = NULL;
 	sshbuf_free(server_blob);
 	return r;
@@ -195,7 +260,7 @@ kex_dh_dec(struct kex *kex, const struct sshbuf *dh_blob,
 	buf = NULL;
  out:
 	BN_free(dh_pub);
-	DH_free(kex->dh);
+	EVP_PKEY_free(kex->dh);
 	kex->dh = NULL;
 	sshbuf_free(buf);
 	return r;

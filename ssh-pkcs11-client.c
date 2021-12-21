@@ -131,8 +131,10 @@ rsa_encrypt(int flen, const u_char *from, u_char *to, RSA *rsa, int padding)
 		goto fail;
 	}
 	key->type = KEY_RSA;
-	RSA_up_ref(rsa);
-	key->rsa = rsa;
+	if ((key->rsa = EVP_PKEY_new()) == NULL)
+		fatal_f("EVP_PKEY_new failed");
+	if (EVP_PKEY_set1_RSA(key->rsa, rsa) == 0)
+		fatal_f("EVP_PKEY_set1_RSA failed");
 	if ((r = sshkey_to_blob(key, &blob, &blen)) != 0) {
 		error_fr(r, "encode key");
 		goto fail;
@@ -174,23 +176,23 @@ ecdsa_do_sign(const unsigned char *dgst, int dgst_len, const BIGNUM *inv,
 	const u_char *cp;
 	u_char *blob = NULL, *signature = NULL;
 	size_t blen, slen = 0;
-	int r, nid;
-
-	nid = sshkey_ecdsa_key_to_nid(ec);
-	if (nid < 0) {
-		error_f("couldn't get curve nid");
-		goto fail;
-	}
+	int r;
 
 	key = sshkey_new(KEY_UNSPEC);
 	if (key == NULL) {
 		error_f("sshkey_new failed");
 		goto fail;
 	}
-	key->ecdsa = ec;
-	key->ecdsa_nid = nid;
 	key->type = KEY_ECDSA;
-	EC_KEY_up_ref(ec);
+	if ((key->ecdsa = EVP_PKEY_new()) == NULL)
+		fatal_f("EVP_PKEY_new failed");
+	if (EVP_PKEY_set1_EC_KEY(key->ecdsa, ec) == 0)
+		fatal_f("EVP_PKEY_set1_EC_KEY failed");
+	key->ecdsa_nid = sshkey_ecdsa_key_to_nid(key->ecdsa);
+	if (key->ecdsa_nid < 0) {
+		error_f("couldn't get curve nid");
+		goto fail;
+	}
 
 	if ((r = sshkey_to_blob(key, &blob, &blen)) != 0) {
 		error_fr(r, "encode key");
@@ -231,11 +233,15 @@ static EC_KEY_METHOD	*helper_ecdsa;
 static void
 wrap_key(struct sshkey *k)
 {
-	if (k->type == KEY_RSA)
-		RSA_set_method(k->rsa, helper_rsa);
+	if (k->type == KEY_RSA) {
+		RSA *rsa = EVP_PKEY_get0_RSA(k->rsa);
+		RSA_set_method(rsa, helper_rsa);
+	}
 #if defined(OPENSSL_HAS_ECC) && defined(HAVE_EC_KEY_METHOD_NEW)
-	else if (k->type == KEY_ECDSA)
-		EC_KEY_set_method(k->ecdsa, helper_ecdsa);
+	else if (k->type == KEY_ECDSA) {
+		EC_KEY *ecdsa = EVP_PKEY_get0_EC_KEY(k->ecdsa);
+		EC_KEY_set_method(ecdsa, helper_ecdsa);
+	}
 #endif /* OPENSSL_HAS_ECC && HAVE_EC_KEY_METHOD_NEW */
 	else
 		fatal_f("unknown key type");

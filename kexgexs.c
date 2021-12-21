@@ -74,7 +74,7 @@ input_kex_dh_gex_request(int type, u_int32_t seq, struct ssh *ssh)
 	struct kex *kex = ssh->kex;
 	int r;
 	u_int min = 0, max = 0, nbits = 0;
-	const BIGNUM *dh_p, *dh_g;
+	BIGNUM *dh_p = NULL, *dh_g = NULL;
 
 	debug("SSH2_MSG_KEX_DH_GEX_REQUEST received");
 	ssh_dispatch_set(ssh, SSH2_MSG_KEX_DH_GEX_REQUEST, &kex_protocol_error);
@@ -106,7 +106,13 @@ input_kex_dh_gex_request(int type, u_int32_t seq, struct ssh *ssh)
 		goto out;
 	}
 	debug("SSH2_MSG_KEX_DH_GEX_GROUP sent");
-	DH_get0_pqg(kex->dh, &dh_p, NULL, &dh_g);
+	if (EVP_PKEY_get_bn_param(kex->dh,
+	    OSSL_PKEY_PARAM_FFC_P, &dh_p) == 0 ||
+	    EVP_PKEY_get_bn_param(kex->dh,
+	    OSSL_PKEY_PARAM_FFC_G, &dh_g) == 0) {
+		r = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
 	if ((r = sshpkt_start(ssh, SSH2_MSG_KEX_DH_GEX_GROUP)) != 0 ||
 	    (r = sshpkt_put_bignum2(ssh, dh_p)) != 0 ||
 	    (r = sshpkt_put_bignum2(ssh, dh_g)) != 0 ||
@@ -121,6 +127,8 @@ input_kex_dh_gex_request(int type, u_int32_t seq, struct ssh *ssh)
 	ssh_dispatch_set(ssh, SSH2_MSG_KEX_DH_GEX_INIT, &input_kex_dh_gex_init);
 	r = 0;
  out:
+	BN_clear_free(dh_p);
+	BN_clear_free(dh_g);
 	return r;
 }
 
@@ -129,7 +137,7 @@ input_kex_dh_gex_init(int type, u_int32_t seq, struct ssh *ssh)
 {
 	struct kex *kex = ssh->kex;
 	BIGNUM *dh_client_pub = NULL;
-	const BIGNUM *pub_key, *dh_p, *dh_g;
+	BIGNUM *pub_key = NULL, *dh_p = NULL, *dh_g = NULL;
 	struct sshbuf *shared_secret = NULL;
 	struct sshbuf *server_host_key_blob = NULL;
 	struct sshkey *server_host_public, *server_host_private;
@@ -163,8 +171,15 @@ input_kex_dh_gex_init(int type, u_int32_t seq, struct ssh *ssh)
 		goto out;
 
 	/* calc H */
-	DH_get0_key(kex->dh, &pub_key, NULL);
-	DH_get0_pqg(kex->dh, &dh_p, NULL, &dh_g);
+	if (EVP_PKEY_get_bn_param(kex->dh,
+	    OSSL_PKEY_PARAM_PUB_KEY, &pub_key) == 0 ||
+	    EVP_PKEY_get_bn_param(kex->dh,
+	    OSSL_PKEY_PARAM_FFC_P, &dh_p) == 0 ||
+	    EVP_PKEY_get_bn_param(kex->dh,
+	    OSSL_PKEY_PARAM_FFC_G, &dh_g) == 0) {
+		r = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
 	hashlen = sizeof(hash);
 	if ((r = kexgex_hash(
 	    kex->hash_alg,
@@ -206,7 +221,10 @@ input_kex_dh_gex_init(int type, u_int32_t seq, struct ssh *ssh)
 	/* success */
  out:
 	explicit_bzero(hash, sizeof(hash));
-	DH_free(kex->dh);
+	BN_clear_free(pub_key);
+	BN_clear_free(dh_p);
+	BN_clear_free(dh_g);
+	EVP_PKEY_free(kex->dh);
 	kex->dh = NULL;
 	BN_clear_free(dh_client_pub);
 	sshbuf_free(shared_secret);

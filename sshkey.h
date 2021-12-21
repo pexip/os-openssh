@@ -29,22 +29,17 @@
 #include <sys/types.h>
 
 #ifdef WITH_OPENSSL
-#include <openssl/rsa.h>
-#include <openssl/dsa.h>
+# include <openssl/evp.h>
 # ifdef OPENSSL_HAS_ECC
-#  include <openssl/ec.h>
-#  include <openssl/ecdsa.h>
+#   include <openssl/ec.h>
 # else /* OPENSSL_HAS_ECC */
-#  define EC_KEY	void
 #  define EC_GROUP	void
 #  define EC_POINT	void
 # endif /* OPENSSL_HAS_ECC */
 #define SSH_OPENSSL_VERSION OpenSSL_version(OPENSSL_VERSION)
 #else /* WITH_OPENSSL */
 # define BIGNUM		void
-# define RSA		void
-# define DSA		void
-# define EC_KEY		void
+# define EVP_PKEY	void
 # define EC_GROUP	void
 # define EC_POINT	void
 #define SSH_OPENSSL_VERSION "without OpenSSL"
@@ -126,12 +121,12 @@ struct sshkey {
 	int	 type;
 	int	 flags;
 	/* KEY_RSA */
-	RSA	*rsa;
+	EVP_PKEY *rsa;
 	/* KEY_DSA */
-	DSA	*dsa;
+	EVP_PKEY *dsa;
 	/* KEY_ECDSA and KEY_ECDSA_SK */
 	int	 ecdsa_nid;	/* NID of curve */
-	EC_KEY	*ecdsa;
+	EVP_PKEY *ecdsa;
 	/* KEY_ED25519 and KEY_ED25519_SK */
 	u_char	*ed25519_sk;
 	u_char	*ed25519_pk;
@@ -223,10 +218,10 @@ int		 sshkey_curve_name_to_nid(const char *);
 const char *	 sshkey_curve_nid_to_name(int);
 u_int		 sshkey_curve_nid_to_bits(int);
 int		 sshkey_ecdsa_bits_to_nid(int);
-int		 sshkey_ecdsa_key_to_nid(EC_KEY *);
+int		 sshkey_ecdsa_key_to_nid(EVP_PKEY *);
 int		 sshkey_ec_nid_to_hash_alg(int nid);
 int		 sshkey_ec_validate_public(const EC_GROUP *, const EC_POINT *);
-int		 sshkey_ec_validate_private(const EC_KEY *);
+int		 sshkey_ec_validate_private(const EVP_PKEY *);
 const char	*sshkey_ssh_name(const struct sshkey *);
 const char	*sshkey_ssh_name_plain(const struct sshkey *);
 int		 sshkey_names_valid2(const char *, int);
@@ -254,7 +249,7 @@ int	 sshkey_get_sigtype(const u_char *, size_t, char **);
 
 /* for debug */
 void	sshkey_dump_ec_point(const EC_GROUP *, const EC_POINT *);
-void	sshkey_dump_ec_key(const EC_KEY *);
+void	sshkey_dump_ec_key(const EVP_PKEY *);
 
 /* private key parsing and serialisation */
 int	sshkey_private_serialize(struct sshkey *key, struct sshbuf *buf);
@@ -274,7 +269,8 @@ int	sshkey_parse_pubkey_from_private_fileblob_type(struct sshbuf *blob,
     int type, struct sshkey **pubkeyp);
 
 /* XXX should be internal, but used by ssh-keygen */
-int ssh_rsa_complete_crt_parameters(struct sshkey *, const BIGNUM *);
+int ssh_rsa_complete_crt_parameters(const BIGNUM *, const BIGNUM *,
+    const BIGNUM *, BIGNUM **, BIGNUM **);
 
 /* stateful keys (e.g. XMSS) */
 int	 sshkey_set_filename(struct sshkey *, const char *);
@@ -324,13 +320,10 @@ int ssh_xmss_verify(const struct sshkey *key,
 #endif
 
 #if !defined(WITH_OPENSSL)
-# undef RSA
-# undef DSA
-# undef EC_KEY
+# undef EVP_PKEY
 # undef EC_GROUP
 # undef EC_POINT
 #elif !defined(OPENSSL_HAS_ECC)
-# undef EC_KEY
 # undef EC_GROUP
 # undef EC_POINT
 #endif

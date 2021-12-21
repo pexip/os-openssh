@@ -744,41 +744,23 @@ prime_test(FILE *in, FILE *out, u_int32_t trials, u_int32_t generator_wanted,
 		count_possible++;
 
 		/*
-		 * The (1/4)^N performance bound on Miller-Rabin is
-		 * extremely pessimistic, so don't spend a lot of time
-		 * really verifying that q is prime until after we know
-		 * that p is also prime. A single pass will weed out the
-		 * vast majority of composite q's.
-		 */
-		is_prime = BN_is_prime_ex(q, 1, NULL, NULL);
-		if (is_prime < 0)
-			fatal("BN_is_prime_ex failed");
-		if (is_prime == 0) {
-			debug("%10u: q failed first possible prime test",
-			    count_in);
-			continue;
-		}
-
-		/*
-		 * q is possibly prime, so go ahead and really make sure
-		 * that p is prime. If it is, then we can go back and do
-		 * the same for q. If p is composite, chances are that
+		 * Test if p is prime. If p is composite, chances are that
 		 * will show up on the first Rabin-Miller iteration so it
 		 * doesn't hurt to specify a high iteration count.
 		 */
-		is_prime = BN_is_prime_ex(p, trials, NULL, NULL);
+		is_prime = BN_check_prime(p, NULL, NULL);
 		if (is_prime < 0)
-			fatal("BN_is_prime_ex failed");
+			fatal("BN_check_prime failed");
 		if (is_prime == 0) {
 			debug("%10u: p is not prime", count_in);
 			continue;
 		}
 		debug("%10u: p is almost certainly prime", count_in);
 
-		/* recheck q more rigorously */
-		is_prime = BN_is_prime_ex(q, trials - 1, NULL, NULL);
+		/* Test if q is prime */
+		is_prime = BN_check_prime(q, NULL, NULL);
 		if (is_prime < 0)
-			fatal("BN_is_prime_ex failed");
+			fatal("BN_check_prime failed");
 		if (is_prime == 0) {
 			debug("%10u: q is not prime", count_in);
 			continue;

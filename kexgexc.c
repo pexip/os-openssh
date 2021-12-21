@@ -96,7 +96,7 @@ input_kex_dh_gex_group(int type, u_int32_t seq, struct ssh *ssh)
 {
 	struct kex *kex = ssh->kex;
 	BIGNUM *p = NULL, *g = NULL;
-	const BIGNUM *pub_key;
+	BIGNUM *pub_key = NULL;
 	int r, bits;
 
 	debug("SSH2_MSG_KEX_DH_GEX_GROUP received");
@@ -120,14 +120,18 @@ input_kex_dh_gex_group(int type, u_int32_t seq, struct ssh *ssh)
 	/* generate and send 'e', client DH public key */
 	if ((r = dh_gen_key(kex->dh, kex->we_need * 8)) != 0)
 		goto out;
-	DH_get0_key(kex->dh, &pub_key, NULL);
+	if (EVP_PKEY_get_bn_param(kex->dh,
+	    OSSL_PKEY_PARAM_PUB_KEY, &pub_key) == 0) {
+		r = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
 	if ((r = sshpkt_start(ssh, SSH2_MSG_KEX_DH_GEX_INIT)) != 0 ||
 	    (r = sshpkt_put_bignum2(ssh, pub_key)) != 0 ||
 	    (r = sshpkt_send(ssh)) != 0)
 		goto out;
 	debug("SSH2_MSG_KEX_DH_GEX_INIT sent");
 #ifdef DEBUG_KEXDH
-	DHparams_print_fp(stderr, kex->dh);
+	EV_PKEY_print_params_fp(stderr, kex->dh, 0, NULL);
 	fprintf(stderr, "pub= ");
 	BN_print_fp(stderr, pub_key);
 	fprintf(stderr, "\n");
@@ -136,6 +140,7 @@ input_kex_dh_gex_group(int type, u_int32_t seq, struct ssh *ssh)
 	ssh_dispatch_set(ssh, SSH2_MSG_KEX_DH_GEX_REPLY, &input_kex_dh_gex_reply);
 	r = 0;
 out:
+	BN_clear_free(pub_key);
 	BN_clear_free(p);
 	BN_clear_free(g);
 	return r;
@@ -146,7 +151,7 @@ input_kex_dh_gex_reply(int type, u_int32_t seq, struct ssh *ssh)
 {
 	struct kex *kex = ssh->kex;
 	BIGNUM *dh_server_pub = NULL;
-	const BIGNUM *pub_key, *dh_p, *dh_g;
+	BIGNUM *pub_key = NULL, *dh_p = NULL, *dh_g = NULL;
 	struct sshbuf *shared_secret = NULL;
 	struct sshbuf *tmp = NULL, *server_host_key_blob = NULL;
 	struct sshkey *server_host_key = NULL;
@@ -184,8 +189,15 @@ input_kex_dh_gex_reply(int type, u_int32_t seq, struct ssh *ssh)
 		kex->min = kex->max = -1;
 
 	/* calc and verify H */
-	DH_get0_key(kex->dh, &pub_key, NULL);
-	DH_get0_pqg(kex->dh, &dh_p, NULL, &dh_g);
+	if (EVP_PKEY_get_bn_param(kex->dh,
+	    OSSL_PKEY_PARAM_PUB_KEY, &pub_key) == 0 ||
+	    EVP_PKEY_get_bn_param(kex->dh,
+	    OSSL_PKEY_PARAM_FFC_P, &dh_p) == 0 ||
+	    EVP_PKEY_get_bn_param(kex->dh,
+	    OSSL_PKEY_PARAM_FFC_G, &dh_g) == 0) {
+		r = SSH_ERR_LIBCRYPTO_ERROR;
+		goto out;
+	}
 	hashlen = sizeof(hash);
 	if ((r = kexgex_hash(
 	    kex->hash_alg,
@@ -228,7 +240,10 @@ input_kex_dh_gex_reply(int type, u_int32_t seq, struct ssh *ssh)
 	/* success */
  out:
 	explicit_bzero(hash, sizeof(hash));
-	DH_free(kex->dh);
+	BN_clear_free(pub_key);
+	BN_clear_free(dh_p);
+	BN_clear_free(dh_g);
+	EVP_PKEY_free(kex->dh);
 	kex->dh = NULL;
 	BN_clear_free(dh_server_pub);
 	sshbuf_free(shared_secret);

@@ -567,8 +567,8 @@ monitor_reset_key_state(void)
 int
 mm_answer_moduli(struct ssh *ssh, int sock, struct sshbuf *m)
 {
-	DH *dh;
-	const BIGNUM *dh_p, *dh_g;
+	EVP_PKEY *dh;
+	BIGNUM *dh_p, *dh_g;
 	int r;
 	u_int min, want, max;
 
@@ -591,13 +591,19 @@ mm_answer_moduli(struct ssh *ssh, int sock, struct sshbuf *m)
 		return (0);
 	} else {
 		/* Send first bignum */
-		DH_get0_pqg(dh, &dh_p, NULL, &dh_g);
+		if (EVP_PKEY_get_bn_param(dh,
+		    OSSL_PKEY_PARAM_FFC_P, &dh_p) == 0 ||
+		    EVP_PKEY_get_bn_param(dh,
+		    OSSL_PKEY_PARAM_FFC_G, &dh_g) == 0)
+			fatal_f("failed extracting parameters");
 		if ((r = sshbuf_put_u8(m, 1)) != 0 ||
 		    (r = sshbuf_put_bignum2(m, dh_p)) != 0 ||
 		    (r = sshbuf_put_bignum2(m, dh_g)) != 0)
 			fatal_fr(r, "assemble");
 
-		DH_free(dh);
+		BN_clear_free(dh_g);
+		BN_clear_free(dh_p);
+		EVP_PKEY_free(dh);
 	}
 	mm_request_send(sock, MONITOR_ANS_MODULI, m);
 	return (0);
