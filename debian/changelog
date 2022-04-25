@@ -1,6 +1,7 @@
 openssh (1:8.8p1-0pexip2) pexip; urgency=medium
 
   * Disable Debian banner
+  * Disable hmac-sha1
 
  -- John-Mark Bell <jmb@pexip.com>  Mon, 20 Dec 2021 16:01:26 +0000
 
