@@ -22,76 +22,6 @@ get_config_option() {
 }
 
 
-set_config_option() {
-	option="$1"
-	value="$2"
-
-	perl -le '
-		$option = $ARGV[0]; $value = $ARGV[1]; $done = 0;
-		while (<STDIN>) {
-			chomp;
-			(my $match = $_) =~ s/\s+/ /g;
-			if ($match =~ s/^\s*\Q$option\E\s+.*/$option $value/) {
-				$_ = $match;
-				$done = 1;
-			}
-			print;
-		}
-		print "$option $value" unless $done;' \
-		"$option" "$value" \
-		< /etc/ssh/sshd_config > /etc/ssh/sshd_config.dpkg-new
-	chown --reference /etc/ssh/sshd_config /etc/ssh/sshd_config.dpkg-new
-	chmod --reference /etc/ssh/sshd_config /etc/ssh/sshd_config.dpkg-new
-	mv /etc/ssh/sshd_config.dpkg-new /etc/ssh/sshd_config
-}
-
-
-rename_config_option() {
-	oldoption="$1"
-	newoption="$2"
-
-	value="$(get_config_option "$oldoption")"
-	[ "$value" ] || return 0
-
-	perl -le '
-		$oldoption = $ARGV[0]; $newoption = $ARGV[1];
-		while (<STDIN>) {
-			chomp;
-			(my $match = $_) =~ s/\s+/ /g;
-			# TODO: actually only one "=" allowed after option
-			if ($match =~ s/^(\s*)\Q$oldoption\E([[:space:]=]+)/$1$newoption$2/i) {
-				$_ = $match;
-			}
-			print;
-		}' \
-		"$oldoption" "$newoption" \
-		< /etc/ssh/sshd_config > /etc/ssh/sshd_config.dpkg-new
-	chown --reference /etc/ssh/sshd_config /etc/ssh/sshd_config.dpkg-new
-	chmod --reference /etc/ssh/sshd_config /etc/ssh/sshd_config.dpkg-new
-	mv /etc/ssh/sshd_config.dpkg-new /etc/ssh/sshd_config
-}
-
-remove_config_option() {
-	option="$1"
-
-	perl -le '
-		$option = $ARGV[0];
-		while (<STDIN>) {
-			chomp;
-			(my $match = $_) =~ s/\s+/ /g;
-			if ($match =~ s/^\s*\Q$option\E\s+.*//) {
-				$_ = $match;
-			}
-			print;
-		}' \
-		"$option" \
-		< /etc/ssh/sshd_config > /etc/ssh/sshd_config.dpkg-new
-	chown --reference /etc/ssh/sshd_config /etc/ssh/sshd_config.dpkg-new
-	chmod --reference /etc/ssh/sshd_config /etc/ssh/sshd_config.dpkg-new
-	mv /etc/ssh/sshd_config.dpkg-new /etc/ssh/sshd_config
-}
-
-
 host_keys_required() {
 	hostkeys="$(get_config_option HostKey)"
 	if [ "$hostkeys" ]; then
@@ -310,52 +240,6 @@ if [ "$action" = configure ]; then
 	    # maintainer scripts will have saved the old file as .dpkg-bak,
 	    # which we now move back into place.
 	    mv /etc/ssh/moduli.dpkg-bak /etc/ssh/moduli
-	fi
-	if dpkg --compare-versions "$2" lt 1:6.6p1-5pexip3; then
-	   set_config_option PermitRootLogin no
-	   set_config_option AllowGroups adm
-	   set_config_option AllowTCPForwarding no
-	   set_config_option X11Forwarding no
-	   set_config_option GatewayPorts no
-	   set_config_option GSSAPIAuthentication no
-	   set_config_option KerberosAuthentication no
-	   set_config_option PermitUserEnvironment no
-	   set_config_option PermitTunnel no
-	   set_config_option MaxSessions 1
-	   set_config_option Compression delayed
-	   set_config_option Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,aes192-cbc,aes256-cbc
-	   set_config_option MACs hmac-sha2-256,hmac-sha2-512,hmac-sha1
-	fi
-	if dpkg --compare-versions "$2" lt 1:6.6p1-5pexip4; then
-	   set_config_option MaxSessions 10
-	fi
-	if dpkg --compare-versions "$2" lt 1:7.1p1-0pexip2; then
-	   set_config_option ClientAliveInterval 180
-	fi
-	if dpkg --compare-versions "$2" lt 1:7.4p1-0pexip2; then
-	   remove_config_option KeyRegenerationInterval
-	   remove_config_option ServerKeyBits
-	   remove_config_option RSAAuthentication
-	   remove_config_option RhostsRSAAuthentication
-	   set_config_option Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com
-	fi
-	if dpkg --compare-versions "$2" lt 1:7.5p1-0pexip2; then
-	   remove_config_option UsePrivilegeSeparation
-	fi
-	if dpkg --compare-versions "$2" lt-nl 1:7.9p1-5 && \
-	   [ -f /etc/ssh/moduli.dpkg-bak ]; then
-	    # Handle /etc/ssh/moduli being moved from openssh-client to
-	    # openssh-server.  If there were no user modifications, then we
-	    # don't need to do anything special here; but if there were,
-	    # then the dpkg-maintscript-helper calls from openssh-client's
-	    # maintainer scripts will have saved the old file as .dpkg-bak,
-	    # which we now move back into place.
-	    mv /etc/ssh/moduli.dpkg-bak /etc/ssh/moduli
-	fi
-	if dpkg --compare-versions "$2" lt-nl 1:8.6p1-0pexip3; then
-	    # Remove legacy DSA host key
-	    rm -f /etc/ssh/ssh_host_dsa_key
-	    rm -f /etc/ssh/ssh_host_dsa_key.pub
 	fi
 fi
 
