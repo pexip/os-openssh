@@ -50,18 +50,14 @@ Index: openssh/cipher.c
  
  #include "openbsd-compat/openssl-compat.h"
  
-@@ -111,8 +112,38 @@ static const struct sshcipher ciphers[]
+@@ -111,8 +112,36 @@ static const struct sshcipher ciphers[]
  	{ NULL,			0, 0, 0, 0, 0, NULL }
  };
  
 +static const struct sshcipher ciphers_fips140_2[] = {
-+ 	{ "none",		8, 0, 0, 0, CFLAG_NONE, NULL },
-+
 +	{ "aes128-cbc",		16, 16, 0, 0, CFLAG_CBC, EVP_aes_128_cbc },
 +	{ "aes192-cbc",		16, 24, 0, 0, CFLAG_CBC, EVP_aes_192_cbc },
 +	{ "aes256-cbc",		16, 32, 0, 0, CFLAG_CBC, EVP_aes_256_cbc },
-+	{ "rijndael-cbc@lysator.liu.se",
-+				16, 32, 0, 0, CFLAG_CBC, EVP_aes_256_cbc },
 +	{ "aes128-ctr",		16, 16, 0, 0, 0, EVP_aes_128_ctr },
 +	{ "aes192-ctr",		16, 24, 0, 0, 0, EVP_aes_192_ctr },
 +	{ "aes256-ctr",		16, 32, 0, 0, 0, EVP_aes_256_ctr },
@@ -71,6 +67,8 @@ Index: openssh/cipher.c
 +	{ "aes256-gcm@openssh.com",
 +				16, 32, 12, 16, 0, EVP_aes_256_gcm },
 +# endif /* OPENSSL_HAVE_EVPGCM */
++ 	{ "none",		8, 0, 0, 0, CFLAG_NONE, NULL },
++
 + 	{ NULL,			0, 0, 0, 0, 0, NULL }
 +};
 +
@@ -89,7 +87,7 @@ Index: openssh/cipher.c
  /* Returns a comma-separated list of supported ciphers. */
  char *
  cipher_alg_list(char sep, int auth_only)
-@@ -121,7 +152,7 @@ cipher_alg_list(char sep, int auth_only)
+@@ -121,7 +150,7 @@ cipher_alg_list(char sep, int auth_only)
  	size_t nlen, rlen = 0;
  	const struct sshcipher *c;
  
@@ -98,7 +96,7 @@ Index: openssh/cipher.c
  		if ((c->flags & CFLAG_INTERNAL) != 0)
  			continue;
  		if (auth_only && c->auth_len == 0)
-@@ -193,7 +224,7 @@ const struct sshcipher *
+@@ -193,7 +222,7 @@ const struct sshcipher *
  cipher_by_name(const char *name)
  {
  	const struct sshcipher *c;
@@ -270,16 +268,17 @@ Index: openssh/mac.c
  
  #include "openbsd-compat/openssl-compat.h"
  
-@@ -82,6 +83,25 @@ static const struct macalg macs[] = {
+@@ -82,6 +83,26 @@ static const struct macalg macs[] = {
  	{ NULL,					0, 0, 0, 0, 0, 0 }
  };
  
 +static const struct macalg macs_fips140_2[] = {
 +	{ "hmac-sha1",				SSH_DIGEST, SSH_DIGEST_SHA1, 0, 0, 0, 0 },
-+#ifdef HAVE_EVP_SHA256
 +	{ "hmac-sha2-256",			SSH_DIGEST, SSH_DIGEST_SHA256, 0, 0, 0, 0 },
 +	{ "hmac-sha2-512",			SSH_DIGEST, SSH_DIGEST_SHA512, 0, 0, 0, 0 },
-+#endif
++	{ "hmac-sha1-etm@openssh.com",		SSH_DIGEST, SSH_DIGEST_SHA1, 0, 0, 0, 1 },
++	{ "hmac-sha2-256-etm@openssh.com",	SSH_DIGEST, SSH_DIGEST_SHA256, 0, 0, 0, 1 },
++	{ "hmac-sha2-512-etm@openssh.com",	SSH_DIGEST, SSH_DIGEST_SHA512, 0, 0, 0, 1 },
 +	{ NULL,					0, 0, 0, 0, 0, 0 }
 +};
 +
@@ -296,7 +295,7 @@ Index: openssh/mac.c
  /* Returns a list of supported MACs separated by the specified char. */
  char *
  mac_alg_list(char sep)
-@@ -90,7 +110,7 @@ mac_alg_list(char sep)
+@@ -90,7 +111,7 @@ mac_alg_list(char sep)
  	size_t nlen, rlen = 0;
  	const struct macalg *m;
  
@@ -305,7 +304,7 @@ Index: openssh/mac.c
  		if (ret != NULL)
  			ret[rlen++] = sep;
  		nlen = strlen(m->name);
-@@ -129,7 +149,7 @@ mac_setup(struct sshmac *mac, char *name
+@@ -129,7 +150,7 @@ mac_setup(struct sshmac *mac, char *name
  {
  	const struct macalg *m;
  
@@ -370,11 +369,14 @@ Index: openssh/myproposal.h
  #define	KEX_SERVER_MAC \
  	"umac-64-etm@openssh.com," \
  	"umac-128-etm@openssh.com," \
-@@ -139,6 +170,13 @@
+@@ -139,6 +170,16 @@
  
  #define KEX_CLIENT_MAC KEX_SERVER_MAC
  
 +#define	KEX_FIPS_140_2_SERVER_MAC		\
++	"hmac-sha2-256-etm@openssh.com," \
++	"hmac-sha2-512-etm@openssh.com," \
++	"hmac-sha1-etm@openssh.com," \
 +	"hmac-sha2-256," \
 +	"hmac-sha2-512," \
 +	"hmac-sha1"
@@ -384,7 +386,7 @@ Index: openssh/myproposal.h
  /* Not a KEX value, but here so all the algorithm defaults are together */
  #define	SSH_ALLOWED_CA_SIGALGS	\
  	"ssh-ed25519," \
-@@ -148,6 +186,14 @@
+@@ -148,6 +189,14 @@
  	"sk-ecdsa-sha2-nistp256@openssh.com," \
  	"rsa-sha2-512," \
  	"rsa-sha2-256"

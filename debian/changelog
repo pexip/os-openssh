@@ -6,6 +6,7 @@ openssh (1:9.0p1-0pexip1) pexip; urgency=medium
     debian/patches/restore-tcp-wrappers.patch,
     debian/patches/selinux-role.patch,
     debian/patches/user-group-modes.patch: Refresh
+  * debian/patches/openssh-6.5p1-fips.patch: resync choices with non-FIPS
 
  -- John-Mark Bell <jmb@pexip.com>  Mon, 09 May 2022 15:00:41 +0100
 
