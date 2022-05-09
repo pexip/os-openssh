@@ -1,3 +1,14 @@
+openssh (1:9.0p1-0pexip1) pexip; urgency=medium
+
+  * New upstream release
+  * debian/patches/openssh-6.5p1-fips.patch,
+    debian/patches/package-versioning.patch,
+    debian/patches/restore-tcp-wrappers.patch,
+    debian/patches/selinux-role.patch,
+    debian/patches/user-group-modes.patch: Refresh
+
+ -- John-Mark Bell <jmb@pexip.com>  Mon, 09 May 2022 15:00:41 +0100
+
 openssh (1:8.8p1-0pexip2) pexip; urgency=medium
 
   * Disable Debian banner

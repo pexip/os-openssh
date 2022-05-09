@@ -444,7 +444,7 @@ Index: openssh/openbsd-compat/arc4random.c
 -	if (!rs_initialized)
 -		_rs_stir();
 -	while (datlen > 0) {
--		m = MIN(datlen, KEYSZ + IVSZ);
+-		m = MINIMUM(datlen, KEYSZ + IVSZ);
 -		_rs_rekey(dat, m);
 -		dat += m;
 -		datlen -= m;

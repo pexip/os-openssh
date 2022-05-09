@@ -67,8 +67,8 @@ index 9fa1404b3..d8363bdba 100644
 +	else if (role && (style = strchr(role, ':')) != NULL)
 +		*style++ = '\0';
  
- 	if (authctxt->attempt++ == 0) {
- 		/* setup auth context */
+ 	if (authctxt->attempt >= 1024)
+ 		auth_maxtries_exceeded(ssh);
 @@ -307,8 +312,9 @@ input_userauth_request(int type, u_int32_t seq, struct ssh *ssh)
  		    use_privsep ? " [net]" : "");
  		authctxt->service = xstrdup(service);
@@ -360,7 +360,7 @@ index ea4f9c584..60d72ffe7 100644
 +void platform_setusercontext_post_groups(struct passwd *, const char *);
  char *platform_get_krb5_client(const char *);
  char *platform_krb5_get_principal_name(const char *);
- int platform_sys_dir_uid(uid_t);
+ int platform_locked_account(struct passwd *);
 diff --git a/session.c b/session.c
 index 857f17b3c..b1796a803 100644
 --- a/session.c

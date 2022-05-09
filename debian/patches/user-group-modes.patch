@@ -47,9 +47,9 @@ index e81321b49..3bcc73766 100644
 -		    ((st.st_uid != 0 && st.st_uid != pw->pw_uid) ||
 -		    (st.st_mode & 022) != 0)) {
 +		    !secure_permissions(&st, pw->pw_uid)) {
- 			logit("Rhosts authentication refused for %.100s: bad modes for %.200s",
- 			    pw->pw_name, buf);
- 			auth_debug_add("Bad file modes for %.200s", buf);
+ 			logit("Rhosts authentication refused for %.100s: "
+ 			    "bad modes for %.200s", pw->pw_name, path);
+ 			auth_debug_add("Bad file modes for %.200s", path);
 diff --git a/auth.c b/auth.c
 index 3d31ec860..4152d9c44 100644
 --- a/auth.c
