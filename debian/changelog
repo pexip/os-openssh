@@ -1,3 +1,9 @@
+openssh (1:9.0p1-0pexip3) pexip-bullseye; urgency=medium
+
+  * Main bullseye build
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Fri, 24 Jun 2022 14:04:01 +0100
+
 openssh (1:9.0p1-0pexip2) pexip; urgency=medium
 
   * Initial bullseye build
