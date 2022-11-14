@@ -2902,7 +2902,7 @@ if test "x$openssl" = "xyes" ; then
 	AC_MSG_CHECKING([if programs using OpenSSL functions will link])
 	AC_LINK_IFELSE(
 		[AC_LANG_PROGRAM([[ #include <openssl/err.h> ]],
-		[[ ERR_load_crypto_strings(); ]])],
+		[[ ERR_clear_error(); ]])],
 		[
 			AC_MSG_RESULT([yes])
 		],
@@ -2913,7 +2913,7 @@ if test "x$openssl" = "xyes" ; then
 			AC_MSG_CHECKING([if programs using OpenSSL need -ldl])
 			AC_LINK_IFELSE(
 				[AC_LANG_PROGRAM([[ #include <openssl/err.h> ]],
-				[[ ERR_load_crypto_strings(); ]])],
+				[[ ERR_clear_error(); ]])],
 				[
 					AC_MSG_RESULT([yes])
 				],
@@ -3121,7 +3121,7 @@ if test "x$openssl" = "xyes" ; then
 	#include <openssl/objects.h>
 	#include <openssl/opensslv.h>
 		]], [[
-		EC_KEY *e = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+		EC_GROUP *e = EC_GROUP_new_by_curve_name(NID_X9_62_prime256v1);
 		const EVP_MD *m = EVP_sha256(); /* We need this too */
 		]])],
 		[ AC_MSG_RESULT([yes])
@@ -3139,7 +3139,7 @@ if test "x$openssl" = "xyes" ; then
 	#include <openssl/objects.h>
 	#include <openssl/opensslv.h>
 		]], [[
-		EC_KEY *e = EC_KEY_new_by_curve_name(NID_secp384r1);
+		EC_GROUP *e = EC_GROUP_new_by_curve_name(NID_secp384r1);
 		const EVP_MD *m = EVP_sha384(); /* We need this too */
 		]])],
 		[ AC_MSG_RESULT([yes])
@@ -3157,7 +3157,7 @@ if test "x$openssl" = "xyes" ; then
 	#include <openssl/objects.h>
 	#include <openssl/opensslv.h>
 		]], [[
-		EC_KEY *e = EC_KEY_new_by_curve_name(NID_secp521r1);
+		EC_GROUP *e = EC_GROUP_new_by_curve_name(NID_secp521r1);
 		const EVP_MD *m = EVP_sha512(); /* We need this too */
 		]])],
 		[ AC_MSG_RESULT([yes])
@@ -3172,7 +3172,7 @@ if test "x$openssl" = "xyes" ; then
 	#include <openssl/objects.h>
 	#include <openssl/opensslv.h>
 			]],[[
-			EC_KEY *e = EC_KEY_new_by_curve_name(NID_secp521r1);
+			EC_GROUP *e = EC_GROUP_new_by_curve_name(NID_secp521r1);
 			const EVP_MD *m = EVP_sha512(); /* We need this too */
 			exit(e == NULL || m == NULL);
 			]])],

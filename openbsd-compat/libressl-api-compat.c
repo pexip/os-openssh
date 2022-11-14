@@ -157,6 +157,7 @@
 #endif
 #include <openssl/dh.h>
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
 #ifndef HAVE_DSA_GET0_PQG
 void
 DSA_get0_pqg(const DSA *d, const BIGNUM **p, const BIGNUM **q, const BIGNUM **g)
@@ -609,6 +610,7 @@ EVP_MD_CTX_free(EVP_MD_CTX *ctx)
 	free(ctx);
 }
 #endif /* HAVE_EVP_MD_CTX_FREE */
+#endif /* OPENSSL_VERSION_NUMBER < 0x30000000L */
 
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
 //XXX(ossl3): separate method tests

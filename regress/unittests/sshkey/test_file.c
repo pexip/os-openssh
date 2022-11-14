@@ -50,8 +50,9 @@ sshkey_file_tests(void)
 	struct sshbuf *buf, *pw;
 #ifdef WITH_OPENSSL
 	BIGNUM *a, *b, *c, *ec_priv_key;
+	unsigned char *bnbuf;
 	char ec_pub_buf[1024];
-	size_t ec_pub_len = 0;
+	size_t ec_pub_len = 0, bnbuf_len = 0;
 	EC_POINT *ec_pub_key;
 	EC_GROUP *ec_group;
 #endif
@@ -286,8 +287,11 @@ sshkey_file_tests(void)
 	ASSERT_PTR_NE(ec_pub_key, NULL);
 	ASSERT_INT_EQ(EC_POINT_oct2point(ec_group, ec_pub_key, ec_pub_buf,
 	    ec_pub_len, NULL), 1);
-	c = EC_POINT_point2bn(ec_group, ec_pub_key,
-	    POINT_CONVERSION_UNCOMPRESSED, NULL, NULL);
+	bnbuf_len = EC_POINT_point2buf(ec_group, ec_pub_key,
+	    POINT_CONVERSION_UNCOMPRESSED, &bnbuf, NULL);
+	ASSERT_INT_NE(bnbuf_len, 0);
+	c = BN_bin2bn(bnbuf, bnbuf_len, NULL);
+	OPENSSL_free(bnbuf);
 	ASSERT_PTR_NE(c, NULL);
 	ec_priv_key = NULL;
 	ASSERT_INT_EQ(EVP_PKEY_get_bn_param(k1->ecdsa,

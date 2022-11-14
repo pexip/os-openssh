@@ -99,6 +99,7 @@ void ssh_aes_ctr_iv(EVP_CIPHER_CTX *, int, u_char *, size_t);
 # endif
 #endif
 
+#if (OPENSSL_VERSION_NUMBER < 0x30000000L)
 /* LibreSSL/OpenSSL 1.1x API compat */
 #ifndef HAVE_DSA_GET0_PQG
 void DSA_get0_pqg(const DSA *d, const BIGNUM **p, const BIGNUM **q,
@@ -233,6 +234,9 @@ EVP_MD_CTX *EVP_MD_CTX_new(void);
 #ifndef HAVE_EVP_MD_CTX_free
 void EVP_MD_CTX_free(EVP_MD_CTX *ctx);
 #endif /* HAVE_EVP_MD_CTX_free */
+#else
+#  define EVP_CIPHER_CTX_get_iv EVP_CIPHER_CTX_get_updated_iv
+#endif /* OPENSSL_VERSION_NUMBER < 0x30000000L */
 
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
 //XXX(ossl3): test for each method separately
