@@ -1,3 +1,9 @@
+openssh (1:9.0p1-0pexip5) pexip-bullseye; urgency=medium
+
+  * OpenSSL 3 support
+
+ -- John-Mark Bell <jmb@pexip.com>  Mon, 14 Nov 2022 16:00:18 +0000
+
 openssh (1:9.0p1-0pexip4) pexip-bullseye; urgency=medium
 
   * Bullseye rebuild for ARM64 inclusion
