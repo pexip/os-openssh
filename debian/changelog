@@ -1,4 +1,4 @@
-openssh (1:9.0p1-0pexip5) pexip-bullseye; urgency=medium
+openssh (1:9.0p1-0pexip5) pexip-bullseye-openssl3; urgency=medium
 
   * OpenSSL 3 support
 
