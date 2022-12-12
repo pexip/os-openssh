@@ -1,3 +1,9 @@
+openssh (1:9.0p1-0pexip6) pexip-bullseye-openssl3; urgency=medium
+
+  * Reinstate DebianBanner
+
+ -- John-Mark Bell <jmb@pexip.com>  Mon, 12 Dec 2022 20:31:55 +0000
+
 openssh (1:9.0p1-0pexip5) pexip-bullseye-openssl3; urgency=medium
 
   * OpenSSL 3 support
