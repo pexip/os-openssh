@@ -27,4 +27,5 @@ revert-ipqos-defaults.patch
 
 # Extra patches for Pexip needs
 extra-config.patch
+openssl3-support.patch
 openssh-6.5p1-fips.patch
