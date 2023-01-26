@@ -1,3 +1,9 @@
+openssh (1:9.0p1-0pexip7) pexip; urgency=medium
+
+  * Merge openssl3 changes to bullseye
+
+ -- Steve McIntyre <steve.mcintyre@pexip.com>  Thu, 26 Jan 2023 16:04:23 +0000
+
 openssh (1:9.0p1-0pexip6) pexip-bullseye-openssl3; urgency=medium
 
   * Reinstate DebianBanner
