@@ -1,3 +1,9 @@
+openssh (1:9.0p1-0pexip8) pexip; urgency=medium
+
+  * Fix up openssl3-support.patch move the debian/rules chunk out.
+
+ -- Steve McIntyre <steve.mcintyre@pexip.com>  Thu, 26 Jan 2023 16:40:19 +0000
+
 openssh (1:9.0p1-0pexip7) pexip; urgency=medium
 
   * Merge openssl3 changes to bullseye

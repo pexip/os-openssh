@@ -106,6 +106,9 @@ confflags_udeb += --with-ldflags='-Wl,--as-needed'
 
 # START PEXIP CHANGES
 confflags += --disable-security-key # disable FIDO support
+#XXX(ossl3): PKCS#11 needs rewriting
+confflags += --disable-pkcs11
+confflags_udeb += --disable-pkcs11
 confflags += --without-tcp-wrappers
 cflags += -I/usr/lib/ssl/fips-2.0/include
 cflags_udeb += -I/usr/lib/ssl/fips-2.0/include
