@@ -1,3 +1,9 @@
+openssh (1:9.0p1-0pexip9) pexip; urgency=medium
+
+  * Initialise BIGNUM pointers in mm_answer_moduli in openssl3-support.patch
+
+ -- John-Mark Bell <jmb@pexip.com>  Wed, 05 Apr 2023 15:03:27 +0100
+
 openssh (1:9.0p1-0pexip8) pexip; urgency=medium
 
   * Fix up openssl3-support.patch move the debian/rules chunk out.
