@@ -1,3 +1,9 @@
+openssh (1:9.0p1-0pexip10) pexip; urgency=medium
+
+  * Tweak sshd_config to add sshd_config.d
+
+ -- Steve McIntyre <steve.mcintyre@pexip.com>  Fri, 14 Jul 2023 15:19:49 +0100
+
 openssh (1:9.0p1-0pexip9) pexip; urgency=medium
 
   * Initialise BIGNUM pointers in mm_answer_moduli in openssl3-support.patch
