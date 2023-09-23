@@ -17,16 +17,16 @@ case $1 in
 		for ext in .ucf-new .ucf-old .ucf-dist ""; do
 			rm -f "/etc/ssh/sshd_config$ext"
 		done
-		if which ucf >/dev/null 2>&1; then
+		if command -v ucf >/dev/null 2>&1; then
 			ucf --purge /etc/ssh/sshd_config
 		fi
-		if which ucfr >/dev/null 2>&1; then
+		if command -v ucfr >/dev/null 2>&1; then
 			ucfr --purge openssh-server /etc/ssh/sshd_config
 		fi
 		rm -f /etc/ssh/sshd_not_to_be_run
 		[ ! -d /etc/ssh ] || rmdir --ignore-fail-on-non-empty /etc/ssh
 
-		if which deluser >/dev/null 2>&1; then
+		if command -v deluser >/dev/null 2>&1; then
 			deluser --quiet sshd > /dev/null || true
 		fi
 		;;

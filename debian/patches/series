@@ -21,8 +21,11 @@ gnome-ssh-askpass2-icon.patch
 systemd-readiness.patch
 debian-config.patch
 restore-authorized_keys2.patch
-conch-old-privkey-format.patch
 revert-ipqos-defaults.patch
-revert-x32-sandbox-breakage.patch
-ssh-copy-id-heredoc-syntax.patch
-ssh-agent-double-free.patch
+maxhostnamelen.patch
+conch-ssh-rsa.patch
+systemd-socket-activation.patch
+remove-spurious-ssh-agent-options.patch
+CVE-2023-38408-1.patch
+CVE-2023-38408-2.patch
+CVE-2023-38408-3.patch

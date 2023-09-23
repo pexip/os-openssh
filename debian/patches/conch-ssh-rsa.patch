@@ -1,0 +1,42 @@
+From 2df31e50f4cd159978c99055ed2d54b98a5ec7e4 Mon Sep 17 00:00:00 2001
+From: Colin Watson <cjwatson@debian.org>
+Date: Tue, 15 Feb 2022 18:25:35 +0000
+Subject: Work around RSA SHA-2 signature issues in conch
+
+This was supposed to be fixed in Twisted upstream
+(https://twistedmatrix.com/trac/ticket/9765), and that fix is in Debian
+now.  However, regression tests still seem to fail in GitLab CI but not
+locally (see e.g.
+https://salsa.debian.org/ssh-team/openssh/-/jobs/3513178).  Leave this
+in place for now until we figure out what's wrong.
+
+Forwarded: not-needed
+Last-Update: 2022-11-14
+
+Patch-Name: conch-ssh-rsa.patch
+---
+ regress/test-exec.sh | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/regress/test-exec.sh b/regress/test-exec.sh
+index a56108179..45ef82314 100644
+--- a/regress/test-exec.sh
++++ b/regress/test-exec.sh
+@@ -682,6 +682,17 @@ REGRESS_INTEROP_CONCH=no
+ if test -x "$CONCH" ; then
+ 	REGRESS_INTEROP_CONCH=yes
+ fi
++case "$SCRIPT" in
++*conch*)	;;
++*)		REGRESS_INTEROP_CONCH=no
++esac
++
++if test "$REGRESS_INTEROP_CONCH" = "yes" ; then
++	# Work around missing support for RSA SHA-2 signatures:
++	# https://twistedmatrix.com/trac/ticket/9765
++	echo HostKeyAlgorithms +ssh-rsa >> $OBJ/sshd_config
++	echo PubkeyAcceptedAlgorithms +ssh-rsa >> $OBJ/sshd_config
++fi
+ 
+ # If PuTTY is present, new enough and we are running a PuTTY test, prepare
+ # keys and configuration.

@@ -1,0 +1,138 @@
+From 4cedd1c9acac0fba598db2eaf43278dfe8e53ef0 Mon Sep 17 00:00:00 2001
+From: Steve Langasek <steve.langasek@ubuntu.com>
+Date: Thu, 1 Sep 2022 16:03:37 +0100
+Subject: Support systemd socket activation
+
+Unlike inetd socket activation, with systemd socket activation the
+supervisor passes the listened-on socket to the child process and lets
+the child process handle the accept().  This lets us do delayed start
+of the sshd daemon without becoming incompatible with config options
+like ClientAliveCountMax.
+
+Last-Update: 2022-09-01
+
+Patch-Name: systemd-socket-activation.patch
+---
+ sshd.c | 89 +++++++++++++++++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 75 insertions(+), 14 deletions(-)
+
+diff --git a/sshd.c b/sshd.c
+index 0a4eefe01..fc22fcb62 100644
+--- a/sshd.c
++++ b/sshd.c
+@@ -141,10 +141,16 @@ int deny_severity;
+ #endif /* LIBWRAP */
+ 
+ /* Re-exec fds */
+-#define REEXEC_DEVCRYPTO_RESERVED_FD	(STDERR_FILENO + 1)
+-#define REEXEC_STARTUP_PIPE_FD		(STDERR_FILENO + 2)
+-#define REEXEC_CONFIG_PASS_FD		(STDERR_FILENO + 3)
+-#define REEXEC_MIN_FREE_FD		(STDERR_FILENO + 4)
++#ifdef HAVE_SYSTEMD
++#define SYSTEMD_OFFSET sd_listen_fds(0)
++#else
++#define SYSTEMD_OFFSET 0
++#endif
++
++#define REEXEC_DEVCRYPTO_RESERVED_FD	(STDERR_FILENO + 1 + SYSTEMD_OFFSET)
++#define REEXEC_STARTUP_PIPE_FD		(STDERR_FILENO + 2 + SYSTEMD_OFFSET)
++#define REEXEC_CONFIG_PASS_FD		(STDERR_FILENO + 3 + SYSTEMD_OFFSET)
++#define REEXEC_MIN_FREE_FD		(STDERR_FILENO + 4 + SYSTEMD_OFFSET)
+ 
+ extern char *__progname;
+ 
+@@ -1025,6 +1031,48 @@ server_accept_inetd(int *sock_in, int *sock_out)
+ 	debug("inetd sockets after dupping: %d, %d", *sock_in, *sock_out);
+ }
+ 
++#ifdef HAVE_SYSTEMD
++/*
++ * Configure our socket fds that were passed from systemd
++ */
++static void
++setup_systemd_socket(int listen_sock)
++{
++	int ret;
++	struct sockaddr_storage addr;
++	socklen_t len = sizeof(addr);
++	char ntop[NI_MAXHOST], strport[NI_MAXSERV];
++
++	if (getsockname(listen_sock, (struct sockaddr *)&addr, &len) != 0)
++		return;
++
++	if (((struct sockaddr *)&addr)->sa_family != AF_INET
++	    && ((struct sockaddr *)&addr)->sa_family != AF_INET6)
++		return;
++	if (num_listen_socks >= MAX_LISTEN_SOCKS)
++		fatal("Too many listen sockets. "
++		    "Enlarge MAX_LISTEN_SOCKS");
++	if ((ret = getnameinfo((struct sockaddr *)&addr, len, ntop,
++	                       sizeof(ntop), strport, sizeof(strport),
++	                       NI_NUMERICHOST|NI_NUMERICSERV)) != 0) {
++		error("getnameinfo failed: %.100s",
++		    ssh_gai_strerror(ret));
++		return;
++	}
++	if (set_nonblock(listen_sock) == -1) {
++		close(listen_sock);
++		return;
++	}
++	/* Socket options */
++	set_reuseaddr(listen_sock);
++
++	listen_socks[num_listen_socks] = listen_sock;
++	num_listen_socks++;
++
++	logit("Server listening on %s port %s.", ntop, strport);
++}
++#endif
++
+ /*
+  * Listen for TCP connections
+  */
+@@ -1104,22 +1152,35 @@ static void
+ server_listen(void)
+ {
+ 	u_int i;
++#ifdef HAVE_SYSTEMD
++	int systemd_socket_count;
++#endif
+ 
+ 	/* Initialise per-source limit tracking. */
+ 	srclimit_init(options.max_startups, options.per_source_max_startups,
+ 	    options.per_source_masklen_ipv4, options.per_source_masklen_ipv6);
+ 
+-	for (i = 0; i < options.num_listen_addrs; i++) {
+-		listen_on_addrs(&options.listen_addrs[i]);
+-		freeaddrinfo(options.listen_addrs[i].addrs);
+-		free(options.listen_addrs[i].rdomain);
+-		memset(&options.listen_addrs[i], 0,
+-		    sizeof(options.listen_addrs[i]));
++#ifdef HAVE_SYSTEMD
++	systemd_socket_count = sd_listen_fds(0);
++	if (systemd_socket_count > 0)
++	{
++		int i;
++		for (i = 0; i < systemd_socket_count; i++)
++			setup_systemd_socket(SD_LISTEN_FDS_START + i);
++	} else
++#endif
++	{
++		for (i = 0; i < options.num_listen_addrs; i++) {
++			listen_on_addrs(&options.listen_addrs[i]);
++			freeaddrinfo(options.listen_addrs[i].addrs);
++			free(options.listen_addrs[i].rdomain);
++			memset(&options.listen_addrs[i], 0,
++			    sizeof(options.listen_addrs[i]));
++		}
++		free(options.listen_addrs);
++		options.listen_addrs = NULL;
++		options.num_listen_addrs = 0;
+ 	}
+-	free(options.listen_addrs);
+-	options.listen_addrs = NULL;
+-	options.num_listen_addrs = 0;
+-
+ 	if (!num_listen_socks)
+ 		fatal("Cannot bind any address.");
+ }

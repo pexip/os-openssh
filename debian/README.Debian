@@ -181,26 +181,26 @@ If you do this, note that you will need to stop sshd being started in the
 normal way ('update-rc.d ssh disable') and that you will need to restart
 this sshd manually on upgrades.
 
-Per-connection sshd instances with systemd
-------------------------------------------
+Socket-based activation with systemd
+------------------------------------
 
-If you want to reconfigure systemd to listen on port 22 itself and launch an
-instance of sshd for each connection (inetd-style socket activation), then
-you can run:
+If you want to reconfigure systemd to listen on port 22 itself and launch
+sshd on connection (systemd-style socket activation), then you can run:
 
-  systemctl stop ssh.service
+  systemctl disable --now ssh.service
   systemctl start ssh.socket
 
-To make this permanent:
+To roll back this change, run:
 
-  systemctl disable ssh.service
+  systemctl stop ssh.socket
+  systemctl enable --now ssh.service
+
+Or if you want to make this change permanent:
+
   systemctl enable ssh.socket
 
 This may be appropriate in environments where minimal footprint is critical
-(e.g. cloud guests).  Be aware that this bypasses MaxStartups, and systemd's
-MaxConnections cannot quite replace this as it cannot distinguish between
-authenticated and unauthenticated connections; see
-https://bugzilla.redhat.com/show_bug.cgi?id=963268 for more discussion.
+(e.g. cloud guests).
 
 The provided ssh.socket unit file sets ListenStream=22.  If you need to have
 it listen on a different address or port, then you will need to do this as

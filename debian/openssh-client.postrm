@@ -13,7 +13,7 @@ case $1 in
 		rm -f /etc/ssh/ssh_known_hosts /etc/ssh/ssh_known_hosts2
 		[ ! -d /etc/ssh ] || rmdir --ignore-fail-on-non-empty /etc/ssh
 
-		if which delgroup >/dev/null 2>&1; then
+		if command -v delgroup >/dev/null 2>&1; then
 			delgroup --quiet ssh > /dev/null || true
 		fi
 		;;

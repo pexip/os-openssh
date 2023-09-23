@@ -1,0 +1,6 @@
+Name: ssh-askpass
+Link: /usr/bin/ssh-askpass
+Alternative: /usr/lib/openssh/gnome-ssh-askpass
+Dependents:
+  /usr/share/man/man1/ssh-askpass.1.gz ssh-askpass.1.gz /usr/share/man/man1/gnome-ssh-askpass.1.gz
+Priority: 30

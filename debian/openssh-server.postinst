@@ -15,10 +15,9 @@ get_config_option() {
 	[ -f /etc/ssh/sshd_config ] || return
 
 	# TODO: actually only one '=' allowed after option
-	perl -lne '
-		s/[[:space:]]+/ /g; s/[[:space:]]+$//;
-		print if s/^[[:space:]]*'"$option"'[[:space:]=]+//i' \
-	   /etc/ssh/sshd_config
+	sed -E -n -e 's/[[:space:]]+/ /g' -e 's/[[:space:]]+$//' \
+		-e 's/^[[:space:]]*'"$option"'[[:space:]=]+//Ip' \
+		/etc/ssh/sshd_config
 }
 
 
@@ -49,7 +48,7 @@ create_key() {
 		printf %s "$msg"
 		ssh-keygen -q -f "$file" -N '' "$@"
 		echo
-		if which restorecon >/dev/null 2>&1; then
+		if command -v restorecon >/dev/null 2>&1; then
 			restorecon "$file" "$file.pub"
 		fi
 		ssh-keygen -l -f "$file.pub"
@@ -92,7 +91,7 @@ create_sshdconfig() {
 
 	trap cleanup EXIT
 	new_config="$(mktemp)"
-	cp -a /usr/share/openssh/sshd_config "$new_config"
+	cp -aZ /usr/share/openssh/sshd_config "$new_config"
 	if [ "$permit_root_login" != true ]; then
 		sed -i 's/^#*PermitRootLogin .*/PermitRootLogin yes/' \
 			"$new_config"
@@ -101,18 +100,11 @@ create_sshdconfig() {
 		sed -i 's/^#PasswordAuthentication .*/PasswordAuthentication no/' \
 			"$new_config"
 	fi
-	mkdir -p /etc/ssh
+	mkdir -pZ /etc/ssh
 	ucf --three-way --debconf-ok \
 		--sum-file /usr/share/openssh/sshd_config.md5sum \
 		"$new_config" /etc/ssh/sshd_config
 	ucfr openssh-server /etc/ssh/sshd_config
-}
-
-fix_statoverride() {
-# Remove an erronous override for sshd (we should have overridden ssh)
-	if dpkg-statoverride --list /usr/sbin/sshd >/dev/null; then
-		dpkg-statoverride --remove /usr/sbin/sshd
-	fi
 }
 
 setup_sshd_user() {
@@ -124,29 +116,7 @@ setup_sshd_user() {
 if [ "$action" = configure ]; then
 	create_sshdconfig
 	create_keys
-	fix_statoverride
 	setup_sshd_user
-	# Renamed to /etc/ssh/moduli in 2.9.9 (!)
-	if dpkg --compare-versions "$2" lt-nl 1:4.7p1-1; then
-	    rm -f /etc/ssh/primes
-	fi
-	if dpkg --compare-versions "$2" lt-nl 1:5.5p1-6; then
-	    rm -f /run/sshd/.placeholder
-	fi
-	if dpkg --compare-versions "$2" lt-nl 1:6.5p1-2 && \
-	   deb-systemd-helper debian-installed ssh.socket && \
-	   deb-systemd-helper --quiet was-enabled ssh.service && \
-	   deb-systemd-helper --quiet was-enabled ssh.socket; then
-	    # 1:6.5p1-1 mistakenly left both ssh.service and ssh.socket
-	    # enabled.
-	    deb-systemd-helper disable ssh.socket >/dev/null || true
-	fi
-	if dpkg --compare-versions "$2" lt-nl 1:6.5p1-3 && \
-	   [ -d /run/systemd/system ]; then
-	    # We must stop the sysvinit-controlled sshd before we can
-	    # restart it under systemd.
-	    start-stop-daemon --stop --quiet --oknodo --pidfile /run/sshd.pid --exec /usr/sbin/sshd || true
-	fi
 	if dpkg --compare-versions "$2" lt-nl 1:7.9p1-5 && \
 	   [ -f /etc/ssh/moduli.dpkg-bak ]; then
 	    # Handle /etc/ssh/moduli being moved from openssh-client to
@@ -156,6 +126,14 @@ if [ "$action" = configure ]; then
 	    # maintainer scripts will have saved the old file as .dpkg-bak,
 	    # which we now move back into place.
 	    mv /etc/ssh/moduli.dpkg-bak /etc/ssh/moduli
+	fi
+	if dpkg --compare-versions "$2" lt-nl 1:9.1p1-1~ && \
+	   deb-systemd-helper --quiet was-enabled ssh.socket && \
+	   [ -d /run/systemd/system ]
+	then
+		# migrate to systemd socket activation.
+		systemctl unmask ssh.service
+		systemctl disable ssh.service
 	fi
 fi
 

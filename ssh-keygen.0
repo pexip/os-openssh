@@ -7,9 +7,9 @@ SYNOPSIS
      ssh-keygen [-q] [-a rounds] [-b bits] [-C comment] [-f output_keyfile]
                 [-m format] [-N new_passphrase] [-O option]
                 [-t dsa | ecdsa | ecdsa-sk | ed25519 | ed25519-sk | rsa]
-                [-w provider]
+                [-w provider] [-Z cipher]
      ssh-keygen -p [-a rounds] [-f keyfile] [-m format] [-N new_passphrase]
-                [-P old_passphrase]
+                [-P old_passphrase] [-Z cipher]
      ssh-keygen -i [-f input_keyfile] [-m key_format]
      ssh-keygen -e [-f input_keyfile] [-m key_format]
      ssh-keygen -y [-f input_keyfile]
@@ -32,11 +32,14 @@ SYNOPSIS
      ssh-keygen -k -f krl_file [-u] [-s ca_public] [-z version_number]
                 file ...
      ssh-keygen -Q [-l] -f krl_file file ...
-     ssh-keygen -Y find-principals -s signature_file -f allowed_signers_file
-     ssh-keygen -Y check-novalidate -n namespace -s signature_file
-     ssh-keygen -Y sign -f key_file -n namespace file ...
-     ssh-keygen -Y verify -f allowed_signers_file -I signer_identity
-                -n namespace -s signature_file [-r revocation_file]
+     ssh-keygen -Y find-principals [-O option] -s signature_file
+                -f allowed_signers_file
+     ssh-keygen -Y match-principals -I signer_identity -f allowed_signers_file
+     ssh-keygen -Y check-novalidate [-O option] -n namespace -s signature_file
+     ssh-keygen -Y sign [-O option] -f key_file -n namespace file ...
+     ssh-keygen -Y verify [-O option] -f allowed_signers_file
+                -I signer_identity -n namespace -s signature_file
+                [-r revocation_file]
 
 DESCRIPTION
      ssh-keygen generates, manages and converts authentication keys for
@@ -93,20 +96,20 @@ DESCRIPTION
 
      The options are as follows:
 
-     -A      For each of the key types (rsa, dsa, ecdsa and ed25519) for which
-             host keys do not exist, generate the host keys with the default
-             key file path, an empty passphrase, default bits for the key
-             type, and default comment.  If -f has also been specified, its
-             argument is used as a prefix to the default path for the
-             resulting host key files.  This is used by /etc/rc to generate
-             new host keys.
+     -A      Generate host keys of all default key types (rsa, ecdsa, and
+             ed25519) if they do not already exist.  The host keys are
+             generated with the default key file path, an empty passphrase,
+             default bits for the key type, and default comment.  If -f has
+             also been specified, its argument is used as a prefix to the
+             default path for the resulting host key files.  This is used by
+             /etc/rc to generate new host keys.
 
      -a rounds
              When saving a private key, this option specifies the number of
-             KDF (key derivation function) rounds used.  Higher numbers result
-             in slower passphrase verification and increased resistance to
-             brute-force password cracking (should the keys be stolen).  The
-             default is 16 rounds.
+             KDF (key derivation function, currently bcrypt_pbkdf(3)) rounds
+             used.  Higher numbers result in slower passphrase verification
+             and increased resistance to brute-force password cracking (should
+             the keys be stolen).  The default is 16 rounds.
 
      -B      Show the bubblebabble digest of specified private or public key
              file.
@@ -170,11 +173,11 @@ DESCRIPTION
              hashed names.
 
      -h      When signing a key, create a host certificate instead of a user
-             certificate.  Please see the CERTIFICATES section for details.
+             certificate.  See the CERTIFICATES section for details.
 
      -I certificate_identity
-             Specify the key identity when signing a public key.  Please see
-             the CERTIFICATES section for details.
+             Specify the key identity when signing a public key.  See the
+             CERTIFICATES section for details.
 
      -i      This option will read an unencrypted private (or public) key file
              in the format specified by the -m option and print an OpenSSH
@@ -186,7 +189,8 @@ DESCRIPTION
              private key files will be written to the current directory for
              each downloaded key.  If multiple FIDO authenticators are
              attached, keys will be downloaded from the first touched
-             authenticator.
+             authenticator.  See the FIDO AUTHENTICATOR section for more
+             information.
 
      -k      Generate a KRL file.  In this mode, ssh-keygen will generate a
              KRL file at the location specified via the -f flag that revokes
@@ -237,7 +241,7 @@ DESCRIPTION
      -n principals
              Specify one or more principals (user or host names) to be
              included in a certificate when signing a key.  Multiple
-             principals may be specified, separated by commas.  Please see the
+             principals may be specified, separated by commas.  See the
              CERTIFICATES section for details.
 
      -O option
@@ -250,58 +254,29 @@ DESCRIPTION
              When performing moduli generation or screening, one of the
              options listed in the MODULI GENERATION section may be specified.
 
-             When generating a key that will be hosted on a FIDO
-             authenticator, this flag may be used to specify key-specific
-             options.  Those supported at present are:
+             When generating FIDO authenticator-backed keys, the options
+             listed in the FIDO AUTHENTICATOR section may be specified.
 
-             application
-                     Override the default FIDO application/origin string of
-                     M-bM-^@M-^\ssh:M-bM-^@M-^].  This may be useful when generating host or
-                     domain-specific resident keys.  The specified application
-                     string must begin with M-bM-^@M-^\ssh:M-bM-^@M-^].
+             When performing signature-related options using the -Y flag, the
+             following options are accepted:
 
-             challenge=path
-                     Specifies a path to a challenge string that will be
-                     passed to the FIDO token during key generation.  The
-                     challenge string may be used as part of an out-of-band
-                     protocol for key enrollment (a random challenge is used
-                     by default).
+             hashalg=algorithm
+                     Selects the hash algorithm to use for hashing the message
+                     to be signed.  Valid algorithms are M-bM-^@M-^\sha256M-bM-^@M-^] and
+                     M-bM-^@M-^\sha512.M-bM-^@M-^] The default is M-bM-^@M-^\sha512.M-bM-^@M-^]
 
-             device  Explicitly specify a fido(4) device to use, rather than
-                     letting the token middleware select one.
+             print-pubkey
+                     Print the full public key to standard output after
+                     signature verification.
 
-             no-touch-required
-                     Indicate that the generated private key should not
-                     require touch events (user presence) when making
-                     signatures.  Note that sshd(8) will refuse such
-                     signatures by default, unless overridden via an
-                     authorized_keys option.
-
-             resident
-                     Indicate that the key should be stored on the FIDO
-                     authenticator itself.  Resident keys may be supported on
-                     FIDO2 tokens and typically require that a PIN be set on
-                     the token prior to generation.  Resident keys may be
-                     loaded off the token using ssh-add(1).
-
-             user    A username to be associated with a resident key,
-                     overriding the empty default username.  Specifying a
-                     username may be useful when generating multiple resident
-                     keys for the same application name.
-
-             verify-required
-                     Indicate that this private key should require user
-                     verification for each signature.  Not all FIDO tokens
-                     support this option.  Currently PIN authentication is the
-                     only supported verification method, but other methods may
-                     be supported in the future.
-
-             write-attestation=path
-                     May be used at key generation time to record the
-                     attestation data returned from FIDO tokens during key
-                     generation.  Please note that this information is
-                     potentially sensitive.  By default, this information is
-                     discarded.
+             verify-time=timestamp
+                     Specifies a time to use when validating signatures
+                     instead of the current time.  The time may be specified
+                     as a date or time in the YYYYMMDD[Z] or in
+                     YYYYMMDDHHMM[SS][Z] formats.  Dates and times will be
+                     interpreted in the current system time zone unless
+                     suffixed with a Z character, which causes them to be
+                     interpreted in the UTC time zone.
 
              The -O option may be specified multiple times.
 
@@ -328,8 +303,8 @@ DESCRIPTION
              the specified public key file.
 
      -s ca_key
-             Certify (sign) a public key using the specified CA key.  Please
-             see the CERTIFICATES section for details.
+             Certify (sign) a public key using the specified CA key.  See the
+             CERTIFICATES section for details.
 
              When generating a KRL, -s specifies a path to a CA public key
              file used to revoke certificates directly by key ID or serial
@@ -344,9 +319,9 @@ DESCRIPTION
              signature variants are M-bM-^@M-^\ssh-rsaM-bM-^@M-^] (SHA1 signatures, not
              recommended), M-bM-^@M-^\rsa-sha2-256M-bM-^@M-^], and M-bM-^@M-^\rsa-sha2-512M-bM-^@M-^] (the default).
 
-     -U      When used in combination with -s, this option indicates that a CA
-             key resides in a ssh-agent(1).  See the CERTIFICATES section for
-             more information.
+     -U      When used in combination with -s or -Y sign, this option
+             indicates that a CA key resides in a ssh-agent(1).  See the
+             CERTIFICATES section for more information.
 
      -u      Update a KRL.  When specified with -k, keys listed via the
              command line are added to the existing KRL rather than a new KRL
@@ -359,24 +334,55 @@ DESCRIPTION
              or may consist of two times separated by a colon to indicate an
              explicit time interval.
 
-             The start time may be specified as the string M-bM-^@M-^\alwaysM-bM-^@M-^] to
-             indicate the certificate has no specified start time, a date in
-             YYYYMMDD format, a time in YYYYMMDDHHMM[SS] format, a relative
-             time (to the current time) consisting of a minus sign followed by
-             an interval in the format described in the TIME FORMATS section
-             of sshd_config(5).
+             The start time may be specified as:
+             M-bM-^@M-M-bM-^@M-"   The string M-bM-^@M-^\alwaysM-bM-^@M-^] to indicate the certificate has no
+                 specified start time.
+             M-bM-^@M-M-bM-^@M-"   A date or time in the system time zone formatted as YYYYMMDD
+                 or YYYYMMDDHHMM[SS].
+             M-bM-^@M-M-bM-^@M-"   A date or time in the UTC time zone as YYYYMMDDZ or
+                 YYYYMMDDHHMM[SS]Z.
+             M-bM-^@M-M-bM-^@M-"   A relative time before the current system time consisting of
+                 a minus sign followed by an interval in the format described
+                 in the TIME FORMATS section of sshd_config(5).
+             M-bM-^@M-M-bM-^@M-"   A raw seconds since epoch (Jan 1 1970 00:00:00 UTC) as a
+                 hexadecimal number beginning with M-bM-^@M-^\0xM-bM-^@M-^].
 
-             The end time may be specified as a YYYYMMDD date, a
-             YYYYMMDDHHMM[SS] time, a relative time starting with a plus
-             character or the string M-bM-^@M-^\foreverM-bM-^@M-^] to indicate that the
-             certificate has no expiry date.
+             The end time may be specified similarly to the start time:
+             M-bM-^@M-M-bM-^@M-"   The string M-bM-^@M-^\foreverM-bM-^@M-^] to indicate the certificate has no
+                 specified end time.
+             M-bM-^@M-M-bM-^@M-"   A date or time in the system time zone formatted as YYYYMMDD
+                 or YYYYMMDDHHMM[SS].
+             M-bM-^@M-M-bM-^@M-"   A date or time in the UTC time zone as YYYYMMDDZ or
+                 YYYYMMDDHHMM[SS]Z.
+             M-bM-^@M-M-bM-^@M-"   A relative time after the current system time consisting of a
+                 plus sign followed by an interval in the format described in
+                 the TIME FORMATS section of sshd_config(5).
+             M-bM-^@M-M-bM-^@M-"   A raw seconds since epoch (Jan 1 1970 00:00:00 UTC) as a
+                 hexadecimal number beginning with M-bM-^@M-^\0xM-bM-^@M-^].
 
-             For example: M-bM-^@M-^\+52w1dM-bM-^@M-^] (valid from now to 52 weeks and one day
-             from now), M-bM-^@M-^\-4w:+4wM-bM-^@M-^] (valid from four weeks ago to four weeks
-             from now), M-bM-^@M-^\20100101123000:20110101123000M-bM-^@M-^] (valid from 12:30 PM,
-             January 1st, 2010 to 12:30 PM, January 1st, 2011), M-bM-^@M-^\-1d:20110101M-bM-^@M-^]
-             (valid from yesterday to midnight, January 1st, 2011).
-             M-bM-^@M-^\-1m:foreverM-bM-^@M-^] (valid from one minute ago and never expiring).
+             For example:
+
+             +52w1d  Valid from now to 52 weeks and one day from now.
+
+             -4w:+4w
+                     Valid from four weeks ago to four weeks from now.
+
+             20100101123000:20110101123000
+                     Valid from 12:30 PM, January 1st, 2010 to 12:30 PM,
+                     January 1st, 2011.
+
+             20100101123000Z:20110101123000Z
+                     Similar, but interpreted in the UTC time zone rather than
+                     the system time zone.
+
+             -1d:20110101
+                     Valid from yesterday to midnight, January 1st, 2011.
+
+             0x1:0x2000000000
+                     Valid from roughly early 1970 to May 2033.
+
+             -1m:forever
+                     Valid from one minute ago and never expiring.
 
      -v      Verbose mode.  Causes ssh-keygen to print debugging messages
              about its progress.  This is helpful for debugging moduli
@@ -393,6 +399,12 @@ DESCRIPTION
              signature, provided using the -s flag in an authorized signers
              file provided using the -f flag.  The format of the allowed
              signers file is documented in the ALLOWED SIGNERS section below.
+             If one or more matching principals are found, they are returned
+             on standard output.
+
+     -Y match-principals
+             Find principal matching the principal name provided using the -I
+             flag in the authorized signers file specified using the -f flag.
              If one or more matching principals are found, they are returned
              on standard output.
 
@@ -441,6 +453,12 @@ DESCRIPTION
      -y      This option will read a private OpenSSH format file and print an
              OpenSSH public key to stdout.
 
+     -Z cipher
+             Specifies the cipher to use for encryption when writing an
+             OpenSSH-format private key file.  The list of available ciphers
+             may be obtained using "ssh -Q cipher".  The default is
+             M-bM-^@M-^\aes256-ctrM-bM-^@M-^].
+
      -z serial_number
              Specifies a serial number to be embedded in the certificate to
              distinguish this certificate from others from the same CA.  If
@@ -482,8 +500,7 @@ MODULI GENERATION
      generator option.  Valid generator values are 2, 3, and 5.
 
      Screened DH groups may be installed in /etc/moduli.  It is important that
-     this file contains moduli of a range of bit lengths and that both ends of
-     a connection share common moduli.
+     this file contains moduli of a range of bit lengths.
 
      A number of options are available for moduli generation and screening via
      the -O flag:
@@ -640,12 +657,76 @@ CERTIFICATES
      Finally, certificates may be defined with a validity lifetime.  The -V
      option allows specification of certificate start and end times.  A
      certificate that is presented at a time outside this range will not be
-     considered valid.  By default, certificates are valid from UNIX Epoch to
-     the distant future.
+     considered valid.  By default, certificates are valid from the UNIX Epoch
+     to the distant future.
 
      For certificates to be used for user or host authentication, the CA
-     public key must be trusted by sshd(8) or ssh(1).  Please refer to those
-     manual pages for details.
+     public key must be trusted by sshd(8) or ssh(1).  Refer to those manual
+     pages for details.
+
+FIDO AUTHENTICATOR
+     ssh-keygen is able to generate FIDO authenticator-backed keys, after
+     which they may be used much like any other key type supported by OpenSSH,
+     so long as the hardware authenticator is attached when the keys are used.
+     FIDO authenticators generally require the user to explicitly authorise
+     operations by touching or tapping them.  FIDO keys consist of two parts:
+     a key handle part stored in the private key file on disk, and a per-
+     device private key that is unique to each FIDO authenticator and that
+     cannot be exported from the authenticator hardware.  These are combined
+     by the hardware at authentication time to derive the real key that is
+     used to sign authentication challenges.  Supported key types are ecdsa-sk
+     and ed25519-sk.
+
+     The options that are valid for FIDO keys are:
+
+     application
+             Override the default FIDO application/origin string of M-bM-^@M-^\ssh:M-bM-^@M-^].
+             This may be useful when generating host or domain-specific
+             resident keys.  The specified application string must begin with
+             M-bM-^@M-^\ssh:M-bM-^@M-^].
+
+     challenge=path
+             Specifies a path to a challenge string that will be passed to the
+             FIDO authenticator during key generation.  The challenge string
+             may be used as part of an out-of-band protocol for key enrollment
+             (a random challenge is used by default).
+
+     device  Explicitly specify a fido(4) device to use, rather than letting
+             the authenticator middleware select one.
+
+     no-touch-required
+             Indicate that the generated private key should not require touch
+             events (user presence) when making signatures.  Note that sshd(8)
+             will refuse such signatures by default, unless overridden via an
+             authorized_keys option.
+
+     resident
+             Indicate that the key handle should be stored on the FIDO
+             authenticator itself.  This makes it easier to use the
+             authenticator on multiple computers.  Resident keys may be
+             supported on FIDO2 authenticators and typically require that a
+             PIN be set on the authenticator prior to generation.  Resident
+             keys may be loaded off the authenticator using ssh-add(1).
+             Storing both parts of a key on a FIDO authenticator increases the
+             likelihood of an attacker being able to use a stolen
+             authenticator device.
+
+     user    A username to be associated with a resident key, overriding the
+             empty default username.  Specifying a username may be useful when
+             generating multiple resident keys for the same application name.
+
+     verify-required
+             Indicate that this private key should require user verification
+             for each signature.  Not all FIDO authenticators support this
+             option.  Currently PIN authentication is the only supported
+             verification method, but other methods may be supported in the
+             future.
+
+     write-attestation=path
+             May be used at key generation time to record the attestation data
+             returned from FIDO authenticators during key generation.  This
+             information is potentially sensitive.  By default, this
+             information is discarded.
 
 KEY REVOCATION LISTS
      ssh-keygen is able to manage OpenSSH format Key Revocation Lists (KRLs).
@@ -718,7 +799,7 @@ ALLOWED SIGNERS
      keytype, base64-encoded key.  Empty lines and lines starting with a M-bM-^@M-^X#M-bM-^@M-^Y
      are ignored as comments.
 
-     The principals field is a pattern-list (See PATTERNS in ssh_config(5))
+     The principals field is a pattern-list (see PATTERNS in ssh_config(5))
      consisting of one or more comma-separated USER@DOMAIN identity patterns
      that are accepted for signing.  When verifying, the identity presented
      via the -I option must match a principals pattern in order for the
@@ -734,12 +815,24 @@ ALLOWED SIGNERS
              (CA) and that certificates signed by this CA may be accepted for
              verification.
 
-     namespaces="namespace-list"
+     namespaces=namespace-list
              Specifies a pattern-list of namespaces that are accepted for this
              key.  If this option is present, the signature namespace embedded
              in the signature object and presented on the verification
              command-line must match the specified list before the key will be
              considered acceptable.
+
+     valid-after=timestamp
+             Indicates that the key is valid for use at or after the specified
+             timestamp, which may be a date or time in the YYYYMMDD[Z] or
+             YYYYMMDDHHMM[SS][Z] formats.  Dates and times will be interpreted
+             in the current system time zone unless suffixed with a Z
+             character, which causes them to be interpreted in the UTC time
+             zone.
+
+     valid-before=timestamp
+             Indicates that the key is valid for use at or before the
+             specified timestamp.
 
      When verifying signatures made by certificates, the expected principal
      name must match both the principals pattern in the allowed signers file
@@ -806,4 +899,4 @@ AUTHORS
      created OpenSSH.  Markus Friedl contributed the support for SSH protocol
      versions 1.5 and 2.0.
 
-OpenBSD 6.8                    September 9, 2020                   OpenBSD 6.8
+OpenBSD 7.2                   September 10, 2022                   OpenBSD 7.2

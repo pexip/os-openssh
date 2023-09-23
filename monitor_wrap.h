@@ -1,4 +1,4 @@
-/* $OpenBSD: monitor_wrap.h,v 1.45 2020/08/27 01:06:18 djm Exp $ */
+/* $OpenBSD: monitor_wrap.h,v 1.49 2022/06/15 16:08:25 djm Exp $ */
 
 /*
  * Copyright 2002 Niels Provos <provos@citi.umich.edu>
@@ -40,7 +40,7 @@ struct sshkey;
 struct sshauthopt;
 struct sshkey_sig_details;
 
-void mm_log_handler(LogLevel, const char *, void *);
+void mm_log_handler(LogLevel, int, const char *, void *);
 int mm_is_monitor(void);
 #ifdef WITH_OPENSSL
 DH *mm_choose_dh(int, int, int);
@@ -54,7 +54,7 @@ char *mm_auth2_read_banner(void);
 int mm_auth_password(struct ssh *, char *);
 int mm_key_allowed(enum mm_keytype, const char *, const char *, struct sshkey *,
     int, struct sshauthopt **);
-int mm_user_key_allowed(struct ssh *, struct passwd *, struct sshkey *, int,
+int mm_user_key_allowed(struct ssh *ssh, struct passwd *, struct sshkey *, int,
     struct sshauthopt **);
 int mm_hostbased_key_allowed(struct ssh *, struct passwd *, const char *,
     const char *, struct sshkey *);

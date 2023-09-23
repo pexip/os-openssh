@@ -1,4 +1,4 @@
-From 164d1c9f11309d38273ac64e30eda2baa3733f78 Mon Sep 17 00:00:00 2001
+From dbc7024bb9fe29a5d2bd398219ae2fc5668826b8 Mon Sep 17 00:00:00 2001
 From: Richard Kettlewell <rjk@greenend.org.uk>
 Date: Sun, 9 Feb 2014 16:09:52 +0000
 Subject: Various keepalive extensions
@@ -16,7 +16,7 @@ keepalives.
 Author: Ian Jackson <ian@chiark.greenend.org.uk>
 Author: Matthew Vernon <matthew@debian.org>
 Author: Colin Watson <cjwatson@debian.org>
-Last-Update: 2020-02-21
+Last-Update: 2023-01-02
 
 Patch-Name: keepalive-extensions.patch
 ---
@@ -26,27 +26,27 @@ Patch-Name: keepalive-extensions.patch
  3 files changed, 34 insertions(+), 4 deletions(-)
 
 diff --git a/readconf.c b/readconf.c
-index b069333fa..3d0a812b3 100644
+index 4a39f5b66..9ac71133a 100644
 --- a/readconf.c
 +++ b/readconf.c
-@@ -176,6 +176,7 @@ typedef enum {
- 	oFingerprintHash, oUpdateHostkeys, oHostbasedKeyTypes,
- 	oPubkeyAcceptedKeyTypes, oCASignatureAlgorithms, oProxyJump,
- 	oSecurityKeyProvider,
+@@ -179,6 +179,7 @@ typedef enum {
+ 	oPubkeyAcceptedAlgorithms, oCASignatureAlgorithms, oProxyJump,
+ 	oSecurityKeyProvider, oKnownHostsCommand, oRequiredRSASize,
+ 	oEnableEscapeCommandline,
 +	oProtocolKeepAlives, oSetupTimeOut,
  	oIgnore, oIgnoredUnknownOption, oDeprecated, oUnsupported
  } OpCodes;
  
-@@ -326,6 +327,8 @@ static struct {
- 	{ "ignoreunknown", oIgnoreUnknown },
- 	{ "proxyjump", oProxyJump },
- 	{ "securitykeyprovider", oSecurityKeyProvider },
+@@ -339,6 +340,8 @@ static struct {
+ 	{ "knownhostscommand", oKnownHostsCommand },
+ 	{ "requiredrsasize", oRequiredRSASize },
+ 	{ "enableescapecommandline", oEnableEscapeCommandline },
 +	{ "protocolkeepalives", oProtocolKeepAlives },
 +	{ "setuptimeout", oSetupTimeOut },
  
  	{ NULL, oBadOption }
  };
-@@ -1534,6 +1537,8 @@ parse_keytypes:
+@@ -1772,6 +1775,8 @@ parse_pubkey_algos:
  		goto parse_flag;
  
  	case oServerAliveInterval:
@@ -55,7 +55,7 @@ index b069333fa..3d0a812b3 100644
  		intptr = &options->server_alive_interval;
  		goto parse_time;
  
-@@ -2266,8 +2271,13 @@ fill_default_options(Options * options)
+@@ -2654,8 +2659,13 @@ fill_default_options(Options * options)
  		options->rekey_interval = 0;
  	if (options->verify_host_key_dns == -1)
  		options->verify_host_key_dns = 0;
@@ -72,7 +72,7 @@ index b069333fa..3d0a812b3 100644
  		options->server_alive_count_max = 3;
  	if (options->control_master == -1)
 diff --git a/ssh_config.5 b/ssh_config.5
-index bd86d000c..3ceb800ba 100644
+index 43f3b642c..09905bff3 100644
 --- a/ssh_config.5
 +++ b/ssh_config.5
 @@ -275,9 +275,13 @@ If set to
@@ -90,7 +90,7 @@ index bd86d000c..3ceb800ba 100644
  The argument must be
  .Cm yes
  or
-@@ -1624,7 +1628,14 @@ from the server,
+@@ -1794,7 +1798,14 @@ from the server,
  will send a message through the encrypted
  channel to request a response from the server.
  The default
@@ -103,10 +103,10 @@ index bd86d000c..3ceb800ba 100644
 +and
 +.Cm SetupTimeOut
 +are Debian-specific compatibility aliases for this option.
- .It Cm SetEnv
- Directly specify one or more environment variables and their contents to
- be sent to the server.
-@@ -1704,6 +1715,12 @@ Specifies whether the system should send TCP keepalive messages to the
+ .It Cm SessionType
+ May be used to either request invocation of a subsystem on the remote system,
+ or to prevent the execution of a remote command at all.
+@@ -1908,6 +1919,12 @@ Specifies whether the system should send TCP keepalive messages to the
  other side.
  If they are sent, death of the connection or crash of one
  of the machines will be properly noticed.
@@ -120,10 +120,10 @@ index bd86d000c..3ceb800ba 100644
  connections will die if the route is down temporarily, and some people
  find it annoying.
 diff --git a/sshd_config.5 b/sshd_config.5
-index eabbe9e73..6457620bb 100644
+index 83f840511..eb58750a5 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
-@@ -1691,6 +1691,9 @@ This avoids infinitely hanging sessions.
+@@ -1830,6 +1830,9 @@ This avoids infinitely hanging sessions.
  .Pp
  To disable TCP keepalive messages, the value should be set to
  .Cm no .

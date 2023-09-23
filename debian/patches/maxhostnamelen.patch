@@ -1,0 +1,30 @@
+From 36b00b5f4d96d6d9db3fd9e418bd2d1f66e8e7fe Mon Sep 17 00:00:00 2001
+From: Svante Signell <svante.signell@gmail.com>
+Date: Fri, 5 Nov 2021 23:22:53 +0000
+Subject: Define MAXHOSTNAMELEN on GNU/Hurd
+
+Bug-Debian: https://bugs.debian.org/997030
+Last-Update: 2021-11-05
+
+Patch-Name: maxhostnamelen.patch
+---
+ defines.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/defines.h b/defines.h
+index 279e509aa..7225cbfab 100644
+--- a/defines.h
++++ b/defines.h
+@@ -136,6 +136,12 @@ enum
+ # endif
+ #endif /* HOST_NAME_MAX */
+ 
++#ifndef MAXHOSTNAMELEN
++# if defined(_POSIX_HOST_NAME_MAX)
++#  define MAXHOSTNAMELEN _POSIX_HOST_NAME_MAX
++# endif
++#endif /* MAXHOSTNAMELEN */
++
+ #if defined(HAVE_DECL_MAXSYMLINKS) && HAVE_DECL_MAXSYMLINKS == 0
+ # define MAXSYMLINKS 5
+ #endif

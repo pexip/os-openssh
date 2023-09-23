@@ -2,13 +2,10 @@ Source: openssh
 Section: net
 Priority: standard
 Maintainer: Debian OpenSSH Maintainers <debian-ssh@lists.debian.org>
-Build-Depends: autotools-dev,
-               debhelper (>= 9.20160709~),
-               debhelper-compat (= 9),
-               dh-autoreconf,
+Build-Depends: debhelper (>= 13.1~),
+               debhelper-compat (= 13),
                dh-exec,
                dh-runit (>= 2.8.8),
-               dpkg-dev (>= 1.16.1~),
                libaudit-dev [linux-any],
                libedit-dev,
                libfido2-dev (>= 1.5.0) [linux-any],
@@ -17,21 +14,21 @@ Build-Depends: autotools-dev,
                libpam0g-dev | libpam-dev,
                libselinux1-dev [linux-any],
                libssl-dev (>= 1.1.0g),
-               libsystemd-dev [linux-any],
+               libsystemd-dev [linux-any] | libelogind-dev [linux-any],
                libwrap0-dev | libwrap-dev,
                pkg-config,
-               zlib1g-dev (>= 1:1.2.3),
-Standards-Version: 4.1.0
+               zlib1g-dev,
+Standards-Version: 4.6.2
 Uploaders: Colin Watson <cjwatson@debian.org>,
            Matthew Vernon <matthew@debian.org>,
-Homepage: http://www.openssh.com/
+Homepage: https://www.openssh.com/
 Vcs-Git: https://salsa.debian.org/ssh-team/openssh.git
 Vcs-Browser: https://salsa.debian.org/ssh-team/openssh
+Rules-Requires-Root: no
 
 Package: openssh-client
 Architecture: any
-Depends: adduser (>= 3.10),
-         dpkg (>= 1.7.0),
+Depends: adduser,
          passwd,
          ${misc:Depends},
          ${shlibs:Depends},
@@ -45,8 +42,7 @@ Suggests: keychain,
           libpam-ssh,
           monkeysphere,
           ssh-askpass,
-Provides: rsh-client,
-          ssh-client,
+Provides: ssh-client,
 Multi-Arch: foreign
 Description: secure shell (SSH) client, for secure access to remote machines
  This is the portable version of OpenSSH, a free implementation of
@@ -75,15 +71,14 @@ Package: openssh-server
 Priority: optional
 Architecture: any
 Pre-Depends: ${misc:Pre-Depends},
-Depends: adduser (>= 3.9),
-         dpkg (>= 1.9.0),
-         libpam-modules (>= 0.72-9),
-         libpam-runtime (>= 0.76-14),
-         lsb-base (>= 4.1+Debian3),
+Depends: adduser,
+         libpam-modules,
+         libpam-runtime,
+         lsb-base,
          openssh-client (= ${binary:Version}),
          openssh-sftp-server,
          procps,
-         ucf (>= 0.28),
+         ucf,
          ${misc:Depends},
          ${shlibs:Depends},
 Recommends: default-logind | logind | libpam-systemd,
@@ -180,7 +175,6 @@ Description: OpenSSH regression tests
 Package: ssh
 Priority: optional
 Architecture: all
-Pre-Depends: dpkg (>= 1.17.5),
 Depends: openssh-client (>= ${binary:Version}),
          openssh-server (>= ${binary:Version}),
          ${misc:Depends},
@@ -214,7 +208,7 @@ Package-Type: udeb
 Section: debian-installer
 Priority: optional
 Architecture: any
-Depends: ${shlibs:Depends},
+Depends: ${shlibs:Depends}, ${misc:Depends},
 XB-Installer-Menu-Item: 99999
 Description: secure shell client for the Debian installer
  This is the portable version of OpenSSH, a free implementation of
@@ -229,7 +223,7 @@ Package-Type: udeb
 Section: debian-installer
 Priority: optional
 Architecture: any
-Depends: ${shlibs:Depends},
+Depends: ${shlibs:Depends}, ${misc:Depends},
 Description: secure shell server for the Debian installer
  This is the portable version of OpenSSH, a free implementation of
  the Secure Shell protocol as specified by the IETF secsh working

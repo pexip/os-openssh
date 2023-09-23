@@ -1,4 +1,4 @@
-From e8453621b2a26f8d6afec405ff60201749b01e5e Mon Sep 17 00:00:00 2001
+From 5d04f3ebd2825c03fa7c39e27c28bf3384345806 Mon Sep 17 00:00:00 2001
 From: Michael Biebl <biebl@debian.org>
 Date: Mon, 21 Dec 2015 16:08:47 +0000
 Subject: Add systemd readiness notification support
@@ -14,12 +14,12 @@ Patch-Name: systemd-readiness.patch
  2 files changed, 33 insertions(+)
 
 diff --git a/configure.ac b/configure.ac
-index bb435ec1f..5944299fa 100644
+index 0c59c8b50..23423e48d 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -4785,6 +4785,29 @@ AC_ARG_WITH([kerberos5],
- AC_SUBST([GSSLIBS])
+@@ -4915,6 +4915,29 @@ AC_SUBST([GSSLIBS])
  AC_SUBST([K5LIBS])
+ AC_SUBST([CHANNELLIBS])
  
 +# Check whether user wants systemd support
 +SYSTEMD_MSG="no"
@@ -47,7 +47,7 @@ index bb435ec1f..5944299fa 100644
  # Looking for programs, paths and files
  
  PRIVSEP_PATH=/var/empty
-@@ -5599,6 +5622,7 @@ echo "                   libldns support: $LDNS_MSG"
+@@ -5715,6 +5738,7 @@ echo "                   libldns support: $LDNS_MSG"
  echo "  Solaris process contract support: $SPC_MSG"
  echo "           Solaris project support: $SP_MSG"
  echo "         Solaris privilege support: $SPP_MSG"
@@ -56,10 +56,10 @@ index bb435ec1f..5944299fa 100644
  echo "           Translate v4 in v6 hack: $IPV4_IN6_HACK_MSG"
  echo "                  BSD Auth support: $BSD_AUTH_MSG"
 diff --git a/sshd.c b/sshd.c
-index 50f2726bf..fb9b7b7fb 100644
+index b4ee435e5..0a4eefe01 100644
 --- a/sshd.c
 +++ b/sshd.c
-@@ -85,6 +85,10 @@
+@@ -88,6 +88,10 @@
  #include <prot.h>
  #endif
  
@@ -70,7 +70,7 @@ index 50f2726bf..fb9b7b7fb 100644
  #include "xmalloc.h"
  #include "ssh.h"
  #include "ssh2.h"
-@@ -2076,6 +2080,11 @@ main(int ac, char **av)
+@@ -2094,6 +2098,11 @@ main(int ac, char **av)
  			}
  		}
  

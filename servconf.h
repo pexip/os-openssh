@@ -1,4 +1,4 @@
-/* $OpenBSD: servconf.h,v 1.146 2020/08/27 01:07:10 djm Exp $ */
+/* $OpenBSD: servconf.h,v 1.159 2023/01/17 09:44:48 djm Exp $ */
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -93,6 +93,7 @@ typedef struct {
 
 	char   *host_key_agent;		/* ssh-agent socket for host keys. */
 	char   *pid_file;		/* Where to put our pid */
+	char   *moduli_file;		/* moduli file for DH-GEX */
 	int     login_grace_time;	/* Disconnect if no auth in this time
 					 * (sec). */
 	int     permit_root_login;	/* PERMIT_*, see above */
@@ -118,13 +119,15 @@ typedef struct {
 	struct ForwardOptions fwd_opts;	/* forwarding options */
 	SyslogFacility log_facility;	/* Facility for system logging. */
 	LogLevel log_level;	/* Level for system logging. */
+	u_int	num_log_verbose;	/* Verbose log overrides */
+	char	**log_verbose;
 	int     hostbased_authentication;	/* If true, permit ssh2 hostbased auth */
 	int     hostbased_uses_name_from_packet_only; /* experimental */
-	char   *hostbased_key_types;	/* Key types allowed for hostbased */
+	char   *hostbased_accepted_algos; /* Algos allowed for hostbased */
 	char   *hostkeyalgorithms;	/* SSH2 server key types */
 	char   *ca_sign_algorithms;	/* Allowed CA signature algorithms */
 	int     pubkey_authentication;	/* If true, permit ssh2 pubkey authentication. */
-	char   *pubkey_key_types;	/* Key types allowed for public key */
+	char   *pubkey_accepted_algos;	/* Signature algos allowed for pubkey */
 	int	pubkey_auth_options;	/* -1 or mask of PUBKEYAUTH_* flags */
 	int     kerberos_authentication;	/* If true, permit Kerberos
 						 * authentication. */
@@ -143,7 +146,6 @@ typedef struct {
 	int     password_authentication;	/* If true, permit password
 						 * authentication. */
 	int     kbd_interactive_authentication;	/* If true, permit */
-	int     challenge_response_authentication;
 	int     permit_empty_passwd;	/* If false, do not permit empty
 					 * passwords. */
 	int     permit_user_env;	/* If true, read ~/.ssh/environment */
@@ -175,6 +177,9 @@ typedef struct {
 	int	max_startups_begin;
 	int	max_startups_rate;
 	int	max_startups;
+	int	per_source_max_startups;
+	int	per_source_masklen_ipv4;
+	int	per_source_masklen_ipv6;
 	int	max_authtries;
 	int	max_sessions;
 	char   *banner;			/* SSH-2 banner message */
@@ -224,13 +229,19 @@ typedef struct {
 	int	expose_userauth_info;
 	u_int64_t timing_secret;
 	char   *sk_provider;
+	int	required_rsa_size;	/* minimum size of RSA keys */
+
+	char	**channel_timeouts;	/* inactivity timeout by channel type */
+	u_int	num_channel_timeouts;
+
+	int	unused_connection_timeout;
 }       ServerOptions;
 
 /* Information about the incoming connection as used by Match */
 struct connection_info {
 	const char *user;
 	const char *host;	/* possibly resolved hostname */
-	const char *address; 	/* remote address */
+	const char *address;	/* remote address */
 	const char *laddress;	/* local address */
 	int lport;		/* local port */
 	const char *rdomain;	/* routing domain if available */
@@ -266,8 +277,8 @@ TAILQ_HEAD(include_list, include_item);
 		M_CP_STROPT(authorized_principals_file); \
 		M_CP_STROPT(authorized_principals_command); \
 		M_CP_STROPT(authorized_principals_command_user); \
-		M_CP_STROPT(hostbased_key_types); \
-		M_CP_STROPT(pubkey_key_types); \
+		M_CP_STROPT(hostbased_accepted_algos); \
+		M_CP_STROPT(pubkey_accepted_algos); \
 		M_CP_STROPT(ca_sign_algorithms); \
 		M_CP_STROPT(routing_domain); \
 		M_CP_STROPT(permit_user_env_allowlist); \
@@ -277,22 +288,26 @@ TAILQ_HEAD(include_list, include_item);
 		M_CP_STRARRAYOPT(allow_groups, num_allow_groups); \
 		M_CP_STRARRAYOPT(deny_groups, num_deny_groups); \
 		M_CP_STRARRAYOPT(accept_env, num_accept_env); \
+		M_CP_STRARRAYOPT(setenv, num_setenv); \
 		M_CP_STRARRAYOPT(auth_methods, num_auth_methods); \
 		M_CP_STRARRAYOPT(permitted_opens, num_permitted_opens); \
 		M_CP_STRARRAYOPT(permitted_listens, num_permitted_listens); \
+		M_CP_STRARRAYOPT(channel_timeouts, num_channel_timeouts); \
+		M_CP_STRARRAYOPT(log_verbose, num_log_verbose); \
 	} while (0)
 
 struct connection_info *get_connection_info(struct ssh *, int, int);
 void	 initialize_server_options(ServerOptions *);
 void	 fill_default_server_options(ServerOptions *);
 int	 process_server_config_line(ServerOptions *, char *, const char *, int,
-	     int *, struct connection_info *, struct include_list *includes);
+	    int *, struct connection_info *, struct include_list *includes);
 void	 process_permitopen(struct ssh *ssh, ServerOptions *options);
+void	 process_channel_timeouts(struct ssh *ssh, ServerOptions *);
 void	 load_server_config(const char *, struct sshbuf *);
 void	 parse_server_config(ServerOptions *, const char *, struct sshbuf *,
-	     struct include_list *includes, struct connection_info *);
+	    struct include_list *includes, struct connection_info *, int);
 void	 parse_server_match_config(ServerOptions *,
-	     struct include_list *includes, struct connection_info *);
+	    struct include_list *includes, struct connection_info *);
 int	 parse_server_match_testspec(struct connection_info *, char *);
 int	 server_match_spec_complete(struct connection_info *);
 void	 copy_set_server_options(ServerOptions *, ServerOptions *, int);

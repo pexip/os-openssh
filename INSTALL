@@ -1,8 +1,10 @@
+1. Prerequisites
 ----------------
 
-A C compiler.  Any C89 or better compiler should work.  Where supported,
-configure will attempt to enable the compiler's run-time integrity checking
-options.  Some notes about specific compilers:
+A C compiler.  Any C89 or better compiler that supports variadic macros
+should work.  Where supported, configure will attempt to enable the
+compiler's run-time integrity checking options.  Some notes about
+specific compilers:
  - clang: -ftrapv and -sanitize=integer require the compiler-rt runtime
   (CC=clang LDFLAGS=--rtlib=compiler-rt ./configure)
 
@@ -15,7 +17,7 @@ The remaining items are optional.
 
 A working installation of zlib:
 Zlib 1.1.4 or 1.2.1.2 or greater (earlier 1.2.x versions have problems):
-http://www.gzip.org/zlib/
+https://zlib.net/
 
 libcrypto from either of LibreSSL or OpenSSL.  Building without libcrypto
 is supported but severely restricts the available ciphers and algorithms.
@@ -196,11 +198,6 @@ it if lastlog is installed in a different place.
 --with-osfsia, --without-osfsia will enable or disable OSF1's Security
 Integration Architecture.  The default for OSF1 machines is enable.
 
---with-md5-passwords will enable the use of MD5 passwords. Enable this
-if your operating system uses MD5 passwords and the system crypt() does
-not support them directly (see the crypt(3/3c) man page). If enabled, the
-resulting binary will support both MD5 and traditional crypt passwords.
-
 --with-utmpx enables utmpx support. utmpx support is automatic for
 some platforms.
 
@@ -260,8 +257,8 @@ Replacing /etc/ssh with the correct path to the configuration directory.
 (${prefix}/etc or whatever you specified with --sysconfdir during
 configuration).
 
-If you have configured OpenSSH with EGD support, ensure that EGD is
-running and has collected some Entropy.
+If you have configured OpenSSH with EGD/prngd support, ensure that EGD or
+prngd is running and has collected some entropy first.
 
 For more information on configuration, please refer to the manual pages
 for sshd, ssh and ssh-agent.

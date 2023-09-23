@@ -1,4 +1,4 @@
-From a0c9f82b05d33f3e2cf8e5442cee47c09d1a1dd8 Mon Sep 17 00:00:00 2001
+From aedb5d2ee2799e3a95b6913721533d2c42c496b3 Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:10:18 +0000
 Subject: Various Debian-specific configuration changes
@@ -15,7 +15,7 @@ ssh: Enable GSSAPIAuthentication by default.
 
 ssh: Include /etc/ssh/ssh_config.d/*.conf.
 
-sshd: Enable PAM, disable ChallengeResponseAuthentication, and disable
+sshd: Enable PAM, disable KbdInteractiveAuthentication, and disable
 PrintMotd.
 
 sshd: Enable X11Forwarding.
@@ -26,27 +26,30 @@ sshd: Change sftp subsystem path to /usr/lib/openssh/sftp-server.
 
 sshd: Include /etc/ssh/sshd_config.d/*.conf.
 
+regress: Run tests with 'UsePAM yes', to match sshd_config.
+
 Document all of this.
 
 Author: Russ Allbery <rra@debian.org>
 Forwarded: not-needed
-Last-Update: 2020-10-18
+Last-Update: 2023-01-03
 
 Patch-Name: debian-config.patch
 ---
- readconf.c    |  2 +-
- ssh.1         | 24 ++++++++++++++++++++++++
- ssh_config    |  8 +++++++-
- ssh_config.5  | 26 +++++++++++++++++++++++++-
- sshd_config   | 18 ++++++++++++------
- sshd_config.5 | 29 +++++++++++++++++++++++++++++
- 6 files changed, 98 insertions(+), 9 deletions(-)
+ readconf.c           |  2 +-
+ regress/test-exec.sh |  1 +
+ ssh.1                | 24 ++++++++++++++++++++++++
+ ssh_config           |  8 +++++++-
+ ssh_config.5         | 26 +++++++++++++++++++++++++-
+ sshd_config          | 18 ++++++++++++------
+ sshd_config.5        | 29 +++++++++++++++++++++++++++++
+ 7 files changed, 99 insertions(+), 9 deletions(-)
 
 diff --git a/readconf.c b/readconf.c
-index f4f273c96..e676b6be6 100644
+index 18e814039..6c8ad919f 100644
 --- a/readconf.c
 +++ b/readconf.c
-@@ -2153,7 +2153,7 @@ fill_default_options(Options * options)
+@@ -2536,7 +2536,7 @@ fill_default_options(Options * options)
  	if (options->forward_x11 == -1)
  		options->forward_x11 = 0;
  	if (options->forward_x11_trusted == -1)
@@ -55,11 +58,23 @@ index f4f273c96..e676b6be6 100644
  	if (options->forward_x11_timeout == -1)
  		options->forward_x11_timeout = 1200;
  	/*
+diff --git a/regress/test-exec.sh b/regress/test-exec.sh
+index df43f0214..a56108179 100644
+--- a/regress/test-exec.sh
++++ b/regress/test-exec.sh
+@@ -539,6 +539,7 @@ cat << EOF > $OBJ/sshd_config
+ 	AcceptEnv		_XXX_TEST_*
+ 	AcceptEnv		_XXX_TEST
+ 	Subsystem	sftp	$SFTPSERVER
++	UsePAM			yes
+ EOF
+ 
+ # This may be necessary if /usr/src and/or /usr/obj are group-writable,
 diff --git a/ssh.1 b/ssh.1
-index 76ddd89b5..ad48fc8c8 100644
+index d07cd7840..395abd40b 100644
 --- a/ssh.1
 +++ b/ssh.1
-@@ -812,6 +812,16 @@ directive in
+@@ -847,6 +847,16 @@ directive in
  .Xr ssh_config 5
  for more information.
  .Pp
@@ -76,7 +91,7 @@ index 76ddd89b5..ad48fc8c8 100644
  .It Fl x
  Disables X11 forwarding.
  .Pp
-@@ -820,6 +830,20 @@ Enables trusted X11 forwarding.
+@@ -855,6 +865,20 @@ Enables trusted X11 forwarding.
  Trusted X11 forwardings are not subjected to the X11 SECURITY extension
  controls.
  .Pp
@@ -123,7 +138,7 @@ index 52aae8692..09a17cf18 100644
 +    HashKnownHosts yes
 +    GSSAPIAuthentication yes
 diff --git a/ssh_config.5 b/ssh_config.5
-index 96ca7a5df..6d6c59521 100644
+index 82d68650e..32851c984 100644
 --- a/ssh_config.5
 +++ b/ssh_config.5
 @@ -71,6 +71,29 @@ Since the first obtained value for each parameter is used, more
@@ -156,7 +171,7 @@ index 96ca7a5df..6d6c59521 100644
  The file contains keyword-argument pairs, one per line.
  Lines starting with
  .Ql #
-@@ -742,11 +765,12 @@ elapsed.
+@@ -802,11 +825,12 @@ elapsed.
  .It Cm ForwardX11Trusted
  If this option is set to
  .Cm yes ,
@@ -171,7 +186,7 @@ index 96ca7a5df..6d6c59521 100644
  from stealing or tampering with data belonging to trusted X11
  clients.
 diff --git a/sshd_config b/sshd_config
-index 2c48105f8..459c1b230 100644
+index ecfe8d026..677f97d5d 100644
 --- a/sshd_config
 +++ b/sshd_config
 @@ -10,6 +10,8 @@
@@ -188,17 +203,17 @@ index 2c48105f8..459c1b230 100644
  #PermitEmptyPasswords no
  
 -# Change to no to disable s/key passwords
--#ChallengeResponseAuthentication yes
+-#KbdInteractiveAuthentication yes
 +# Change to yes to enable challenge-response passwords (beware issues with
 +# some PAM modules and threads)
-+ChallengeResponseAuthentication no
++KbdInteractiveAuthentication no
  
  # Kerberos options
  #KerberosAuthentication no
 @@ -81,16 +84,16 @@ AuthorizedKeysFile	.ssh/authorized_keys
  # If you just want the PAM account and session checks to run without
  # PAM authentication, then enable this but set PasswordAuthentication
- # and ChallengeResponseAuthentication to 'no'.
+ # and KbdInteractiveAuthentication to 'no'.
 -#UsePAM no
 +UsePAM yes
  
@@ -229,7 +244,7 @@ index 2c48105f8..459c1b230 100644
  # Example of overriding settings on a per-user basis
  #Match User anoncvs
 diff --git a/sshd_config.5 b/sshd_config.5
-index 32ae46476..472001dd1 100644
+index b9a19c7bd..b13f7665b 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
 @@ -56,6 +56,35 @@ Arguments may optionally be enclosed in double quotes
@@ -247,7 +262,7 @@ index 32ae46476..472001dd1 100644
 +.It
 +.Cm Include /etc/ssh/sshd_config.d/*.conf
 +.It
-+.Cm ChallengeResponseAuthentication No no
++.Cm KbdInteractiveAuthentication No no
 +.It
 +.Cm X11Forwarding No yes
 +.It

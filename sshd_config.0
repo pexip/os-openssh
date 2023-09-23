@@ -207,16 +207,76 @@ DESCRIPTION
              Specifies which algorithms are allowed for signing of
              certificates by certificate authorities (CAs).  The default is:
 
-                   ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
-                   ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
+                   ssh-ed25519,ecdsa-sha2-nistp256,
+                   ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
+                   sk-ssh-ed25519@openssh.com,
+                   sk-ecdsa-sha2-nistp256@openssh.com,
+                   rsa-sha2-512,rsa-sha2-256
+
+             If the specified list begins with a M-bM-^@M-^X+M-bM-^@M-^Y character, then the
+             specified algorithms will be appended to the default set instead
+             of replacing them.  If the specified list begins with a M-bM-^@M-^X-M-bM-^@M-^Y
+             character, then the specified algorithms (including wildcards)
+             will be removed from the default set instead of replacing them.
 
              Certificates signed using other algorithms will not be accepted
              for public key or host-based authentication.
 
-     ChallengeResponseAuthentication
-             Specifies whether challenge-response authentication is allowed
-             (e.g. via PAM or through authentication styles supported in
-             login.conf(5)) The default is yes.
+     ChannelTimeout
+             Specifies whether and how quickly sshd(8) should close inactive
+             channels.  Timeouts are specified as one or more M-bM-^@M-^\type=intervalM-bM-^@M-^]
+             pairs separated by whitespace, where the M-bM-^@M-^\typeM-bM-^@M-^] must be a channel
+             type name (as described in the table below), optionally
+             containing wildcard characters.
+
+             The timeout value M-bM-^@M-^\intervalM-bM-^@M-^] is specified in seconds or may use
+             any of the units documented in the TIME FORMATS section.  For
+             example, M-bM-^@M-^\session:*=5mM-bM-^@M-^] would cause all sessions to terminate
+             after five minutes of inactivity.  Specifying a zero value
+             disables the inactivity timeout.
+
+             The available channel types include:
+
+             agent-connection
+                     Open connections to ssh-agent(1).
+
+             direct-tcpip, direct-streamlocal@openssh.com
+                     Open TCP or Unix socket (respectively) connections that
+                     have been established from a ssh(1) local forwarding,
+                     i.e. LocalForward or DynamicForward.
+
+             forwarded-tcpip, forwarded-streamlocal@openssh.com
+                     Open TCP or Unix socket (respectively) connections that
+                     have been established to a sshd(8) listening on behalf of
+                     a ssh(1) remote forwarding, i.e. RemoteForward.
+
+             session:command
+                     Command execution sessions.
+
+             session:shell
+                     Interactive shell sessions.
+
+             session:subsystem:...
+                     Subsystem sessions, e.g. for sftp(1), which could be
+                     identified as session:subsystem:sftp.
+
+             x11-connection
+                     Open X11 forwarding sessions.
+
+             Note that in all the above cases, terminating an inactive session
+             does not guarantee to remove all resources associated with the
+             session, e.g. shell processes or X11 clients relating to the
+             session may continue to execute.
+
+             Moreover, terminating an inactive channel or session does not
+             necessarily close the SSH connection, nor does it prevent a
+             client from requesting another channel of the same type.  In
+             particular, expiring an inactive forwarding session does not
+             prevent another identical forwarding from being subsequently
+             created.  See also UnusedConnectionTimeout, which may be used in
+             conjunction with this option.
+
+             The default is not to expire channels of any type for inactivity.
 
      ChrootDirectory
              Specifies the pathname of a directory to chroot(2) to after
@@ -390,34 +450,36 @@ DESCRIPTION
              facility is provided to assist with operation on multi homed
              machines.  The default is yes.
 
-     HostbasedAcceptedKeyTypes
-             Specifies the key types that will be accepted for hostbased
-             authentication as a list of comma-separated patterns.
+     HostbasedAcceptedAlgorithms
+             Specifies the signature algorithms that will be accepted for
+             hostbased authentication as a list of comma-separated patterns.
              Alternately if the specified list begins with a M-bM-^@M-^X+M-bM-^@M-^Y character,
-             then the specified key types will be appended to the default set
-             instead of replacing them.  If the specified list begins with a
-             M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified key types (including wildcards)
-             will be removed from the default set instead of replacing them.
-             If the specified list begins with a M-bM-^@M-^X^M-bM-^@M-^Y character, then the
-             specified key types will be placed at the head of the default
-             set.  The default for this option is:
+             then the specified signature algorithms will be appended to the
+             default set instead of replacing them.  If the specified list
+             begins with a M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified signature
+             algorithms (including wildcards) will be removed from the default
+             set instead of replacing them.  If the specified list begins with
+             a M-bM-^@M-^X^M-bM-^@M-^Y character, then the specified signature algorithms will be
+             placed at the head of the default set.  The default for this
+             option is:
 
+                ssh-ed25519-cert-v01@openssh.com,
                 ecdsa-sha2-nistp256-cert-v01@openssh.com,
                 ecdsa-sha2-nistp384-cert-v01@openssh.com,
                 ecdsa-sha2-nistp521-cert-v01@openssh.com,
-                sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
-                ssh-ed25519-cert-v01@openssh.com,
                 sk-ssh-ed25519-cert-v01@openssh.com,
+                sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
                 rsa-sha2-512-cert-v01@openssh.com,
                 rsa-sha2-256-cert-v01@openssh.com,
-                ssh-rsa-cert-v01@openssh.com,
+                ssh-ed25519,
                 ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
+                sk-ssh-ed25519@openssh.com,
                 sk-ecdsa-sha2-nistp256@openssh.com,
-                ssh-ed25519,sk-ssh-ed25519@openssh.com,
-                rsa-sha2-512,rsa-sha2-256,ssh-rsa
+                rsa-sha2-512,rsa-sha2-256
 
-             The list of available key types may also be obtained using "ssh
-             -Q HostbasedAcceptedKeyTypes".
+             The list of available signature algorithms may also be obtained
+             using "ssh -Q HostbasedAcceptedAlgorithms".  This was formerly
+             named HostbasedAcceptedKeyTypes.
 
      HostbasedAuthentication
              Specifies whether rhosts or /etc/hosts.equiv authentication
@@ -460,25 +522,25 @@ DESCRIPTION
              read from the SSH_AUTH_SOCK environment variable.
 
      HostKeyAlgorithms
-             Specifies the host key algorithms that the server offers.  The
-             default for this option is:
+             Specifies the host key signature algorithms that the server
+             offers.  The default for this option is:
 
+                ssh-ed25519-cert-v01@openssh.com,
                 ecdsa-sha2-nistp256-cert-v01@openssh.com,
                 ecdsa-sha2-nistp384-cert-v01@openssh.com,
                 ecdsa-sha2-nistp521-cert-v01@openssh.com,
-                sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
-                ssh-ed25519-cert-v01@openssh.com,
                 sk-ssh-ed25519-cert-v01@openssh.com,
+                sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
                 rsa-sha2-512-cert-v01@openssh.com,
                 rsa-sha2-256-cert-v01@openssh.com,
-                ssh-rsa-cert-v01@openssh.com,
+                ssh-ed25519,
                 ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
+                sk-ssh-ed25519@openssh.com,
                 sk-ecdsa-sha2-nistp256@openssh.com,
-                ssh-ed25519,sk-ssh-ed25519@openssh.com,
-                rsa-sha2-512,rsa-sha2-256,ssh-rsa
+                rsa-sha2-512,rsa-sha2-256
 
-             The list of available key types may also be obtained using "ssh
-             -Q HostKeyAlgorithms".
+             The list of available signature algorithms may also be obtained
+             using "ssh -Q HostKeyAlgorithms".
 
      IgnoreRhosts
              Specifies whether to ignore per-user .rhosts and .shosts files
@@ -492,7 +554,7 @@ DESCRIPTION
      IgnoreUserKnownHosts
              Specifies whether sshd(8) should ignore the user's
              ~/.ssh/known_hosts during HostbasedAuthentication and use only
-             the system-wide known hosts file /etc/ssh/known_hosts.  The
+             the system-wide known hosts file /etc/ssh/ssh_known_hosts.  The
              default is M-bM-^@M-^\noM-bM-^@M-^].
 
      Include
@@ -518,9 +580,9 @@ DESCRIPTION
 
      KbdInteractiveAuthentication
              Specifies whether to allow keyboard-interactive authentication.
-             The argument to this keyword must be yes or no.  The default is
-             to use whatever value ChallengeResponseAuthentication is set to
-             (by default yes).
+             All authentication styles from login.conf(5) are supported.  The
+             default is yes.  The argument to this keyword must be yes or no.
+             ChallengeResponseAuthentication is a deprecated alias for this.
 
      KerberosAuthentication
              Specifies whether the password provided by the user for
@@ -546,13 +608,14 @@ DESCRIPTION
      KexAlgorithms
              Specifies the available KEX (Key Exchange) algorithms.  Multiple
              algorithms must be comma-separated.  Alternately if the specified
-             list begins with a M-bM-^@M-^X+M-bM-^@M-^Y character, then the specified methods will
-             be appended to the default set instead of replacing them.  If the
-             specified list begins with a M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified
-             methods (including wildcards) will be removed from the default
-             set instead of replacing them.  If the specified list begins with
-             a M-bM-^@M-^X^M-bM-^@M-^Y character, then the specified methods will be placed at the
-             head of the default set.  The supported algorithms are:
+             list begins with a M-bM-^@M-^X+M-bM-^@M-^Y character, then the specified algorithms
+             will be appended to the default set instead of replacing them.
+             If the specified list begins with a M-bM-^@M-^X-M-bM-^@M-^Y character, then the
+             specified algorithms (including wildcards) will be removed from
+             the default set instead of replacing them.  If the specified list
+             begins with a M-bM-^@M-^X^M-bM-^@M-^Y character, then the specified algorithms will
+             be placed at the head of the default set.  The supported
+             algorithms are:
 
                    curve25519-sha256
                    curve25519-sha256@libssh.org
@@ -566,10 +629,11 @@ DESCRIPTION
                    ecdh-sha2-nistp256
                    ecdh-sha2-nistp384
                    ecdh-sha2-nistp521
-                   sntrup4591761x25519-sha512@tinyssh.org
+                   sntrup761x25519-sha512@openssh.com
 
              The default is:
 
+                   sntrup761x25519-sha512@openssh.com,
                    curve25519-sha256,curve25519-sha256@libssh.org,
                    ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,
                    diffie-hellman-group-exchange-sha256,
@@ -608,6 +672,19 @@ DESCRIPTION
              DEBUG and DEBUG1 are equivalent.  DEBUG2 and DEBUG3 each specify
              higher levels of debugging output.  Logging with a DEBUG level
              violates the privacy of users and is not recommended.
+
+     LogVerbose
+             Specify one or more overrides to LogLevel.  An override consists
+             of a pattern lists that matches the source file, function and
+             line number to force detailed logging for.  For example, an
+             override pattern of:
+
+                   kex.c:*:1000,*:kex_exchange_identification():*,packet.c:*
+
+             would enable detailed logging for line 1000 of kex.c, everything
+             in the kex_exchange_identification() function, and all code in
+             the packet.c file.  This option is intended for debugging and no
+             overrides are enabled by default.
 
      MACs    Specifies the available MAC (message authentication code)
              algorithms.  The MAC algorithm is used for data integrity
@@ -685,18 +762,20 @@ DESCRIPTION
              AuthorizedKeysCommand, AuthorizedKeysCommandUser,
              AuthorizedKeysFile, AuthorizedPrincipalsCommand,
              AuthorizedPrincipalsCommandUser, AuthorizedPrincipalsFile,
-             Banner, ChrootDirectory, ClientAliveCountMax,
-             ClientAliveInterval, DenyGroups, DenyUsers, ForceCommand,
-             GatewayPorts, GSSAPIAuthentication, HostbasedAcceptedKeyTypes,
+             Banner, CASignatureAlgorithms, ChannelTimeout, ChrootDirectory,
+             ClientAliveCountMax, ClientAliveInterval, DenyGroups, DenyUsers,
+             DisableForwarding, ExposeAuthInfo, ForceCommand, GatewayPorts,
+             GSSAPIAuthentication, HostbasedAcceptedAlgorithms,
              HostbasedAuthentication, HostbasedUsesNameFromPacketOnly,
              IgnoreRhosts, Include, IPQoS, KbdInteractiveAuthentication,
              KerberosAuthentication, LogLevel, MaxAuthTries, MaxSessions,
              PasswordAuthentication, PermitEmptyPasswords, PermitListen,
              PermitOpen, PermitRootLogin, PermitTTY, PermitTunnel,
-             PermitUserRC, PubkeyAcceptedKeyTypes, PubkeyAuthentication,
-             RekeyLimit, RevokedKeys, RDomain, SetEnv, StreamLocalBindMask,
-             StreamLocalBindUnlink, TrustedUserCAKeys, X11DisplayOffset,
-             X11Forwarding and X11UseLocalhost.
+             PermitUserRC, PubkeyAcceptedAlgorithms, PubkeyAuthentication,
+             PubkeyAuthOptions, RekeyLimit, RevokedKeys, RDomain, SetEnv,
+             StreamLocalBindMask, StreamLocalBindUnlink, TrustedUserCAKeys,
+             UnusedConnectionTimeout, X11DisplayOffset, X11Forwarding and
+             X11UseLocalhost.
 
      MaxAuthTries
              Specifies the maximum number of authentication attempts permitted
@@ -725,6 +804,12 @@ DESCRIPTION
              connections.  The probability increases linearly and all
              connection attempts are refused if the number of unauthenticated
              connections reaches full (60).
+
+     ModuliFile
+             Specifies the moduli(5) file that contains the Diffie-Hellman
+             groups used for the M-bM-^@M-^\diffie-hellman-group-exchange-sha1M-bM-^@M-^] and
+             M-bM-^@M-^\diffie-hellman-group-exchange-sha256M-bM-^@M-^] key exchange methods.  The
+             default is /etc/moduli.
 
      PasswordAuthentication
              Specifies whether password authentication is allowed.  The
@@ -818,6 +903,19 @@ DESCRIPTION
              Specifies whether any ~/.ssh/rc file is executed.  The default is
              yes.
 
+     PerSourceMaxStartups
+             Specifies the number of unauthenticated connections allowed from
+             a given source address, or M-bM-^@M-^\noneM-bM-^@M-^] if there is no limit.  This
+             limit is applied in addition to MaxStartups, whichever is lower.
+             The default is none.
+
+     PerSourceNetBlockSize
+             Specifies the number of bits of source address that are grouped
+             together for the purposes of applying PerSourceMaxStartups
+             limits.  Values for IPv4 and optionally IPv6 may be specified,
+             separated by a colon.  The default is 32:128, which means each
+             address is considered individually.
+
      PidFile
              Specifies the file that contains the process ID of the SSH
              daemon, or none to not write one.  The default is
@@ -837,34 +935,34 @@ DESCRIPTION
              in interactively.  (On some systems it is also printed by the
              shell, /etc/profile, or equivalent.)  The default is yes.
 
-     PubkeyAcceptedKeyTypes
-             Specifies the key types that will be accepted for public key
-             authentication as a list of comma-separated patterns.
+     PubkeyAcceptedAlgorithms
+             Specifies the signature algorithms that will be accepted for
+             public key authentication as a list of comma-separated patterns.
              Alternately if the specified list begins with a M-bM-^@M-^X+M-bM-^@M-^Y character,
-             then the specified key types will be appended to the default set
+             then the specified algorithms will be appended to the default set
              instead of replacing them.  If the specified list begins with a
-             M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified key types (including wildcards)
-             will be removed from the default set instead of replacing them.
-             If the specified list begins with a M-bM-^@M-^X^M-bM-^@M-^Y character, then the
-             specified key types will be placed at the head of the default
-             set.  The default for this option is:
+             M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified algorithms (including
+             wildcards) will be removed from the default set instead of
+             replacing them.  If the specified list begins with a M-bM-^@M-^X^M-bM-^@M-^Y
+             character, then the specified algorithms will be placed at the
+             head of the default set.  The default for this option is:
 
+                ssh-ed25519-cert-v01@openssh.com,
                 ecdsa-sha2-nistp256-cert-v01@openssh.com,
                 ecdsa-sha2-nistp384-cert-v01@openssh.com,
                 ecdsa-sha2-nistp521-cert-v01@openssh.com,
-                sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
-                ssh-ed25519-cert-v01@openssh.com,
                 sk-ssh-ed25519-cert-v01@openssh.com,
+                sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
                 rsa-sha2-512-cert-v01@openssh.com,
                 rsa-sha2-256-cert-v01@openssh.com,
-                ssh-rsa-cert-v01@openssh.com,
+                ssh-ed25519,
                 ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
+                sk-ssh-ed25519@openssh.com,
                 sk-ecdsa-sha2-nistp256@openssh.com,
-                ssh-ed25519,sk-ssh-ed25519@openssh.com,
-                rsa-sha2-512,rsa-sha2-256,ssh-rsa
+                rsa-sha2-512,rsa-sha2-256
 
-             The list of available key types may also be obtained using "ssh
-             -Q PubkeyAcceptedKeyTypes".
+             The list of available signature algorithms may also be obtained
+             using "ssh -Q PubkeyAcceptedAlgorithms".
 
      PubkeyAuthOptions
              Sets one or more public key authentication options.  The
@@ -891,18 +989,24 @@ DESCRIPTION
              default is yes.
 
      RekeyLimit
-             Specifies the maximum amount of data that may be transmitted
-             before the session key is renegotiated, optionally followed a
-             maximum amount of time that may pass before the session key is
-             renegotiated.  The first argument is specified in bytes and may
-             have a suffix of M-bM-^@M-^XKM-bM-^@M-^Y, M-bM-^@M-^XMM-bM-^@M-^Y, or M-bM-^@M-^XGM-bM-^@M-^Y to indicate Kilobytes,
-             Megabytes, or Gigabytes, respectively.  The default is between
-             M-bM-^@M-^X1GM-bM-^@M-^Y and M-bM-^@M-^X4GM-bM-^@M-^Y, depending on the cipher.  The optional second
-             value is specified in seconds and may use any of the units
+             Specifies the maximum amount of data that may be transmitted or
+             received before the session key is renegotiated, optionally
+             followed by a maximum amount of time that may pass before the
+             session key is renegotiated.  The first argument is specified in
+             bytes and may have a suffix of M-bM-^@M-^XKM-bM-^@M-^Y, M-bM-^@M-^XMM-bM-^@M-^Y, or M-bM-^@M-^XGM-bM-^@M-^Y to indicate
+             Kilobytes, Megabytes, or Gigabytes, respectively.  The default is
+             between M-bM-^@M-^X1GM-bM-^@M-^Y and M-bM-^@M-^X4GM-bM-^@M-^Y, depending on the cipher.  The optional
+             second value is specified in seconds and may use any of the units
              documented in the TIME FORMATS section.  The default value for
              RekeyLimit is default none, which means that rekeying is
              performed after the cipher's default amount of data has been sent
              or received and no time based rekeying is done.
+
+     RequiredRSASize
+             Specifies the minimum RSA key size (in bits) that sshd(8) will
+             accept.  User and host-based authentication keys smaller than
+             this limit will be refused.  The default is 1024 bits.  Note that
+             this limit may only be raised from the default.
 
      RevokedKeys
              Specifies revoked public keys file, or none to not use one.  Keys
@@ -916,7 +1020,7 @@ DESCRIPTION
 
      RDomain
              Specifies an explicit routing domain that is applied after
-             authentication has completed.  The user session, as well and any
+             authentication has completed.  The user session, as well as any
              forwarded or listening IP sockets, will be bound to this
              rdomain(4).  If the routing domain is set to %D, then the domain
              in which the incoming connection was received will be applied.
@@ -1011,6 +1115,27 @@ DESCRIPTION
              TrustedUserCAKeys.  For more details on certificates, see the
              CERTIFICATES section in ssh-keygen(1).
 
+     UnusedConnectionTimeout
+             Specifies whether and how quickly sshd(8) should close client
+             connections with no open channels.  Open channels include active
+             shell, command execution or subsystem sessions, connected
+             network, socket, agent or X11 forwardings.  Forwarding listeners,
+             such as those from the ssh(1) -R flag, are not considered as open
+             channels and do not prevent the timeout.  The timeout value is
+             specified in seconds or may use any of the units documented in
+             the TIME FORMATS section.
+
+             Note that this timeout starts when the client connection
+             completes user authentication but before the client has an
+             opportunity to open any channels.  Caution should be used when
+             using short timeout values, as they may not provide sufficient
+             time for the client to request and open its channels before
+             terminating the connection.
+
+             The default none is to never expire connections for having no
+             open channels.  This option may be useful in conjunction with
+             ChannelTimeout.
+
      UseDNS  Specifies whether sshd(8) should look up the remote host name,
              and to check that the resolved host name for the remote IP
              address maps back to the very same IP address.
@@ -1021,13 +1146,13 @@ DESCRIPTION
 
      UsePAM  Enables the Pluggable Authentication Module interface.  If set to
              yes this will enable PAM authentication using
-             ChallengeResponseAuthentication and PasswordAuthentication in
+             KbdInteractiveAuthentication and PasswordAuthentication in
              addition to PAM account and session module processing for all
              authentication types.
 
-             Because PAM challenge-response authentication usually serves an
+             Because PAM keyboard-interactive authentication usually serves an
              equivalent role to password authentication, you should disable
-             either PasswordAuthentication or ChallengeResponseAuthentication.
+             either PasswordAuthentication or KbdInteractiveAuthentication.
 
              If UsePAM is enabled, you will not be able to run sshd(8) as a
              non-root user.  The default is no.
@@ -1150,4 +1275,4 @@ AUTHORS
      versions 1.5 and 2.0.  Niels Provos and Markus Friedl contributed support
      for privilege separation.
 
-OpenBSD 6.8                     August 27, 2020                    OpenBSD 6.8
+OpenBSD 7.2                    January 18, 2023                    OpenBSD 7.2

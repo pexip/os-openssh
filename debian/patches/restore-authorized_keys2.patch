@@ -1,4 +1,4 @@
-From 8dc9bb0d9cf53a35d6003623f1e7c91326d79875 Mon Sep 17 00:00:00 2001
+From b2cc972d55fcc3c3df709a340ce3019fec9880c4 Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 5 Mar 2017 02:02:11 +0000
 Subject: Restore reading authorized_keys2 by default
@@ -18,7 +18,7 @@ Patch-Name: restore-authorized_keys2.patch
  1 file changed, 2 insertions(+), 3 deletions(-)
 
 diff --git a/sshd_config b/sshd_config
-index 459c1b230..dc0db5706 100644
+index 677f97d5d..d500d18cd 100644
 --- a/sshd_config
 +++ b/sshd_config
 @@ -38,9 +38,8 @@ Include /etc/ssh/sshd_config.d/*.conf

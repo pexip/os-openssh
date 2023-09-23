@@ -5,15 +5,20 @@ if [ "$(id -un)" != openssh-tests ]; then
 	TMP="$AUTOPKGTEST_TMP/user"
 	CREATED_RUN_SSHD=false
 	STARTED_HAVEGED=false
+	ADDED_HOST=false
 
 	cleanup () {
+		if $ADDED_HOST; then
+			sed -i '/[[:space:]]UNKNOWN$/d' /etc/hosts
+		fi
+
 		if $STARTED_HAVEGED; then
 			if [ -d /run/systemd/system ] && \
 			   which systemctl >/dev/null 2>&1; then
 				systemctl disable haveged || true
 				systemctl stop haveged || true
 			else
-				start-stop-daemon --stop --quiet \
+				start-stop-daemon --stop --quiet --oknodo \
 					--retry=TERM/30/KILL/5 \
 					--pidfile "$AUTOPKGTEST_TMP/haveged.pid" \
 					--name haveged
@@ -31,6 +36,7 @@ if [ "$(id -un)" != openssh-tests ]; then
 	trap cleanup EXIT
 
 	adduser --disabled-password --gecos 'OpenSSH tests' openssh-tests
+	usermod -p '*' openssh-tests
 	cat >/etc/sudoers.d/openssh-tests <<EOF
 openssh-tests ALL = (ALL:ALL) NOPASSWD: ALL
 EOF
@@ -58,6 +64,17 @@ EOF
 			--exec /usr/sbin/haveged -- \
 			-p "$AUTOPKGTEST_TMP/haveged.pid"
 		STARTED_HAVEGED=:
+	fi
+
+	# ssh ends up setting PAM_RHOST to "UNKNOWN" during a number of
+	# regression tests, which causes DNS resolution delays, slowing down
+	# the test suite substantially and causing the connection-timeout
+	# tests to fail.  The only way to work around this while running
+	# tests with "UsePAM yes" appears to be to make "UNKNOWN"
+	# resolvable.
+	if ! grep -q '[[:space:]]UNKNOWN$' /etc/hosts; then
+		echo '127.0.0.1 UNKNOWN' >>/etc/hosts
+		ADDED_HOST=:
 	fi
 
 	sudo -u openssh-tests env TMP="$TMP" "$0" "$@"
