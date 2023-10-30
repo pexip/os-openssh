@@ -1,3 +1,9 @@
+openssh (1:9.0p1-0pexip11) pexip; urgency=medium
+
+  * Remove legacy init scripts
+
+ -- Vincent Sanders <vince@pexip.com>  Mon, 30 Oct 2023 16:55:49 +0000
+
 openssh (1:9.0p1-0pexip10) pexip; urgency=medium
 
   * Tweak sshd_config to add sshd_config.d

@@ -208,9 +208,6 @@ override_dh_systemd_enable:
 	dh_systemd_enable -popenssh-server --name ssh ssh.service
 	dh_systemd_enable -popenssh-server --name ssh --no-enable ssh.socket
 
-override_dh_installinit:
-	dh_installinit -R --name ssh
-
 debian/openssh-server.sshd.pam: debian/openssh-server.sshd.pam.in
 ifeq ($(DEB_HOST_ARCH_OS),linux)
 	sed 's/^@IF_KEYINIT@//' $< > $@
