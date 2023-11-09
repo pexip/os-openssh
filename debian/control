@@ -22,7 +22,7 @@ Standards-Version: 4.1.0
 XSBC-Pexip-Original-Maintainer: Debian OpenSSH Maintainers <debian-ssh@lists.debian.org>
 XSBC-Pexip-Original-Uploaders: Colin Watson <cjwatson@debian.org>,
            Matthew Vernon <matthew@debian.org>,
-XS-Pexip-Upstream: http://deb.debian.org/debian/ bullseye
+XS-Pexip-Upstream: http://deb.debian.org/debian/ bookworm
 Homepage: http://www.openssh.com/
 Vcs-Git: https://salsa.debian.org/ssh-team/openssh.git
 Vcs-Browser: https://salsa.debian.org/ssh-team/openssh
