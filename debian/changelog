@@ -1,3 +1,9 @@
+openssh (1:9.2p1-2.really.9.0p1-0pexip14) pexip-bookworm; urgency=medium
+
+  * Bump version number to be higher than that in upstream bookworm.
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Thu, 16 Nov 2023 13:52:19 +0000
+
 openssh (1:9.0p1-0pexip13) pexip-bookworm; urgency=medium
 
   * Initial bookworm build
