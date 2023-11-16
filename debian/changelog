@@ -1,3 +1,9 @@
+openssh (1:9.0p1-0pexip13) pexip-bookworm; urgency=medium
+
+  * Initial bookworm build
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Thu, 16 Nov 2023 10:18:29 +0000
+
 openssh (1:9.0p1-0pexip12) pexip; urgency=medium
 
   * Purge /etc/default/ssh and /etc/init.d/ssh from existing installs.
