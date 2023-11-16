@@ -1,3 +1,9 @@
+openssh (1:9.0p1-0pexip12) pexip; urgency=medium
+
+  * Purge /etc/default/ssh and /etc/init.d/ssh from existing installs.
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Tue, 14 Nov 2023 11:37:21 +0000
+
 openssh (1:9.0p1-0pexip11) pexip; urgency=medium
 
   * Remove legacy init scripts
