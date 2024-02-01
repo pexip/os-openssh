@@ -1,3 +1,9 @@
+openssh (1:9.2p1-2.really.9.0p1-0+pexip24u16) pexip-bookworm; urgency=medium
+
+  * New versioning scheme
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Thu, 01 Feb 2024 16:15:07 +0000
+
 openssh (1:9.2p1-2.really.9.0p1-0pexip15) pexip-bookworm; urgency=medium
 
   * Bookworm build for product distribution
