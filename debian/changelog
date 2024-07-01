@@ -1,3 +1,11 @@
+openssh (1:9.2p1-2.really.9.0p1-0+pexip24u17) pexip; urgency=medium
+
+  * Apply patch from Debian upstream
+    https://salsa.debian.org/ssh-team/openssh/-/blob/master/debian/patches/sshsigdie-async-signal-unsafe.patch
+    to fix CVE-2024-6387
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Mon, 01 Jul 2024 09:52:34 +0000
+
 openssh (1:9.2p1-2.really.9.0p1-0+pexip24u16) pexip-bookworm; urgency=medium
 
   * New versioning scheme
