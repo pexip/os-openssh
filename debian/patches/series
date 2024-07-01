@@ -29,3 +29,6 @@ revert-ipqos-defaults.patch
 extra-config.patch
 openssl3-support.patch
 openssh-6.5p1-fips.patch
+
+# Backported security fixes for pexip
+pexip_sshsigdie-async-signal-unsafe.patch
