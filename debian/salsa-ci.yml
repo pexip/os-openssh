@@ -1,3 +1,13 @@
 ---
 include:
   - https://salsa.debian.org/salsa-ci-team/pipeline/raw/master/recipes/debian.yml
+
+variables:
+  SALSA_CI_ENABLE_BUILD_PACKAGE_PROFILES: 1
+
+test-build-profiles:
+  extends: .test-build-package-profiles
+  parallel:
+    matrix:
+      - BUILD_PROFILES: noudeb
+      - BUILD_PROFILES: pkg.openssh.nognome

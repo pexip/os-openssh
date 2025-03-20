@@ -118,6 +118,7 @@ License: Mazieres-BSD-style
  OpenBSD project by leaving this copyright notice intact.
 
 Files: rijndael.*
+Copyright: none (public domain)
 License: public-domain
  This code is from a reference implementation of the Rijndael cipher which
  has been dedicated to the public domain.

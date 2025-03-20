@@ -4,8 +4,8 @@ NAME
      ssh-keyscan M-bM-^@M-^S gather SSH public keys from servers
 
 SYNOPSIS
-     ssh-keyscan [-46cDHv] [-f file] [-p port] [-T timeout] [-t type]
-                 [host | addrlist namelist]
+     ssh-keyscan [-46cDHqv] [-f file] [-O option] [-p port] [-T timeout]
+                 [-t type] [host | addrlist namelist]
 
 DESCRIPTION
      ssh-keyscan is a utility for gathering the public SSH host keys of a
@@ -54,8 +54,20 @@ DESCRIPTION
              be used normally by ssh(1) and sshd(8), but they do not reveal
              identifying information should the file's contents be disclosed.
 
+     -O option
+             Specify a key/value option.  At present, only a single option is
+             supported:
+
+             hashalg=algorithm
+                     Selects a hash algorithm to use when printing SSHFP
+                     records using the -D flag.  Valid algorithms are M-bM-^@M-^\sha1M-bM-^@M-^]
+                     and M-bM-^@M-^\sha256M-bM-^@M-^].  The default is to print both.
+
      -p port
              Connect to port on the remote host.
+
+     -q      Quiet mode: do not print server host name and banners in
+             comments.
 
      -T timeout
              Set the timeout for connection attempts.  If timeout seconds have
@@ -66,10 +78,9 @@ DESCRIPTION
 
      -t type
              Specify the type of the key to fetch from the scanned hosts.  The
-             possible values are M-bM-^@M-^\dsaM-bM-^@M-^], M-bM-^@M-^\ecdsaM-bM-^@M-^], M-bM-^@M-^\ed25519M-bM-^@M-^], M-bM-^@M-^\ecdsa-skM-bM-^@M-^],
-             M-bM-^@M-^\ed25519-skM-bM-^@M-^], or M-bM-^@M-^\rsaM-bM-^@M-^].  Multiple values may be specified by
-             separating them with commas.  The default is to fetch M-bM-^@M-^\rsaM-bM-^@M-^],
-             M-bM-^@M-^\ecdsaM-bM-^@M-^], M-bM-^@M-^\ed25519M-bM-^@M-^], M-bM-^@M-^\ecdsa-skM-bM-^@M-^], and M-bM-^@M-^\ed25519-skM-bM-^@M-^] keys.
+             possible values are M-bM-^@M-^\ecdsaM-bM-^@M-^], M-bM-^@M-^\ed25519M-bM-^@M-^], M-bM-^@M-^\ecdsa-skM-bM-^@M-^], M-bM-^@M-^\ed25519-skM-bM-^@M-^],
+             or M-bM-^@M-^\rsaM-bM-^@M-^].  Multiple values may be specified by separating them
+             with commas.  The default is to fetch all the above key types.
 
      -v      Verbose mode: print debugging messages about progress.
 
@@ -95,7 +106,7 @@ EXAMPLES
      Find all hosts from the file ssh_hosts which have new or different keys
      from those in the sorted file ssh_known_hosts:
 
-           $ ssh-keyscan -t rsa,dsa,ecdsa,ed25519 -f ssh_hosts | \
+           $ ssh-keyscan -t rsa,ecdsa,ed25519 -f ssh_hosts | \
                    sort -u - ssh_known_hosts | diff ssh_known_hosts -
 
 SEE ALSO
@@ -109,4 +120,4 @@ AUTHORS
      Davison <wayned@users.sourceforge.net> added support for protocol version
      2.
 
-OpenBSD 7.2                    October 28, 2022                    OpenBSD 7.2
+OpenBSD 7.6                      June 17, 2024                     OpenBSD 7.6

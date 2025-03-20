@@ -4,20 +4,20 @@ NAME
      ssh-add M-bM-^@M-^S adds private key identities to the OpenSSH authentication agent
 
 SYNOPSIS
-     ssh-add [-cDdKkLlqvXx] [-E fingerprint_hash] [-H hostkey_file]
+     ssh-add [-CcDdKkLlqvXx] [-E fingerprint_hash] [-H hostkey_file]
              [-h destination_constraint] [-S provider] [-t life] [file ...]
-     ssh-add -s pkcs11
+     ssh-add -s pkcs11 [-Cv] [certificate ...]
      ssh-add -e pkcs11
      ssh-add -T pubkey ...
 
 DESCRIPTION
      ssh-add adds private key identities to the authentication agent,
      ssh-agent(1).  When run without arguments, it adds the files
-     ~/.ssh/id_rsa, ~/.ssh/id_ecdsa, ~/.ssh/id_ecdsa_sk, ~/.ssh/id_ed25519,
-     ~/.ssh/id_ed25519_sk, and ~/.ssh/id_dsa.  After loading a private key,
-     ssh-add will try to load corresponding certificate information from the
-     filename obtained by appending -cert.pub to the name of the private key
-     file.  Alternative file names can be given on the command line.
+     ~/.ssh/id_rsa, ~/.ssh/id_ecdsa, ~/.ssh/id_ecdsa_sk, ~/.ssh/id_ed25519 and
+     ~/.ssh/id_ed25519_sk.  After loading a private key, ssh-add will try to
+     load corresponding certificate information from the filename obtained by
+     appending -cert.pub to the name of the private key file.  Alternative
+     file names can be given on the command line.
 
      If any file requires a passphrase, ssh-add asks for the passphrase from
      the user.  The passphrase is read from the user's tty.  ssh-add retries
@@ -28,6 +28,9 @@ DESCRIPTION
      work.
 
      The options are as follows:
+
+     -C      When loading keys into or deleting keys from the agent, process
+             certificates only and skip plain keys.
 
      -c      Indicates that added identities should be subject to confirmation
              before being used for authentication.  Confirmation is performed
@@ -126,6 +129,10 @@ DESCRIPTION
 
      -s pkcs11
              Add keys provided by the PKCS#11 shared library pkcs11.
+             Certificate files may optionally be listed as command-line
+             arguments.  If these are present, then they will be loaded into
+             the agent using any corresponding private keys loaded from the
+             PKCS#11 token.
 
      -T pubkey ...
              Tests whether the private keys that correspond to the specified
@@ -173,13 +180,12 @@ ENVIRONMENT
              the built-in USB HID support.
 
 FILES
-     ~/.ssh/id_dsa
      ~/.ssh/id_ecdsa
      ~/.ssh/id_ecdsa_sk
      ~/.ssh/id_ed25519
      ~/.ssh/id_ed25519_sk
      ~/.ssh/id_rsa
-             Contains the DSA, ECDSA, authenticator-hosted ECDSA, Ed25519,
+             Contains the ECDSA, authenticator-hosted ECDSA, Ed25519,
              authenticator-hosted Ed25519 or RSA authentication identity of
              the user.
 
@@ -200,4 +206,4 @@ AUTHORS
      created OpenSSH.  Markus Friedl contributed the support for SSH protocol
      versions 1.5 and 2.0.
 
-OpenBSD 7.2                    February 4, 2022                    OpenBSD 7.2
+OpenBSD 7.6                      June 17, 2024                     OpenBSD 7.6

@@ -1,6 +1,7 @@
 #! /usr/bin/dh-exec
 
 etc/ssh/moduli
+usr/lib/openssh/sshd-session
 usr/sbin/sshd
 usr/share/man/man5/authorized_keys.5
 usr/share/man/man5/moduli.5
@@ -14,6 +15,7 @@ debian/openssh-server.ufw.profile => etc/ufw/applications.d/openssh-server
 debian/systemd/ssh.service lib/systemd/system
 debian/systemd/ssh.socket lib/systemd/system
 debian/systemd/rescue-ssh.target lib/systemd/system
+debian/systemd/sshd@.service lib/systemd/system
 debian/systemd/ssh-session-cleanup usr/lib/openssh
 
 # dh_apport would be neater, but at the time of writing it isn't in unstable

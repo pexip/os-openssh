@@ -1,4 +1,4 @@
-From 2d3ac49df11f0aed81f35ce9588eb2c578ec98f2 Mon Sep 17 00:00:00 2001
+From 1dce8eb1d74c508042e2d7ee2a4405a6870e6bf5 Mon Sep 17 00:00:00 2001
 From: Kees Cook <kees@debian.org>
 Date: Sun, 9 Feb 2014 16:10:06 +0000
 Subject: Add DebianBanner server configuration option
@@ -8,24 +8,24 @@ initial protocol handshake, for those scared by package-versioning.patch.
 
 Bug-Debian: http://bugs.debian.org/562048
 Forwarded: not-needed
-Last-Update: 2023-01-02
+Last-Update: 2024-09-22
 
 Patch-Name: debian-banner.patch
 ---
- kex.c         | 5 +++--
- kex.h         | 2 +-
- servconf.c    | 9 +++++++++
- servconf.h    | 2 ++
- sshconnect.c  | 2 +-
- sshd.c        | 2 +-
- sshd_config.5 | 5 +++++
- 7 files changed, 22 insertions(+), 5 deletions(-)
+ kex.c          |  5 +++--
+ kex.h          |  2 +-
+ servconf.c     | 10 ++++++++++
+ servconf.h     |  2 ++
+ sshconnect.c   |  2 +-
+ sshd-session.c |  2 +-
+ sshd_config.5  |  5 +++++
+ 7 files changed, 23 insertions(+), 5 deletions(-)
 
 diff --git a/kex.c b/kex.c
-index 32858e65c..e7b7316c7 100644
+index 19b1fcaa8..ca6d5b53d 100644
 --- a/kex.c
 +++ b/kex.c
-@@ -1272,7 +1272,7 @@ send_error(struct ssh *ssh, char *msg)
+@@ -1237,7 +1237,7 @@ send_error(struct ssh *ssh, char *msg)
   */
  int
  kex_exchange_identification(struct ssh *ssh, int timeout_ms,
@@ -34,10 +34,10 @@ index 32858e65c..e7b7316c7 100644
  {
  	int remote_major, remote_minor, mismatch, oerrno = 0;
  	size_t len, n;
-@@ -1290,7 +1290,8 @@ kex_exchange_identification(struct ssh *ssh, int timeout_ms,
+@@ -1255,7 +1255,8 @@ kex_exchange_identification(struct ssh *ssh, int timeout_ms,
  	if (version_addendum != NULL && *version_addendum == '\0')
  		version_addendum = NULL;
- 	if ((r = sshbuf_putf(our_version, "SSH-%d.%d-%.100s%s%s\r\n",
+ 	if ((r = sshbuf_putf(our_version, "SSH-%d.%d-%s%s%s\r\n",
 -	    PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_RELEASE,
 +	    PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2,
 +	    debian_banner ? SSH_RELEASE : SSH_RELEASE_MINIMUM,
@@ -45,12 +45,12 @@ index 32858e65c..e7b7316c7 100644
  	    version_addendum == NULL ? "" : version_addendum)) != 0) {
  		oerrno = errno;
 diff --git a/kex.h b/kex.h
-index 240dca89d..e356f5ed0 100644
+index cd6a40333..6a08023d0 100644
 --- a/kex.h
 +++ b/kex.h
-@@ -200,7 +200,7 @@ char	*kex_names_cat(const char *, const char *);
- int	 kex_assemble_names(char **, const char *, const char *);
- int	 kex_gss_names_valid(const char *);
+@@ -215,7 +215,7 @@ void	 kex_proposal_populate_entries(struct ssh *, char *prop[PROPOSAL_MAX],
+     const char *, const char *, const char *, const char *, const char *);
+ void	 kex_proposal_free_entries(char *prop[PROPOSAL_MAX]);
  
 -int	 kex_exchange_identification(struct ssh *, int, const char *);
 +int	 kex_exchange_identification(struct ssh *, int, int, const char *);
@@ -58,45 +58,45 @@ index 240dca89d..e356f5ed0 100644
  struct kex *kex_new(void);
  int	 kex_ready(struct ssh *, char *[PROPOSAL_MAX]);
 diff --git a/servconf.c b/servconf.c
-index 6529f2736..4ecbca8ed 100644
+index 707cb8872..825400d3a 100644
 --- a/servconf.c
 +++ b/servconf.c
-@@ -203,6 +203,7 @@ initialize_server_options(ServerOptions *options)
- 	options->channel_timeouts = NULL;
- 	options->num_channel_timeouts = 0;
+@@ -219,6 +219,7 @@ initialize_server_options(ServerOptions *options)
  	options->unused_connection_timeout = -1;
+ 	options->sshd_session_path = NULL;
+ 	options->refuse_connection = -1;
 +	options->debian_banner = -1;
  }
  
  /* Returns 1 if a string option is unset or set to "none" or 0 otherwise. */
-@@ -461,6 +462,8 @@ fill_default_server_options(ServerOptions *options)
- 		options->required_rsa_size = SSH_RSA_MINIMUM_MODULUS_SIZE;
- 	if (options->unused_connection_timeout == -1)
- 		options->unused_connection_timeout = 0;
+@@ -507,6 +508,8 @@ fill_default_server_options(ServerOptions *options)
+ 		options->sshd_session_path = xstrdup(_PATH_SSHD_SESSION);
+ 	if (options->refuse_connection == -1)
+ 		options->refuse_connection = 0;
 +	if (options->debian_banner == -1)
 +		options->debian_banner = 1;
  
  	assemble_algorithms(options);
  
-@@ -546,6 +549,7 @@ typedef enum {
- 	sAllowStreamLocalForwarding, sFingerprintHash, sDisableForwarding,
+@@ -591,6 +594,7 @@ typedef enum {
  	sExposeAuthInfo, sRDomain, sPubkeyAuthOptions, sSecurityKeyProvider,
  	sRequiredRSASize, sChannelTimeout, sUnusedConnectionTimeout,
+ 	sSshdSessionPath, sRefuseConnection,
 +	sDebianBanner,
  	sDeprecated, sIgnore, sUnsupported
  } ServerOpCodes;
  
-@@ -719,6 +723,7 @@ static struct {
- 	{ "requiredrsasize", sRequiredRSASize, SSHCFG_ALL },
- 	{ "channeltimeout", sChannelTimeout, SSHCFG_ALL },
+@@ -770,6 +774,7 @@ static struct {
  	{ "unusedconnectiontimeout", sUnusedConnectionTimeout, SSHCFG_ALL },
+ 	{ "sshdsessionpath", sSshdSessionPath, SSHCFG_GLOBAL },
+ 	{ "refuseconnection", sRefuseConnection, SSHCFG_ALL },
 +	{ "debianbanner", sDebianBanner, SSHCFG_GLOBAL },
  	{ NULL, sBadOption, 0 }
  };
  
-@@ -2596,6 +2601,10 @@ process_server_config_line_depth(ServerOptions *options, char *line,
- 		}
- 		goto parse_time;
+@@ -2754,6 +2759,10 @@ process_server_config_line_depth(ServerOptions *options, char *line,
+ 		multistate_ptr = multistate_flag;
+ 		goto parse_multistate;
  
 +	case sDebianBanner:
 +		intptr = &options->debian_banner;
@@ -105,24 +105,32 @@ index 6529f2736..4ecbca8ed 100644
  	case sDeprecated:
  	case sIgnore:
  	case sUnsupported:
+@@ -3307,6 +3316,7 @@ dump_config(ServerOptions *o)
+ 	dump_cfg_fmtint(sFingerprintHash, o->fingerprint_hash);
+ 	dump_cfg_fmtint(sExposeAuthInfo, o->expose_userauth_info);
+ 	dump_cfg_fmtint(sRefuseConnection, o->refuse_connection);
++	dump_cfg_fmtint(sDebianBanner, o->debian_banner);
+ 
+ 	/* string arguments */
+ 	dump_cfg_string(sPidFile, o->pid_file);
 diff --git a/servconf.h b/servconf.h
-index 38a68d576..e142cf77a 100644
+index 26819aa92..00c834403 100644
 --- a/servconf.h
 +++ b/servconf.h
-@@ -238,6 +238,8 @@ typedef struct {
- 	u_int	num_channel_timeouts;
+@@ -254,6 +254,8 @@ typedef struct {
+ 	char   *sshd_session_path;
  
- 	int	unused_connection_timeout;
+ 	int	refuse_connection;
 +
 +	int	debian_banner;
  }       ServerOptions;
  
  /* Information about the incoming connection as used by Match */
 diff --git a/sshconnect.c b/sshconnect.c
-index 77a3080ba..dbb3c98a7 100644
+index cbfc20735..f9d3a1ff2 100644
 --- a/sshconnect.c
 +++ b/sshconnect.c
-@@ -1574,7 +1574,7 @@ ssh_login(struct ssh *ssh, Sensitive *sensitive, const char *orighost,
+@@ -1611,7 +1611,7 @@ ssh_login(struct ssh *ssh, Sensitive *sensitive, const char *orighost,
  	lowercase(host);
  
  	/* Exchange protocol version identification strings with the server. */
@@ -131,13 +139,13 @@ index 77a3080ba..dbb3c98a7 100644
  		sshpkt_fatal(ssh, r, "banner exchange");
  
  	/* Put the connection into non-blocking mode. */
-diff --git a/sshd.c b/sshd.c
-index dd4a19131..b4ee435e5 100644
---- a/sshd.c
-+++ b/sshd.c
-@@ -2238,7 +2238,7 @@ main(int ac, char **av)
- 	if (!debug_flag)
- 		alarm(options.login_grace_time);
+diff --git a/sshd-session.c b/sshd-session.c
+index 1d7cdd00a..a9e1cf4f6 100644
+--- a/sshd-session.c
++++ b/sshd-session.c
+@@ -1314,7 +1314,7 @@ main(int ac, char **av)
+ 			fatal("login grace time setitimer failed");
+ 	}
  
 -	if ((r = kex_exchange_identification(ssh, -1,
 +	if ((r = kex_exchange_identification(ssh, -1, options.debian_banner,
@@ -145,10 +153,10 @@ index dd4a19131..b4ee435e5 100644
  		sshpkt_fatal(ssh, r, "banner exchange");
  
 diff --git a/sshd_config.5 b/sshd_config.5
-index eb58750a5..2c6ec76cb 100644
+index 11a8e922f..ed2f74060 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
-@@ -615,6 +615,11 @@ or
+@@ -629,6 +629,11 @@ or
  .Cm no .
  The default is
  .Cm yes .

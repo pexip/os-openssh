@@ -1,3 +1,149 @@
+openssh (1:9.9p1-1) unstable; urgency=medium
+
+  OpenSSH 9.9p1 includes a number of changes that may affect existing
+  configurations:
+
+   * ssh(1): remove support for pre-authentication compression.  OpenSSH has
+     only supported post-authentication compression in the server for some
+     years. Compression before authentication significantly increases the
+     attack surface of SSH servers and risks creating oracles that reveal
+     information about information sent during authentication.
+
+   * ssh(1), sshd(8): processing of the arguments to the "Match"
+     configuration directive now follows more shell-like rules for quoted
+     strings, including allowing nested quotes and \-escaped characters. If
+     configurations contained workarounds for the previous simplistic quote
+     handling then they may need to be adjusted. If this is the case, it's
+     most likely to be in the arguments to a "Match exec" condition. In this
+     case, moving the command to be evaluated from the Match line to an
+     external shell script is the easiest way to preserve compatibility with
+     both the old and new versions.
+
+ -- Colin Watson <cjwatson@debian.org>  Mon, 23 Sep 2024 21:09:59 -0700
+
+openssh (1:9.8p1-5) unstable; urgency=medium
+
+  Future Debian releases will remove GSS-API authentication and key exchange
+  support from openssh-client and openssh-server; this adds
+  pre-authentication attack surface and should only be used where
+  specifically needed.  Users of GSS-API authentication or key exchange
+  should install the new openssh-client-gssapi or openssh-server-gssapi
+  package now; these currently just depend on openssh-client and
+  openssh-server respectively, but this will change in the future.
+
+ -- Colin Watson <cjwatson@debian.org>  Thu, 29 Aug 2024 12:13:32 +0100
+
+openssh (1:9.8p1-1) unstable; urgency=medium
+
+  OpenSSH 9.8p1 includes a number of changes that may affect existing
+  configurations:
+
+   * DSA keys, as specified in the SSH protocol, are inherently weak: they
+     are limited to 160-bit private keys and the SHA-1 digest.  The SSH
+     implementation provided by the openssh-client and openssh-server
+     packages has disabled support for DSA keys by default since OpenSSH
+     7.0p1 in 2015, released with Debian 9 ("stretch"), although it could
+     still be enabled using the HostKeyAlgorithms and
+     PubkeyAcceptedAlgorithms configuration options for host and user keys
+     respectively.
+
+     The only remaining uses of DSA at this point should be connecting to
+     some very old devices.  For all other purposes, the other key types
+     supported by OpenSSH (RSA, ECDSA, and Ed25519) are superior.
+
+     As of OpenSSH 9.8p1, DSA keys are no longer supported even with the
+     above configuration options.  If you have a device that you can only
+     connect to using DSA, then you can use the ssh1 command provided by the
+     openssh-client-ssh1 package to do so.
+
+     In the unlikely event that you are still using DSA keys to connect to a
+     Debian server (if you are unsure, you can check by adding the -v option
+     to the ssh command line you use to connect to that server and looking
+     for the "Server accepts key:" line), then you must generate replacement
+     keys before upgrading.
+
+   * sshd(8): the server will now block client addresses that repeatedly
+     fail authentication, repeatedly connect without ever completing
+     authentication or that crash the server.  Operators of servers that
+     accept connections from many users, or servers that accept connections
+     from addresses behind NAT or proxies may need to consider these
+     settings.
+
+   * sshd(8): several log messages have changed.  In particular, some log
+     messages will be tagged with as originating from a process named
+     "sshd-session" rather than "sshd".
+
+   * ssh-keyscan(1): this tool previously emitted comment lines containing
+     the hostname and SSH protocol banner to standard error.  This release
+     now emits them to standard output, but adds a new "-q" flag to silence
+     them altogether.
+
+   * sshd(8): sshd will no longer use argv[0] as the PAM service name.  A
+     new "PAMServiceName" sshd_config(5) directive allows selecting the
+     service name at runtime.  This defaults to "sshd".
+
+ -- Colin Watson <cjwatson@debian.org>  Wed, 31 Jul 2024 17:16:04 +0100
+
+openssh (1:9.7p1-6) unstable; urgency=medium
+
+  Debian's PAM configuration for OpenSSH no longer reads the
+  ~/.pam_environment file.  The implementation of this in pam_env has a
+  history of security problems and has been deprecated by the upstream
+  Linux-PAM maintainers due to the possibility that "user supplied
+  environment variables in the PAM environment could affect behavior of
+  subsequent modules in the stack without the consent of the system
+  administrator".
+
+  Instead, environment variables need to be set somewhere that will be
+  handled by the session process; for most users, this will be shell
+  initialization files such as ~/.bash_profile or ~/.bashrc.
+
+ -- Colin Watson <cjwatson@debian.org>  Tue, 25 Jun 2024 14:20:44 +0100
+
+openssh (1:9.5p1-1) experimental; urgency=medium
+
+  OpenSSH 9.5p1 includes a number of changes that may affect existing
+  configurations:
+
+   * ssh-keygen(1): generate Ed25519 keys by default. Ed25519 public keys
+     are very convenient due to their small size. Ed25519 keys are specified
+     in RFC 8709 and OpenSSH has supported them since version 6.5 (January
+     2014).
+
+   * sshd(8): the Subsystem directive now accurately preserves quoting of
+     subsystem commands and arguments. This may change behaviour for exotic
+     configurations, but the most common subsystem configuration
+     (sftp-server) is unlikely to be affected.
+
+ -- Colin Watson <cjwatson@debian.org>  Thu, 23 Nov 2023 17:38:07 +0000
+
+openssh (1:9.4p1-1) unstable; urgency=medium
+
+  OpenSSH 9.4p1 includes a number of changes that may affect existing
+  configurations:
+
+   * ssh-agent(1): PKCS#11 modules must now be specified by their full
+     paths. Previously dlopen(3) could search for them in system library
+     directories.
+
+ -- Colin Watson <cjwatson@debian.org>  Sat, 02 Sep 2023 21:02:53 +0100
+
+openssh (1:9.3p2-1) unstable; urgency=high
+
+  OpenSSH 9.3p2 includes a number of changes that may affect existing
+  configurations:
+
+   * ssh-agent(8): the agent will now refuse requests to load PKCS#11
+     modules issued by remote clients by default. A flag has been added to
+     restore the previous behaviour "-Oallow-remote-pkcs11".
+
+     Note that ssh-agent(8) depends on the SSH client to identify requests
+     that are remote. The OpenSSH >=8.9 ssh(1) client does this, but
+     forwarding access to an agent socket using other tools may circumvent
+     this restriction.
+
+ -- Colin Watson <cjwatson@debian.org>  Wed, 19 Jul 2023 21:57:53 +0100
+
 openssh (1:9.2p1-1) unstable; urgency=medium
 
   OpenSSH 9.2 includes a number of changes that may affect existing
@@ -181,7 +327,7 @@ openssh (1:8.4p1-1) unstable; urgency=medium
 
    * ssh-keygen(1): the format of the attestation information optionally
      recorded when a FIDO key is generated has changed. It now includes the
-     authenticator data needed to validate attestation signatures. 
+     authenticator data needed to validate attestation signatures.
 
    * The API between OpenSSH and the FIDO token middleware has changed and
      the SSH_SK_VERSION_MAJOR version has been incremented as a result.

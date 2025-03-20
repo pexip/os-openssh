@@ -11,12 +11,12 @@ DESCRIPTION
            2.   user's configuration file (~/.ssh/config)
            3.   system-wide configuration file (/etc/ssh/ssh_config)
 
-     For each parameter, the first obtained value will be used.  The
-     configuration files contain sections separated by Host specifications,
-     and that section is only applied for hosts that match one of the patterns
-     given in the specification.  The matched host name is usually the one
-     given on the command line (see the CanonicalizeHostname option for
-     exceptions).
+     Unless noted otherwise, for each parameter, the first obtained value will
+     be used.  The configuration files contain sections separated by Host
+     specifications, and that section is only applied for hosts that match one
+     of the patterns given in the specification.  The matched host name is
+     usually the one given on the command line (see the CanonicalizeHostname
+     option for exceptions).
 
      Since the first obtained value for each parameter is used, more host-
      specific declarations should be given near the beginning of the file, and
@@ -55,11 +55,12 @@ DESCRIPTION
              Match keyword are satisfied.  Match conditions are specified
              using one or more criteria or the single token all which always
              matches.  The available criteria keywords are: canonical, final,
-             exec, host, originalhost, user, and localuser.  The all criteria
-             must appear alone or immediately after canonical or final.  Other
-             criteria may be combined arbitrarily.  All criteria but all,
-             canonical, and final require an argument.  Criteria may be
-             negated by prepending an exclamation mark (M-bM-^@M-^X!M-bM-^@M-^Y).
+             exec, localnetwork, host, originalhost, tagged, user, and
+             localuser.  The all criteria must appear alone or immediately
+             after canonical or final.  Other criteria may be combined
+             arbitrarily.  All criteria but all, canonical, and final require
+             an argument.  Criteria may be negated by prepending an
+             exclamation mark (M-bM-^@M-^X!M-bM-^@M-^Y).
 
              The canonical keyword matches only when the configuration file is
              being re-parsed after hostname canonicalization (see the
@@ -77,14 +78,25 @@ DESCRIPTION
              characters must be quoted.  Arguments to exec accept the tokens
              described in the TOKENS section.
 
+             The localnetwork keyword matches the addresses of active local
+             network interfaces against the supplied list of networks in CIDR
+             format.  This may be convenient for varying the effective
+             configuration on devices that roam between networks.  Note that
+             network address is not a trustworthy criteria in many situations
+             (e.g. when the network is automatically configured using DHCP)
+             and so caution should be applied if using it to control security-
+             sensitive configuration.
+
              The other keywords' criteria must be single entries or comma-
              separated lists and may use the wildcard and negation operators
              described in the PATTERNS section.  The criteria for the host
              keyword are matched against the target hostname, after any
              substitution by the Hostname or CanonicalizeHostname options.
              The originalhost keyword matches against the hostname as it was
-             specified on the command-line.  The user keyword matches against
-             the target username on the remote host.  The localuser keyword
+             specified on the command-line.  The tagged keyword matches a tag
+             name specified by a prior Tag directive or on the ssh(1) command-
+             line using the -P flag.  The user keyword matches against the
+             target username on the remote host.  The localuser keyword
              matches against the name of the local user running ssh(1) (this
              keyword may be useful in system-wide ssh_config files).
 
@@ -211,6 +223,64 @@ DESCRIPTION
              configuration files; these certificates will be tried in
              sequence.  Multiple CertificateFile directives will add to the
              list of certificates used for authentication.
+
+     ChannelTimeout
+             Specifies whether and how quickly ssh(1) should close inactive
+             channels.  Timeouts are specified as one or more M-bM-^@M-^\type=intervalM-bM-^@M-^]
+             pairs separated by whitespace, where the M-bM-^@M-^\typeM-bM-^@M-^] must be the
+             special keyword M-bM-^@M-^\globalM-bM-^@M-^] or a channel type name from the list
+             below, optionally containing wildcard characters.
+
+             The timeout value M-bM-^@M-^\intervalM-bM-^@M-^] is specified in seconds or may use
+             any of the units documented in the TIME FORMATS section.  For
+             example, M-bM-^@M-^\session=5mM-bM-^@M-^] would cause interactive sessions to
+             terminate after five minutes of inactivity.  Specifying a zero
+             value disables the inactivity timeout.
+
+             The special timeout M-bM-^@M-^\globalM-bM-^@M-^] applies to all active channels,
+             taken together.  Traffic on any active channel will reset the
+             timeout, but when the timeout expires then all open channels will
+             be closed.  Note that this global timeout is not matched by
+             wildcards and must be specified explicitly.
+
+             The available channel type names include:
+
+             agent-connection
+                     Open connections to ssh-agent(1).
+
+             direct-tcpip, direct-streamlocal@openssh.com
+                     Open TCP or Unix socket (respectively) connections that
+                     have been established from a ssh(1) local forwarding,
+                     i.e. LocalForward or DynamicForward.
+
+             forwarded-tcpip, forwarded-streamlocal@openssh.com
+                     Open TCP or Unix socket (respectively) connections that
+                     have been established to a sshd(8) listening on behalf of
+                     a ssh(1) remote forwarding, i.e. RemoteForward.
+
+             session
+                     The interactive main session, including shell session,
+                     command execution, scp(1), sftp(1), etc.
+
+             tun-connection
+                     Open TunnelForward connections.
+
+             x11-connection
+                     Open X11 forwarding sessions.
+
+             Note that in all the above cases, terminating an inactive session
+             does not guarantee to remove all resources associated with the
+             session, e.g. shell processes or X11 clients relating to the
+             session may continue to execute.
+
+             Moreover, terminating an inactive channel or session does not
+             necessarily close the SSH connection, nor does it prevent a
+             client from requesting another channel of the same type.  In
+             particular, expiring an inactive forwarding session does not
+             prevent another identical forwarding from being subsequently
+             created.
+
+             The default is not to expire channels of any type for inactivity.
 
      CheckHostIP
              If set to yes, ssh(1) will additionally check the host IP address
@@ -592,23 +662,24 @@ DESCRIPTION
              VARIABLES section.
 
      IdentityFile
-             Specifies a file from which the user's DSA, ECDSA, authenticator-
+             Specifies a file from which the user's ECDSA, authenticator-
              hosted ECDSA, Ed25519, authenticator-hosted Ed25519 or RSA
              authentication identity is read.  You can also specify a public
              key file to use the corresponding private key that is loaded in
              ssh-agent(1) when the private key file is not present locally.
              The default is ~/.ssh/id_rsa, ~/.ssh/id_ecdsa,
-             ~/.ssh/id_ecdsa_sk, ~/.ssh/id_ed25519, ~/.ssh/id_ed25519_sk and
-             ~/.ssh/id_dsa.  Additionally, any identities represented by the
-             authentication agent will be used for authentication unless
-             IdentitiesOnly is set.  If no certificates have been explicitly
-             specified by CertificateFile, ssh(1) will try to load certificate
-             information from the filename obtained by appending -cert.pub to
-             the path of a specified IdentityFile.
+             ~/.ssh/id_ecdsa_sk, ~/.ssh/id_ed25519 and ~/.ssh/id_ed25519_sk.
+             Additionally, any identities represented by the authentication
+             agent will be used for authentication unless IdentitiesOnly is
+             set.  If no certificates have been explicitly specified by
+             CertificateFile, ssh(1) will try to load certificate information
+             from the filename obtained by appending -cert.pub to the path of
+             a specified IdentityFile.
 
              Arguments to IdentityFile may use the tilde syntax to refer to a
              user's home directory or the tokens described in the TOKENS
-             section.
+             section.  Alternately an argument of none may be used to indicate
+             no identity files should be loaded.
 
              It is possible to have multiple identity files specified in
              configuration files; all these identities will be tried in
@@ -632,14 +703,15 @@ DESCRIPTION
 
      Include
              Include the specified configuration file(s).  Multiple pathnames
-             may be specified and each pathname may contain glob(7) wildcards
-             and, for user configurations, shell-like M-bM-^@M-^X~M-bM-^@M-^Y references to user
-             home directories.  Wildcards will be expanded and processed in
-             lexical order.  Files without absolute paths are assumed to be in
-             ~/.ssh if included in a user configuration file or /etc/ssh if
-             included from the system configuration file.  Include directive
-             may appear inside a Match or Host block to perform conditional
-             inclusion.
+             may be specified and each pathname may contain glob(7) wildcards,
+             tokens as described in the TOKENS section, environment variables
+             as described in the ENVIRONMENT VARIABLES section and, for user
+             configurations, shell-like M-bM-^@M-^X~M-bM-^@M-^Y references to user home
+             directories.  Wildcards will be expanded and processed in lexical
+             order.  Files without absolute paths are assumed to be in ~/.ssh
+             if included in a user configuration file or /etc/ssh if included
+             from the system configuration file.  Include directive may appear
+             inside a Match or Host block to perform conditional inclusion.
 
      IPQoS   Specifies the IPv4 type-of-service or DSCP class for connections.
              Accepted values are af11, af12, af13, af21, af22, af23, af31,
@@ -667,17 +739,24 @@ DESCRIPTION
              OpenSSH server, it may be zero or more of: bsdauth and pam.
 
      KexAlgorithms
-             Specifies the available KEX (Key Exchange) algorithms.  Multiple
-             algorithms must be comma-separated.  If the specified list begins
-             with a M-bM-^@M-^X+M-bM-^@M-^Y character, then the specified algorithms will be
-             appended to the default set instead of replacing them.  If the
-             specified list begins with a M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified
-             algorithms (including wildcards) will be removed from the default
-             set instead of replacing them.  If the specified list begins with
-             a M-bM-^@M-^X^M-bM-^@M-^Y character, then the specified algorithms will be placed at
-             the head of the default set.  The default is:
+             Specifies the permitted KEX (Key Exchange) algorithms that will
+             be used and their preference order.  The selected algorithm will
+             be the first algorithm in this list that the server also
+             supports.  Multiple algorithms must be comma-separated.
 
-                   sntrup761x25519-sha512@openssh.com,
+             If the specified list begins with a M-bM-^@M-^X+M-bM-^@M-^Y character, then the
+             specified algorithms will be appended to the default set instead
+             of replacing them.  If the specified list begins with a M-bM-^@M-^X-M-bM-^@M-^Y
+             character, then the specified algorithms (including wildcards)
+             will be removed from the default set instead of replacing them.
+             If the specified list begins with a M-bM-^@M-^X^M-bM-^@M-^Y character, then the
+             specified algorithms will be placed at the head of the default
+             set.
+
+             The default is:
+
+                   sntrup761x25519-sha512,sntrup761x25519-sha512@openssh.com,
+                   mlkem768x25519-sha256,
                    curve25519-sha256,curve25519-sha256@libssh.org,
                    ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,
                    diffie-hellman-group-exchange-sha256,
@@ -685,7 +764,7 @@ DESCRIPTION
                    diffie-hellman-group18-sha512,
                    diffie-hellman-group14-sha256
 
-             The list of available key exchange algorithms may also be
+             The list of supported key exchange algorithms may also be
              obtained using "ssh -Q kex".
 
      KnownHostsCommand
@@ -748,9 +827,9 @@ DESCRIPTION
 
      LogVerbose
              Specify one or more overrides to LogLevel.  An override consists
-             of a pattern lists that matches the source file, function and
-             line number to force detailed logging for.  For example, an
-             override pattern of:
+             of one or more pattern lists that matches the source file,
+             function and line number to force detailed logging for.  For
+             example, an override pattern of:
 
                    kex.c:*:1000,*:kex_exchange_identification():*,packet.c:*
 
@@ -793,6 +872,18 @@ DESCRIPTION
      NumberOfPasswordPrompts
              Specifies the number of password prompts before giving up.  The
              argument to this keyword must be an integer.  The default is 3.
+
+     ObscureKeystrokeTiming
+             Specifies whether ssh(1) should try to obscure inter-keystroke
+             timings from passive observers of network traffic.  If enabled,
+             then for interactive sessions, ssh(1) will send keystrokes at
+             fixed intervals of a few tens of milliseconds and will send fake
+             keystroke packets for some time after typing ceases.  The
+             argument to this keyword must be yes, no or an interval specifier
+             of the form interval:milliseconds (e.g. interval:80 for 80
+             milliseconds).  The default is to obscure keystrokes using a 20ms
+             packet interval.  Note that smaller intervals will result in
+             higher fake keystroke packet rates.
 
      PasswordAuthentication
              Specifies whether to use password authentication.  The argument
@@ -997,6 +1088,10 @@ DESCRIPTION
              listing one public key per line, or as an OpenSSH Key Revocation
              List (KRL) as generated by ssh-keygen(1).  For more information
              on KRLs, see the KEY REVOCATION LISTS section in ssh-keygen(1).
+             Arguments to RevokedHostKeys may use the tilde syntax to refer to
+             a user's home directory, the tokens described in the TOKENS
+             section and environment variables as described in the ENVIRONMENT
+             VARIABLES section.
 
      SecurityKeyProvider
              Specifies a path to a library that will be used when loading any
@@ -1131,6 +1226,9 @@ DESCRIPTION
              To disable TCP keepalive messages, the value should be set to no.
              See also ServerAliveInterval for protocol-level keepalives.
 
+     Tag     Specify a configuration tag name that may be later used by a
+             Match directive to select a block of configuration.
+
      Tunnel  Request tun(4) device forwarding between the client and the
              server.  The argument must be yes, point-to-point (layer 3),
              ethernet (layer 2), or no (the default).  Specifying yes requests
@@ -1250,7 +1348,7 @@ TOKENS
      runtime:
 
            %%    A literal M-bM-^@M-^X%M-bM-^@M-^Y.
-           %C    Hash of %l%h%p%r.
+           %C    Hash of %l%h%p%r%j.
            %d    Local user's home directory.
            %f    The fingerprint of the server's host key.
            %H    The known_hosts hostname or address that is being searched
@@ -1262,6 +1360,8 @@ TOKENS
                  by hostname, or ORDER when preparing the host key algorithm
                  preference list to use for the destination host.
            %i    The local user ID.
+           %j    The contents of the ProxyJump option, or the empty string if
+                 this option is unset.
            %K    The base64 encoded host key.
            %k    The host key alias if specified, otherwise the original
                  remote hostname given on the command line.
@@ -1275,10 +1375,10 @@ TOKENS
            %t    The type of the server host key, e.g.  ssh-ed25519.
            %u    The local username.
 
-     CertificateFile, ControlPath, IdentityAgent, IdentityFile,
+     CertificateFile, ControlPath, IdentityAgent, IdentityFile, Include,
      KnownHostsCommand, LocalForward, Match exec, RemoteCommand,
-     RemoteForward, and UserKnownHostsFile accept the tokens %%, %C, %d, %h,
-     %i, %k, %L, %l, %n, %p, %r, and %u.
+     RemoteForward, RevokedHostKeys, and UserKnownHostsFile accept the tokens
+     %%, %C, %d, %h, %i, %j, %k, %L, %l, %n, %p, %r, and %u.
 
      KnownHostsCommand additionally accepts the tokens %f, %H, %I, %K and %t.
 
@@ -1288,6 +1388,13 @@ TOKENS
 
      ProxyCommand and ProxyJump accept the tokens %%, %h, %n, %p, and %r.
 
+     Note that some of these directives build commands for execution via the
+     shell.  Because ssh(1) performs no filtering or escaping of characters
+     that have special meaning in shell commands (e.g. quotes), it is the
+     user's responsibility to ensure that the arguments passed to ssh(1) do
+     not contain such characters and that tokens are appropriately quoted when
+     used.
+
 ENVIRONMENT VARIABLES
      Arguments to some keywords can be expanded at runtime from environment
      variables on the client by enclosing them in ${}, for example
@@ -1296,9 +1403,9 @@ ENVIRONMENT VARIABLES
      the setting for that keyword will be ignored.
 
      The keywords CertificateFile, ControlPath, IdentityAgent, IdentityFile,
-     KnownHostsCommand, and UserKnownHostsFile support environment variables.
-     The keywords LocalForward and RemoteForward support environment variables
-     only for Unix domain socket paths.
+     Include, KnownHostsCommand, and UserKnownHostsFile support environment
+     variables.  The keywords LocalForward and RemoteForward support
+     environment variables only for Unix domain socket paths.
 
 FILES
      ~/.ssh/config
@@ -1323,4 +1430,4 @@ AUTHORS
      created OpenSSH.  Markus Friedl contributed the support for SSH protocol
      versions 1.5 and 2.0.
 
-OpenBSD 7.2                    January 13, 2023                    OpenBSD 7.2
+OpenBSD 7.6                    September 9, 2024                   OpenBSD 7.6

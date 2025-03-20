@@ -1,0 +1,31 @@
+#! /bin/sh
+# Check whether debian/openssh-server.ucf-md5sum is up to date.
+set -e
+
+contains_md5sum () {
+	# shellcheck disable=SC3043
+	local md5sum
+	md5sum="$(md5sum | sed 's/  -$//')"
+	if grep -qx "$md5sum" debian/openssh-server.ucf-md5sum; then
+		return 0
+	else
+		echo "Missing from debian/openssh-server.ucf-md5sum: $md5sum" >&2
+		return 1
+	fi
+}
+
+ret=0
+
+<sshd_config contains_md5sum || ret=1
+<sshd_config \
+	sed 's/^#*PermitRootLogin .*/PermitRootLogin yes/' | \
+	contains_md5sum || ret=1
+<sshd_config \
+	sed 's/^#PasswordAuthentication .*/PasswordAuthentication no/' | \
+	contains_md5sum || ret=1
+<sshd_config \
+	sed 's/^#*PermitRootLogin .*/PermitRootLogin yes/' | \
+	sed 's/^#PasswordAuthentication .*/PasswordAuthentication no/' | \
+	contains_md5sum || ret=1
+
+exit "$ret"

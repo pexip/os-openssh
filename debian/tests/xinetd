@@ -1,0 +1,47 @@
+#! /bin/sh
+set -e
+
+sudo chsh -s /bin/bash "$(id -un)"
+mkdir -m700 "$HOME/.ssh"
+ssh-keygen -t ed25519 -N '' -f "$HOME/.ssh/id_ed25519"
+cp "$HOME/.ssh/id_ed25519.pub" "$HOME/.ssh/authorized_keys"
+
+cleanup () {
+	if [ $? -ne 0 ]; then
+		echo "## Something failed"
+		echo
+		echo "## ssh server log"
+		sudo journalctl -b -u ssh.service --lines 100
+	fi
+}
+
+trap cleanup EXIT
+
+sudo tee /etc/xinetd.d/sshd >/dev/null <<EOF
+service ssh
+{
+	id		= sshd
+	disable		= no
+	type		= UNLISTED
+	port		= 22
+	socket_type	= stream
+	wait		= no
+	user		= root
+	server		= /usr/sbin/sshd
+	server_args	= -i -4
+	log_on_success	+= DURATION USERID
+	log_on_failure	+= USERID
+	nice		= 10
+}
+EOF
+
+sudo mkdir -p /etc/systemd/system/xinetd.service.d
+sudo tee /etc/systemd/system/xinetd.service.d/sshd.conf >/dev/null <<EOF
+[Service]
+RuntimeDirectory=sshd
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl disable --now ssh.service
+sudo systemctl reload xinetd.service
+ssh -oStrictHostKeyChecking=accept-new "$(id -un)@localhost" date

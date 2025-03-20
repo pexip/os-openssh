@@ -1,4 +1,4 @@
-From 25f54fd79c7dc62d5ffaa7ebdc2e3de86a031084 Mon Sep 17 00:00:00 2001
+From 528d4ac1205a215cfdae8a41fb06bddb786ad486 Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:10:01 +0000
 Subject: Force use of DNSSEC even if "options edns0" isn't in resolv.conf
@@ -8,7 +8,7 @@ This allows SSHFP DNS records to be verified if glibc 2.11 is installed.
 Origin: vendor, https://cvs.fedoraproject.org/viewvc/F-12/openssh/openssh-5.2p1-edns.patch?revision=1.1&view=markup
 Bug: http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=572049
 Bug-Debian: http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=572049
-Last-Update: 2010-04-06
+Last-Update: 2023-06-19
 
 Patch-Name: dnssec-sshfp.patch
 ---
@@ -18,7 +18,7 @@ Patch-Name: dnssec-sshfp.patch
  3 files changed, 21 insertions(+), 6 deletions(-)
 
 diff --git a/dns.c b/dns.c
-index f2310bec2..9021d1785 100644
+index 939241440..bf47a079f 100644
 --- a/dns.c
 +++ b/dns.c
 @@ -198,6 +198,7 @@ verify_host_key_dns(const char *hostname, struct sockaddr *address,
@@ -51,7 +51,7 @@ index f2310bec2..9021d1785 100644
  		verbose("DNS lookup error: %s", dns_result_totext(result));
  		return -1;
 diff --git a/openbsd-compat/getrrsetbyname.c b/openbsd-compat/getrrsetbyname.c
-index 73de5e948..4dfa351c6 100644
+index ad35148c9..add519441 100644
 --- a/openbsd-compat/getrrsetbyname.c
 +++ b/openbsd-compat/getrrsetbyname.c
 @@ -214,8 +214,8 @@ getrrsetbyname(const char *hostname, unsigned int rdclass,
@@ -61,7 +61,7 @@ index 73de5e948..4dfa351c6 100644
 -	/* don't allow flags yet, unimplemented */
 -	if (flags) {
 +	/* Allow RRSET_FORCE_EDNS0 flag only. */
-+	if ((flags & !RRSET_FORCE_EDNS0) != 0) {
++	if ((flags & ~RRSET_FORCE_EDNS0) != 0) {
  		result = ERRSET_INVAL;
  		goto fail;
  	}

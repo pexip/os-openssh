@@ -33,7 +33,7 @@ else
 endif
 
 # Change the version string to reflect distribution
-SSH_EXTRAVERSION := $(DEB_VENDOR)-$(shell echo '$(DEB_VERSION)' | sed -e 's/.*-//')
+SSH_EXTRAVERSION := $(DEB_VENDOR)-$(shell echo '$(DEB_VERSION)' | sed -e 's/.*-//; s/+salsaci+.*/+salsaci/')
 
 UBUNTU := $(shell $(call dpkg_vendor_derives_from,Ubuntu))
 ifeq ($(UBUNTU),yes)
@@ -65,6 +65,15 @@ ifeq ($(DEB_HOST_ARCH_OS),hurd)
 confflags += --with-libs=-lcrypt
 endif
 
+# Always use the internal mkdtemp; see https://bugs.debian.org/1001186.
+confflags += ac_cv_func_mkdtemp=no
+
+# ppc64el doesn't support -fzero-call-used-regs=used, but configure fails to
+# detect that.
+ifeq ($(DEB_HOST_ARCH),ppc64el)
+confflags += ossh_cv_cflag__fzero_call_used_regs_used=no
+endif
+
 # Everything above here is common to the deb and udeb builds.
 confflags_udeb := $(confflags)
 
@@ -77,7 +86,6 @@ confflags += --with-ssl-engine
 ifeq ($(DEB_HOST_ARCH_OS),linux)
 confflags += --with-selinux
 confflags += --with-audit=linux
-confflags += --with-systemd
 confflags += --with-security-key-builtin
 endif
 
@@ -126,7 +134,7 @@ override_dh_auto_build-arch:
 	$(MAKE) -C debian/build-deb regress-prep
 	$(MAKE) -C debian/build-deb $(PARALLEL) regress-binaries regress-unit-binaries
 ifeq ($(filter noudeb,$(DEB_BUILD_PROFILES)),)
-	$(MAKE) -C debian/build-udeb $(PARALLEL) ASKPASS_PROGRAM='/usr/bin/ssh-askpass' ssh scp sftp sshd ssh-keygen
+	$(MAKE) -C debian/build-udeb $(PARALLEL) ASKPASS_PROGRAM='/usr/bin/ssh-askpass' ssh scp sftp sshd ssh-keygen sshd-session
 endif
 
 ifeq ($(filter pkg.openssh.nognome,$(DEB_BUILD_PROFILES)),)
@@ -139,6 +147,7 @@ override_dh_auto_test-arch:
 ifeq ($(RUN_TESTS),yes)
 	$(MAKE) -C debian/build-deb unit compat-tests
 	$(MAKE) -C debian/keygen-test
+	debian/check-ucf-md5sums
 endif
 
 override_dh_auto_test-indep:
@@ -169,10 +178,6 @@ ifeq ($(filter noudeb,$(DEB_BUILD_PROFILES)),)
 		--sourcedir=debian/build-udeb
 endif
 
-	# This can't be done using dh_link, because it's needed earlier by
-	# dh_installalternatives.
-	ln -sf ssh debian/openssh-client/usr/bin/slogin
-
 	rm -f debian/openssh-tests/usr/lib/openssh/regress/misc/sk-dummy/*.lo
 
 override_dh_installdocs:
@@ -186,8 +191,9 @@ override_dh_installinit:
 	dh_installinit -R --name ssh
 
 override_dh_installsystemd:
-	dh_installsystemd -popenssh-server ssh.service rescue-ssh.target
+	dh_installsystemd -popenssh-server ssh.service
 	dh_installsystemd -popenssh-server --no-enable ssh.socket
+	dh_installsystemd -popenssh-server --no-start rescue-ssh.target
 
 debian/openssh-server.sshd.pam: debian/openssh-server.sshd.pam.in
 ifeq ($(DEB_HOST_ARCH_OS),linux)
@@ -208,10 +214,6 @@ execute_after_dh_fixperms-arch:
 # Work around debhelper/dh-exec bug #1017023.
 override_dh_missing:
 	dh_missing --list-missing
-
-# Tighten libssl dependencies to match the check in entropy.c.
-execute_after_dh_shlibdeps:
-	debian/adjust-openssl-dependencies
 
 override_dh_gencontrol:
 	dh_gencontrol -- -V'openssh-server:Recommends=$(server_recommends)'

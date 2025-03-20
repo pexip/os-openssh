@@ -1,0 +1,22 @@
+#! /bin/sh
+set -e
+
+sudo chsh -s /bin/bash "$(id -un)"
+mkdir -m700 "$HOME/.ssh"
+ssh-keygen -t ed25519 -N '' -f "$HOME/.ssh/id_ed25519"
+cp "$HOME/.ssh/id_ed25519.pub" "$HOME/.ssh/authorized_keys"
+
+cleanup () {
+	if [ $? -ne 0 ]; then
+		echo "## Something failed"
+		echo
+		echo "## ssh server log"
+		sudo journalctl -b -u ssh.service --lines 100
+	fi
+}
+
+trap cleanup EXIT
+
+sudo systemctl disable --now ssh.service
+sudo systemctl enable --now ssh.socket
+ssh -oStrictHostKeyChecking=accept-new "$(id -un)@localhost" date

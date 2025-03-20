@@ -209,9 +209,11 @@ follows (modifying ListenStream to match your requirements):
   mkdir -p /etc/systemd/system/ssh.socket.d
   cat >/etc/systemd/system/ssh.socket.d/listen.conf <<EOF
   [Socket]
+  ListenStream=
   ListenStream=2222
   EOF
   systemctl daemon-reload
+  systemctl restart ssh.socket
 
 See systemd.socket(5) for details.
 

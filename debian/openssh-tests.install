@@ -5,6 +5,7 @@ debian/build-deb/regress/mkdtemp /usr/lib/openssh/regress
 debian/build-deb/regress/modpipe /usr/lib/openssh/regress
 debian/build-deb/regress/netcat /usr/lib/openssh/regress
 debian/build-deb/regress/setuid-allowed /usr/lib/openssh/regress
+debian/build-deb/regress/timestamp /usr/lib/openssh/regress
 debian/build-deb/regress/unittests /usr/lib/openssh/regress
 
 debian/build-deb/config.h /usr/lib/openssh/regress

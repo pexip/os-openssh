@@ -1,0 +1,69 @@
+# Mesajele în limba română pentru pachetul openssh.
+# Romanian translation of openssh.
+# Copyright © 2023 THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the openssh package.
+#
+# Remus-Gabriel Chelu <remusgabriel.chelu@disroot.org>, 2023.
+#
+# Cronologia traducerii fișierului „openssh”:
+# Traducerea inițială, făcută de R-GC, pentru versiunea openssh 1 9.2p1-2(2014-03-20).
+# Actualizare a traducerii pentru versiunea Y, făcută de X, Y(anul).
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: openssh 1 9.2p1-2\n"
+"Report-Msgid-Bugs-To: openssh@packages.debian.org\n"
+"POT-Creation-Date: 2014-03-20 02:06+0000\n"
+"PO-Revision-Date: 2023-03-11 12:17+0100\n"
+"Last-Translator: Remus-Gabriel Chelu <remusgabriel.chelu@disroot.org>\n"
+"Language-Team: Romanian <debian-l10n-romanian@lists.debian.org>\n"
+"Language: ro\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n==0 || (n!=1 && n%100>=1 && "
+"n%100<=19) ? 1 : 2);\n"
+"X-Bugs: Report translation errors to the Language-Team address.\n"
+"X-Generator: Poedit 3.2.2\n"
+
+#. Type: boolean
+#. Description
+#: ../openssh-server.templates:1001
+msgid "Disable SSH password authentication for root?"
+msgstr ""
+"Doriți să dezactivați autentificarea SSH prin parolă pentru utilizatorul „root”?"
+
+#. Type: boolean
+#. Description
+#: ../openssh-server.templates:1001
+msgid ""
+"Previous versions of openssh-server permitted logging in as root over SSH using "
+"password authentication. The default for new installations is now "
+"\"PermitRootLogin prohibit-password\", which disables password authentication "
+"for root without breaking systems that have explicitly configured SSH public "
+"key authentication for root."
+msgstr ""
+"Versiunile anterioare ale «openssh-server» permiteau conectarea ca utilizator "
+"„root” prin SSH folosind autentificarea prin parolă. Valoarea implicită pentru "
+"noile instalări este acum „PermitRootLogin prohibit-password”, care "
+"dezactivează autentificarea parolei pentru „root” fără să deterioreze sistemele "
+"care au configurat în mod explicit autentificarea cu cheie publică SSH pentru "
+"„root”."
+
+#. Type: boolean
+#. Description
+#: ../openssh-server.templates:1001
+msgid ""
+"This change makes systems more secure against brute-force password dictionary "
+"attacks on the root user (a very common target for such attacks). However, it "
+"may break systems that are set up with the expectation of being able to SSH as "
+"root using password authentication. You should only make this change if you do "
+"not need to do that."
+msgstr ""
+"Această modificare face sistemele mai sigure împotriva atacurilor de forță "
+"brută bazate pe dicționar de parole asupra utilizatorului „root” (o țintă "
+"foarte comună pentru astfel de atacuri). Cu toate acestea, poate distruge "
+"sistemele care sunt configurate pentru a permite utilizatorului „root” să se "
+"conecteze prin SSH folosind o parolă. Ar trebui să faceți această modificare "
+"doar dacă nu este necesar să utilizați acest tip de autentificare pentru "
+"utilizatorul „root”."
