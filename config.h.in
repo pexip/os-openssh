@@ -222,6 +222,12 @@
 /* Define to 1 if you have the `aug_get_machine' function. */
 #undef HAVE_AUG_GET_MACHINE
 
+/* Define to 1 if you have the `auth_hostok' function. */
+#undef HAVE_AUTH_HOSTOK
+
+/* Define to 1 if you have the `auth_timeok' function. */
+#undef HAVE_AUTH_TIMEOK
+
 /* Define to 1 if you have the `b64_ntop' function. */
 #undef HAVE_B64_NTOP
 
@@ -275,6 +281,12 @@
 
 /* calloc(0, x) returns NULL */
 #undef HAVE_CALLOC
+
+/* Define if you have caph_cache_tzdata */
+#undef HAVE_CAPH_CACHE_TZDATA
+
+/* Define to 1 if you have the <capsicum_helpers.h> header file. */
+#undef HAVE_CAPSICUM_HELPERS_H
 
 /* Define to 1 if you have the `cap_rights_limit' function. */
 #undef HAVE_CAP_RIGHTS_LIMIT
@@ -331,6 +343,10 @@
    don't. */
 #undef HAVE_DECL_FTRUNCATE
 
+/* Define to 1 if you have the declaration of `getentropy', and to 0 if you
+   don't. */
+#undef HAVE_DECL_GETENTROPY
+
 /* Define to 1 if you have the declaration of `getpeereid', and to 0 if you
    don't. */
 #undef HAVE_DECL_GETPEEREID
@@ -379,6 +395,14 @@
    don't. */
 #undef HAVE_DECL_OFFSETOF
 
+/* Define to 1 if you have the declaration of `OPENSSL_IS_BORINGSSL', and to 0
+   if you don't. */
+#undef HAVE_DECL_OPENSSL_IS_BORINGSSL
+
+/* Define to 1 if you have the declaration of `OPENSSL_NO_DSA', and to 0 if
+   you don't. */
+#undef HAVE_DECL_OPENSSL_NO_DSA
+
 /* Define to 1 if you have the declaration of `O_NONBLOCK', and to 0 if you
    don't. */
 #undef HAVE_DECL_O_NONBLOCK
@@ -424,21 +448,6 @@
 /* Define if you have /dev/ptc */
 #undef HAVE_DEV_PTS_AND_PTC
 
-/* Define to 1 if you have the `DH_get0_key' function. */
-#undef HAVE_DH_GET0_KEY
-
-/* Define to 1 if you have the `DH_get0_pqg' function. */
-#undef HAVE_DH_GET0_PQG
-
-/* Define to 1 if you have the `DH_set0_key' function. */
-#undef HAVE_DH_SET0_KEY
-
-/* Define to 1 if you have the `DH_set0_pqg' function. */
-#undef HAVE_DH_SET0_PQG
-
-/* Define to 1 if you have the `DH_set_length' function. */
-#undef HAVE_DH_SET_LENGTH
-
 /* Define to 1 if you have the <dirent.h> header file. */
 #undef HAVE_DIRENT_H
 
@@ -453,30 +462,6 @@
 
 /* Define to 1 if you have the `DSA_generate_parameters_ex' function. */
 #undef HAVE_DSA_GENERATE_PARAMETERS_EX
-
-/* Define to 1 if you have the `DSA_get0_key' function. */
-#undef HAVE_DSA_GET0_KEY
-
-/* Define to 1 if you have the `DSA_get0_pqg' function. */
-#undef HAVE_DSA_GET0_PQG
-
-/* Define to 1 if you have the `DSA_set0_key' function. */
-#undef HAVE_DSA_SET0_KEY
-
-/* Define to 1 if you have the `DSA_set0_pqg' function. */
-#undef HAVE_DSA_SET0_PQG
-
-/* Define to 1 if you have the `DSA_SIG_get0' function. */
-#undef HAVE_DSA_SIG_GET0
-
-/* Define to 1 if you have the `DSA_SIG_set0' function. */
-#undef HAVE_DSA_SIG_SET0
-
-/* Define to 1 if you have the `ECDSA_SIG_get0' function. */
-#undef HAVE_ECDSA_SIG_GET0
-
-/* Define to 1 if you have the `ECDSA_SIG_set0' function. */
-#undef HAVE_ECDSA_SIG_SET0
 
 /* Define to 1 if you have the `EC_KEY_METHOD_new' function. */
 #undef HAVE_EC_KEY_METHOD_NEW
@@ -511,9 +496,6 @@
 /* Define to 1 if you have the `EVP_chacha20' function. */
 #undef HAVE_EVP_CHACHA20
 
-/* Define to 1 if you have the `EVP_CIPHER_CTX_ctrl' function. */
-#undef HAVE_EVP_CIPHER_CTX_CTRL
-
 /* Define to 1 if you have the `EVP_CIPHER_CTX_get_iv' function. */
 #undef HAVE_EVP_CIPHER_CTX_GET_IV
 
@@ -535,23 +517,26 @@
 /* Define to 1 if you have the `EVP_DigestInit_ex' function. */
 #undef HAVE_EVP_DIGESTINIT_EX
 
+/* Define to 1 if you have the `EVP_DigestSign' function. */
+#undef HAVE_EVP_DIGESTSIGN
+
+/* Define to 1 if you have the `EVP_DigestVerify' function. */
+#undef HAVE_EVP_DIGESTVERIFY
+
 /* Define to 1 if you have the `EVP_MD_CTX_cleanup' function. */
 #undef HAVE_EVP_MD_CTX_CLEANUP
 
 /* Define to 1 if you have the `EVP_MD_CTX_copy_ex' function. */
 #undef HAVE_EVP_MD_CTX_COPY_EX
 
-/* Define to 1 if you have the `EVP_MD_CTX_free' function. */
-#undef HAVE_EVP_MD_CTX_FREE
-
 /* Define to 1 if you have the `EVP_MD_CTX_init' function. */
 #undef HAVE_EVP_MD_CTX_INIT
 
-/* Define to 1 if you have the `EVP_MD_CTX_new' function. */
-#undef HAVE_EVP_MD_CTX_NEW
+/* Define to 1 if you have the `EVP_PKEY_get_raw_private_key' function. */
+#undef HAVE_EVP_PKEY_GET_RAW_PRIVATE_KEY
 
-/* Define to 1 if you have the `EVP_PKEY_get0_RSA' function. */
-#undef HAVE_EVP_PKEY_GET0_RSA
+/* Define to 1 if you have the `EVP_PKEY_get_raw_public_key' function. */
+#undef HAVE_EVP_PKEY_GET_RAW_PUBLIC_KEY
 
 /* Define to 1 if you have the `EVP_sha256' function. */
 #undef HAVE_EVP_SHA256
@@ -613,6 +598,9 @@
 /* Define to 1 if you have the `fido_dev_get_touch_status' function. */
 #undef HAVE_FIDO_DEV_GET_TOUCH_STATUS
 
+/* Define to 1 if you have the `fido_dev_is_winhello' function. */
+#undef HAVE_FIDO_DEV_IS_WINHELLO
+
 /* Define to 1 if you have the `fido_dev_supports_cred_prot' function. */
 #undef HAVE_FIDO_DEV_SUPPORTS_CRED_PROT
 
@@ -666,6 +654,9 @@
 
 /* Define to 1 if you have the `getcwd' function. */
 #undef HAVE_GETCWD
+
+/* Define to 1 if you have the `getentropy' function. */
+#undef HAVE_GETENTROPY
 
 /* Define to 1 if you have the `getgrouplist' function. */
 #undef HAVE_GETGROUPLIST
@@ -871,9 +862,6 @@
 /* Define to 1 if you have the `bsm' library (-lbsm). */
 #undef HAVE_LIBBSM
 
-/* Define to 1 if you have the `crypt' library (-lcrypt). */
-#undef HAVE_LIBCRYPT
-
 /* Define to 1 if you have the `dl' library (-ldl). */
 #undef HAVE_LIBDL
 
@@ -974,9 +962,6 @@
 /* Define to 1 if you have the `memmove' function. */
 #undef HAVE_MEMMOVE
 
-/* Define to 1 if you have the <memory.h> header file. */
-#undef HAVE_MEMORY_H
-
 /* Define to 1 if you have the `memset_s' function. */
 #undef HAVE_MEMSET_S
 
@@ -1034,9 +1019,6 @@
 
 /* as a macro */
 #undef HAVE_OPENSSL_ADD_ALL_ALGORITHMS
-
-/* Define to 1 if you have the `OPENSSL_init_crypto' function. */
-#undef HAVE_OPENSSL_INIT_CRYPTO
 
 /* Define to 1 if you have the `OpenSSL_version' function. */
 #undef HAVE_OPENSSL_VERSION
@@ -1147,47 +1129,8 @@
 /* Define to 1 if you have the `RSA_generate_key_ex' function. */
 #undef HAVE_RSA_GENERATE_KEY_EX
 
-/* Define to 1 if you have the `RSA_get0_crt_params' function. */
-#undef HAVE_RSA_GET0_CRT_PARAMS
-
-/* Define to 1 if you have the `RSA_get0_factors' function. */
-#undef HAVE_RSA_GET0_FACTORS
-
-/* Define to 1 if you have the `RSA_get0_key' function. */
-#undef HAVE_RSA_GET0_KEY
-
 /* Define to 1 if you have the `RSA_get_default_method' function. */
 #undef HAVE_RSA_GET_DEFAULT_METHOD
-
-/* Define to 1 if you have the `RSA_meth_dup' function. */
-#undef HAVE_RSA_METH_DUP
-
-/* Define to 1 if you have the `RSA_meth_free' function. */
-#undef HAVE_RSA_METH_FREE
-
-/* Define to 1 if you have the `RSA_meth_get_finish' function. */
-#undef HAVE_RSA_METH_GET_FINISH
-
-/* Define to 1 if you have the `RSA_meth_set1_name' function. */
-#undef HAVE_RSA_METH_SET1_NAME
-
-/* Define to 1 if you have the `RSA_meth_set_finish' function. */
-#undef HAVE_RSA_METH_SET_FINISH
-
-/* Define to 1 if you have the `RSA_meth_set_priv_dec' function. */
-#undef HAVE_RSA_METH_SET_PRIV_DEC
-
-/* Define to 1 if you have the `RSA_meth_set_priv_enc' function. */
-#undef HAVE_RSA_METH_SET_PRIV_ENC
-
-/* Define to 1 if you have the `RSA_set0_crt_params' function. */
-#undef HAVE_RSA_SET0_CRT_PARAMS
-
-/* Define to 1 if you have the `RSA_set0_factors' function. */
-#undef HAVE_RSA_SET0_FACTORS
-
-/* Define to 1 if you have the `RSA_set0_key' function. */
-#undef HAVE_RSA_SET0_KEY
 
 /* Define to 1 if you have the <sandbox.h> header file. */
 #undef HAVE_SANDBOX_H
@@ -1348,6 +1291,9 @@
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
 
+/* Define to 1 if you have the <stdio.h> header file. */
+#undef HAVE_STDIO_H
+
 /* Define to 1 if you have the <stdlib.h> header file. */
 #undef HAVE_STDLIB_H
 
@@ -1458,9 +1404,6 @@
 
 /* define if you have struct timeval */
 #undef HAVE_STRUCT_TIMEVAL
-
-/* Define to 1 if you have the `swap32' function. */
-#undef HAVE_SWAP32
 
 /* Define to 1 if you have the `sysconf' function. */
 #undef HAVE_SYSCONF
@@ -1584,6 +1527,9 @@
 
 /* Define to 1 if you have the `time' function. */
 #undef HAVE_TIME
+
+/* Define to 1 if you have the `timegm' function. */
+#undef HAVE_TIMEGM
 
 /* Define to 1 if you have the <time.h> header file. */
 #undef HAVE_TIME_H
@@ -1814,6 +1760,9 @@
 /* OpenSSL has ECC */
 #undef OPENSSL_HAS_ECC
 
+/* libcrypto has ed25519 support */
+#undef OPENSSL_HAS_ED25519
+
 /* libcrypto has NID_X9_62_prime256v1 */
 #undef OPENSSL_HAS_NISTP256
 
@@ -1822,12 +1771,6 @@
 
 /* libcrypto has NID_secp521r1 */
 #undef OPENSSL_HAS_NISTP521
-
-/* libcrypto has EVP AES CTR */
-#undef OPENSSL_HAVE_EVPCTR
-
-/* libcrypto has EVP AES GCM */
-#undef OPENSSL_HAVE_EVPGCM
 
 /* libcrypto is missing AES 192 and 256 bit functions */
 #undef OPENSSL_LOBOTOMISED_AES
@@ -1929,6 +1872,9 @@
 /* Define as const if snprintf() can declare const char *fmt */
 #undef SNPRINTF_CONST
 
+/* sockaddr_in has sin_len */
+#undef SOCK_HAS_LEN
+
 /* Define to a Set Process Title type if your system is supported by
    bsd-setproctitle.c */
 #undef SPT_TYPE
@@ -1969,7 +1915,9 @@
 /* Prepend the address family to IP tunnel traffic */
 #undef SSH_TUN_PREPEND_AF
 
-/* Define to 1 if you have the ANSI C header files. */
+/* Define to 1 if all of the C90 standard headers exist (not just the ones
+   required in a freestanding environment). This macro is provided for
+   backward compatibility; new code need not use it. */
 #undef STDC_HEADERS
 
 /* Define if you want a different $PATH for the superuser */
@@ -1977,6 +1925,9 @@
 
 /* syslog_r function is safe to use in in a signal handler */
 #undef SYSLOG_R_SAFE_IN_SIGHAND
+
+/* Have sshd notify systemd on start/reload */
+#undef SYSTEMD_NOTIFY
 
 /* Support routing domains using Linux VRF */
 #undef SYS_RDOMAIN_LINUX
@@ -2032,6 +1983,9 @@
 /* Define if you want to enable AIX4's authenticate function */
 #undef WITH_AIXAUTHENTICATE
 
+/* DSA keys explicitly enabled */
+#undef WITH_DSA
+
 /* Define if you have/want arrays (cluster-wide session management, not C
    arrays) */
 #undef WITH_IRIX_ARRAY
@@ -2068,11 +2022,6 @@
 
 /* Define if xauth is found in your path */
 #undef XAUTH_PATH
-
-/* Enable large inode numbers on Mac OS X 10.5.  */
-#ifndef _DARWIN_USE_64_BIT_INODE
-# define _DARWIN_USE_64_BIT_INODE 1
-#endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 #undef _FILE_OFFSET_BITS

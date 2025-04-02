@@ -1,51 +1,91 @@
-.TH GNOME-SSH-ASKPASS 1
-.SH NAME
-gnome\-ssh\-askpass \- prompts a user for a passphrase using GNOME
-.SH SYNOPSIS
-.B gnome\-ssh\-askpass
-.SH DESCRIPTION
-.B gnome\-ssh\-askpass
+.\" Copyright (c) 2003-2022 Colin Watson <cjwatson@debian.org>
+.\" Based on a manual page by Philip Hands for x11-ssh-askpass(1).
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.Dd $Mdocdate: November 14 2022 $
+.Dt GNOME-SSH-ASKPASS 1
+.Os
+.Sh NAME
+.Nm gnome-ssh-askpass
+.Nd prompts a user for a passphrase using GNOME
+.Sh SYNOPSIS
+.Nm Op Ar message ...
+.Sh DESCRIPTION
+.Nm
 is a GNOME-based passphrase dialog for use with OpenSSH.
 It is intended to be called by the
-.BR ssh\-add (1)
+.Xr ssh-add 1
 program and not invoked directly.
 It allows
-.BR ssh\-add (1)
+.Xr ssh-add 1
 to obtain a passphrase from a user, even if not connected to a terminal
 (assuming that an X display is available).
 This happens automatically in the case where
-.B ssh\-add
+.Xr ssh-add 1
 is invoked from one's
-.B ~/.xsession
+.Pa ~/.xsession
 or as one of the GNOME startup programs, for example.
-.PP
+.Pp
 In order to be called automatically by
-.BR ssh\-add ,
-.B gnome\-ssh\-askpass
+.Xr ssh-add 1 ,
+the
+.Ev SSH_ASKPASS
+environment variable should be set to point to the location of
+.Nm ,
+or
+.Nm
 should be installed as
-.IR /usr/bin/ssh\-askpass .
-.SH "ENVIRONMENT VARIABLES"
+.Pa /usr/bin/ssh-askpass .
+.Sh ENVIRONMENT
 The following environment variables are recognized:
-.TP
-.I GNOME_SSH_ASKPASS_GRAB_SERVER
-Causes
-.B gnome\-ssh\-askpass
+.Bl -tag -width "GNOME_SSH_ASKPASS_GRAB_POINTER"
+.It Ev GNOME_SSH_ASKPASS_BG_COLOR
+Text area background color, specified as hexadecimal RGB or RRGGBB,
+optionally prefixed by
+.Dq #
+or
+.Dq 0x .
+.It Ev GNOME_SSH_ASKPASS_FG_COLOR
+Text area foreground color, specified as hexadecimal RGB or RRGGBB,
+optionally prefixed by
+.Dq #
+or
+.Dq 0x .
+.It Ev GNOME_SSH_ASKPASS_GRAB_POINTER
+If set, causes
+.Nm
+to grab the mouse pointer before asking for a passphrase.
+.It Ev GNOME_SSH_ASKPASS_GRAB_SERVER
+If set, causes
+.Nm
 to grab the X server before asking for a passphrase.
-.TP
-.I GNOME_SSH_ASKPASS_GRAB_POINTER
-Causes
-.B gnome\-ssh\-askpass
-to grab the mouse pointer using
-.IR gdk_pointer_grab ()
-before asking for a passphrase.
-.PP
-Regardless of whether either of these environment variables is set,
-.B gnome\-ssh\-askpass
-will grab the keyboard using
-.IR gdk_keyboard_grab ().
-.SH AUTHOR
-This manual page was written by Colin Watson <cjwatson@debian.org>
-for the Debian system (but may be used by others).
-It was based on that for
-.B x11\-ssh\-askpass
-by Philip Hands.
+.It Ev SSH_ASKPASS_PROMPT
+If set to
+.Li confirm ,
+show a yes-or-no prompt, defaulting to yes.
+If set to
+.Li none ,
+show a prompt with only a close button.
+Otherwise, show an OK-or-cancel prompt, defaulting to OK.
+This environment variable is typically set by
+.Xr ssh-add 1 ,
+and should not normally be set manually.
+.El
+.Pp
+Regardless of whether either
+.Ev GNOME_SSH_ASKPASS_GRAB_POINTER
+or
+.Ev GNOME_SSH_ASKPASS_GRAB_SERVER
+is set,
+.Nm
+will grab the keyboard.

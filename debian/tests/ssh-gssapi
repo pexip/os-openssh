@@ -1,0 +1,166 @@
+#!/bin/bash
+
+set -e
+set -o pipefail
+
+realm="EXAMPLE.FAKE"
+myhostname="sshd-gssapi.${realm,,}"
+testuser="testuser$$"
+testuser2="testuser$$-2"
+adduser --quiet --disabled-password --gecos "" "${testuser}"
+adduser --quiet --disabled-password --gecos "" "${testuser2}"
+password="secret"
+user_principal="${testuser}@${realm}"
+service_principal="host/${myhostname}"
+
+ssh-keygen -t ed25519 -N '' -f "$HOME/.ssh/id_ed25519"
+runuser -u "$testuser2" -- mkdir -m700 "/home/$testuser2/.ssh"
+cp "$HOME/.ssh/id_ed25519.pub" "/home/$testuser2/.ssh/authorized_keys"
+chown "$testuser2:" "/home/$testuser2/.ssh/authorized_keys"
+
+source debian/tests/util
+
+cleanup() {
+    if [ $? -ne 0 ]; then
+        echo "## Something failed"
+        echo
+        echo "## klist"
+        klist
+        echo
+        echo "## ssh server log"
+        journalctl -b -u ssh.service --lines 100
+        echo
+        echo "## Kerberos KDC logs"
+        journalctl -b -u krb5-kdc.service --lines 100
+        echo
+        echo "## Kerberos Admin server logs"
+        journalctl -b -u krb5-admin-server.service --lines 100
+        echo
+        echo "## Skipping cleanup to facilitate troubleshooting"
+    else
+        echo "## ALL TESTS PASSED"
+        echo "## Cleaning up"
+        rm -f /etc/krb5.keytab
+        rm -f /etc/ssh/sshd_config.d/gssapi.conf
+        rm -f /etc/ssh/ssh_config.d/gssapi.conf
+        rm -f /etc/ssh/ssh_config.d/dep8.conf
+    fi
+}
+
+trap cleanup EXIT
+
+setup() {
+    echo "## Setting up test environment"
+    adjust_hostname "${myhostname}"
+    echo "## Creating Kerberos realm ${realm}"
+    create_realm "${realm}" "${myhostname}"
+    echo "## Creating principals"
+    kadmin.local -q "addprinc -clearpolicy -pw ${password} ${user_principal}"
+    kadmin.local -q "addprinc -clearpolicy -randkey ${service_principal}"
+    echo "## Extracting service principal ${service_principal}"
+    kadmin.local -q "ktadd -k /etc/krb5.keytab ${service_principal}"
+    cat > /etc/ssh/ssh_config.d/dep8.conf <<EOF
+Host *
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+EOF
+    echo "## Adjusting /etc/krb5.conf"
+    cat > /etc/krb5.conf <<EOF
+[libdefaults]
+    default_realm = ${realm}
+    rdns = false
+    forwardable = true
+    dns_lookup_kdc = false
+    dns_uri_lookup = false
+    dns_lookup_realm = false
+
+[realms]
+    ${realm} = {
+        kdc = ${myhostname}
+        admin_server = ${myhostname}
+    }
+EOF
+}
+
+configure_sshd() {
+    local auth_method="${1}"
+
+    if [ "${auth_method}" = "gssapi-with-mic" ]; then
+        # server
+        echo "## Configuring sshd for ${auth_method} authentication"
+        cat > /etc/ssh/sshd_config.d/gssapi.conf <<EOF
+GSSAPIAuthentication yes
+GSSAPIKeyExchange no
+GSSAPICleanupCredentials yes
+EOF
+    # client
+    cat > /etc/ssh/ssh_config.d/gssapi.conf <<EOF
+Host *
+    GSSAPIAuthentication yes
+    GSSAPIKeyExchange no
+EOF
+    elif [ "${auth_method}" = "gssapi-keyex" ]; then
+        # server
+        echo "## Configuring sshd for ${auth_method} authentication"
+        cat > /etc/ssh/sshd_config.d/gssapi.conf <<EOF
+GSSAPIAuthentication yes
+GSSAPIKeyExchange yes
+GSSAPICleanupCredentials yes
+EOF
+    # client
+    cat > /etc/ssh/ssh_config.d/gssapi.conf <<EOF
+Host *
+    GSSAPIAuthentication yes
+    GSSAPIKeyExchange yes
+EOF
+    else
+        echo "## ERROR: unknown auth_method \"${auth_method}\""
+        return 1
+    fi
+    echo "## Restarting ssh"
+    systemctl restart ssh.service
+}
+
+_test_ssh_login() {
+    local initial_auth_method="${1}"
+    local user="${2}"
+    local final_auth_method="${3}"
+    local cursor
+
+    kdestroy 2>/dev/null || :
+    configure_sshd "${initial_auth_method}" || return $?
+    cursor="$(journalctl -u ssh.service --lines=1 --show-cursor | sed -n 's/^-- cursor: //p')"
+    echo "## Obtaining TGT"
+    echo "${password}" | timeout --verbose 30 kinit "${user_principal}" || return $?
+    klist
+    echo
+    echo "## ssh'ing into localhost using ${initial_auth_method} auth"
+    timeout --verbose 30 ssh "${user}@${myhostname}" date || return $?
+    echo
+    echo "## checking that we got a service ticket for ssh (host/)"
+    klist | grep -F "${service_principal}" || return $?
+    echo
+    echo "## Checking ssh logs to confirm ${final_auth_method} auth was used"
+    journalctl -u ssh.service --after-cursor="$cursor" --grep "Accepted ${final_auth_method}"
+}
+
+test_gssapi_login() {
+    _test_ssh_login gssapi-with-mic "${testuser}" gssapi-with-mic
+}
+
+test_gssapi_keyex_login() {
+    _test_ssh_login gssapi-keyex "${testuser}" gssapi-keyex
+}
+
+test_gssapi_keyex_pubkey_fallback() {
+    # GSS-API key exchange for the wrong user, falling back to public key
+    # authentication for the right user.
+    _test_ssh_login gssapi-keyex "${testuser2}" publickey
+}
+
+setup
+echo "## TESTS"
+echo
+run_test test_gssapi_login
+run_test test_gssapi_keyex_login
+run_test test_gssapi_keyex_pubkey_fallback

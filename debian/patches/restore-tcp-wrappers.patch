@@ -1,4 +1,4 @@
-From 6806b85f30244d186206004386a9faddc16b8738 Mon Sep 17 00:00:00 2001
+From e14a4a5af1995dee3b36d8c9395b2f69c2f6cef8 Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Tue, 7 Oct 2014 13:22:41 +0100
 Subject: Restore TCP wrappers support
@@ -18,20 +18,20 @@ but it at least probably doesn't involve dropping this feature shortly
 before a freeze.
 
 Forwarded: not-needed
-Last-Update: 2019-06-05
+Last-Update: 2024-08-02
 
 Patch-Name: restore-tcp-wrappers.patch
 ---
- configure.ac | 57 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- sshd.8       |  7 +++++++
- sshd.c       | 25 +++++++++++++++++++++++
+ configure.ac   | 57 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ sshd-session.c | 25 ++++++++++++++++++++++
+ sshd.8         |  7 +++++++
  3 files changed, 89 insertions(+)
 
 diff --git a/configure.ac b/configure.ac
-index c8a96deb4..bb435ec1f 100644
+index ecfc4d131..ec19d8ebb 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -1571,6 +1571,62 @@ else
+@@ -1693,6 +1693,62 @@ else
  	AC_MSG_RESULT([no])
  fi
  
@@ -94,7 +94,7 @@ index c8a96deb4..bb435ec1f 100644
  # Check whether user wants to use ldns
  LDNS_MSG="no"
  AC_ARG_WITH(ldns,
-@@ -5536,6 +5592,7 @@ echo "                       PAM support: $PAM_MSG"
+@@ -5733,6 +5789,7 @@ echo "                       PAM support: $PAM_MSG"
  echo "                   OSF SIA support: $SIA_MSG"
  echo "                 KerberosV support: $KRB5_MSG"
  echo "                   SELinux support: $SELINUX_MSG"
@@ -102,36 +102,11 @@ index c8a96deb4..bb435ec1f 100644
  echo "                   libedit support: $LIBEDIT_MSG"
  echo "                   libldns support: $LDNS_MSG"
  echo "  Solaris process contract support: $SPC_MSG"
-diff --git a/sshd.8 b/sshd.8
-index b2fad56d3..97d547ffa 100644
---- a/sshd.8
-+++ b/sshd.8
-@@ -900,6 +900,12 @@ the user's home directory becomes accessible.
- This file should be writable only by the user, and need not be
- readable by anyone else.
- .Pp
-+.It Pa /etc/hosts.allow
-+.It Pa /etc/hosts.deny
-+Access controls that should be enforced by tcp-wrappers are defined here.
-+Further details are described in
-+.Xr hosts_access 5 .
-+.Pp
- .It Pa /etc/hosts.equiv
- This file is for host-based authentication (see
- .Xr ssh 1 ) .
-@@ -1002,6 +1008,7 @@ The content of this file is not sensitive; it can be world-readable.
- .Xr ssh-keygen 1 ,
- .Xr ssh-keyscan 1 ,
- .Xr chroot 2 ,
-+.Xr hosts_access 5 ,
- .Xr login.conf 5 ,
- .Xr moduli 5 ,
- .Xr sshd_config 5 ,
-diff --git a/sshd.c b/sshd.c
-index 8c5d5822e..a50ec3584 100644
---- a/sshd.c
-+++ b/sshd.c
-@@ -124,6 +124,13 @@
+diff --git a/sshd-session.c b/sshd-session.c
+index 03a028c82..f36d58b1b 100644
+--- a/sshd-session.c
++++ b/sshd-session.c
+@@ -110,6 +110,13 @@
  #include "srclimit.h"
  #include "dh.h"
  
@@ -145,7 +120,7 @@ index 8c5d5822e..a50ec3584 100644
  /* Re-exec fds */
  #define REEXEC_DEVCRYPTO_RESERVED_FD	(STDERR_FILENO + 1)
  #define REEXEC_STARTUP_PIPE_FD		(STDERR_FILENO + 2)
-@@ -2183,6 +2190,24 @@ main(int ac, char **av)
+@@ -1256,6 +1263,24 @@ main(int ac, char **av)
  #ifdef SSH_AUDIT_EVENTS
  	audit_connection_from(remote_ip, remote_port);
  #endif
@@ -156,7 +131,7 @@ index 8c5d5822e..a50ec3584 100644
 +	if (ssh_packet_connection_is_on_socket(ssh)) {
 +		struct request_info req;
 +
-+		request_init(&req, RQ_DAEMON, __progname, RQ_FILE, sock_in, 0);
++		request_init(&req, RQ_DAEMON, "sshd", RQ_FILE, sock_in, 0);
 +		fromhost(&req);
 +
 +		if (!hosts_access(&req)) {
@@ -170,3 +145,28 @@ index 8c5d5822e..a50ec3584 100644
  
  	rdomain = ssh_packet_rdomain_in(ssh);
  
+diff --git a/sshd.8 b/sshd.8
+index 08ebf53a1..464d402f6 100644
+--- a/sshd.8
++++ b/sshd.8
+@@ -925,6 +925,12 @@ the user's home directory becomes accessible.
+ This file should be writable only by the user, and need not be
+ readable by anyone else.
+ .Pp
++.It Pa /etc/hosts.allow
++.It Pa /etc/hosts.deny
++Access controls that should be enforced by tcp-wrappers are defined here.
++Further details are described in
++.Xr hosts_access 5 .
++.Pp
+ .It Pa /etc/hosts.equiv
+ This file is for host-based authentication (see
+ .Xr ssh 1 ) .
+@@ -1027,6 +1033,7 @@ The content of this file is not sensitive; it can be world-readable.
+ .Xr ssh-keygen 1 ,
+ .Xr ssh-keyscan 1 ,
+ .Xr chroot 2 ,
++.Xr hosts_access 5 ,
+ .Xr login.conf 5 ,
+ .Xr moduli 5 ,
+ .Xr sshd_config 5 ,

@@ -8,9 +8,10 @@ SYNOPSIS
          [-c cipher_spec] [-D [bind_address:]port] [-E log_file]
          [-e escape_char] [-F configfile] [-I pkcs11] [-i identity_file]
          [-J destination] [-L address] [-l login_name] [-m mac_spec]
-         [-O ctl_cmd] [-o option] [-p port] [-Q query_option] [-R address]
+         [-O ctl_cmd] [-o option] [-P tag] [-p port] [-R address]
          [-S ctl_path] [-W host:port] [-w local_tun[:remote_tun]] destination
          [command [argument ...]]
+     ssh [-Q query_option]
 
 DESCRIPTION
      ssh (SSH client) is a program for logging into a remote machine and for
@@ -67,7 +68,7 @@ DESCRIPTION
              gzip(1).  Compression is desirable on modem lines and other slow
              connections, but will only slow down things on fast networks.
              The default value can be set on a host-by-host basis in the
-             configuration files; see the Compression option.
+             configuration files; see the Compression option in ssh_config(5).
 
      -c cipher_spec
              Selects the cipher specification for encrypting the session.
@@ -144,25 +145,26 @@ DESCRIPTION
              file to use the corresponding private key that is loaded in
              ssh-agent(1) when the private key file is not present locally.
              The default is ~/.ssh/id_rsa, ~/.ssh/id_ecdsa,
-             ~/.ssh/id_ecdsa_sk, ~/.ssh/id_ed25519, ~/.ssh/id_ed25519_sk and
-             ~/.ssh/id_dsa.  Identity files may also be specified on a per-
-             host basis in the configuration file.  It is possible to have
-             multiple -i options (and multiple identities specified in
-             configuration files).  If no certificates have been explicitly
-             specified by the CertificateFile directive, ssh will also try to
-             load certificate information from the filename obtained by
-             appending -cert.pub to identity filenames.
+             ~/.ssh/id_ecdsa_sk, ~/.ssh/id_ed25519 and ~/.ssh/id_ed25519_sk.
+             Identity files may also be specified on a per-host basis in the
+             configuration file.  It is possible to have multiple -i options
+             (and multiple identities specified in configuration files).  If
+             no certificates have been explicitly specified by the
+             CertificateFile directive, ssh will also try to load certificate
+             information from the filename obtained by appending -cert.pub to
+             identity filenames.
 
      -J destination
-             Connect to the target host by first making a ssh connection to
+             Connect to the target host by first making an ssh connection to
              the jump host described by destination and then establishing a
              TCP forwarding to the ultimate destination from there.  Multiple
-             jump hops may be specified separated by comma characters.  This
-             is a shortcut to specify a ProxyJump configuration directive.
-             Note that configuration directives supplied on the command-line
-             generally apply to the destination host and not any specified
-             jump hosts.  Use ~/.ssh/config to specify configuration for jump
-             hosts.
+             jump hops may be specified separated by comma characters.  IPv6
+             addresses can be specified by enclosing the address in square
+             brackets.  This is a shortcut to specify a ProxyJump
+             configuration directive.  Note that configuration directives
+             supplied on the command-line generally apply to the destination
+             host and not any specified jump hosts.  Use ~/.ssh/config to
+             specify configuration for jump hosts.
 
      -K      Enables GSSAPI-based authentication and forwarding (delegation)
              of GSSAPI credentials to the server.
@@ -209,7 +211,7 @@ DESCRIPTION
      -m mac_spec
              A comma-separated list of MAC (message authentication code)
              algorithms, specified in order of preference.  See the MACs
-             keyword for more information.
+             keyword in ssh_config(5) for more information.
 
      -N      Do not execute a remote command.  This is useful for just
              forwarding ports.  Refer to the description of SessionType in
@@ -232,7 +234,8 @@ DESCRIPTION
              and passed to the master process.  Valid commands are: M-bM-^@M-^\checkM-bM-^@M-^]
              (check that the master process is running), M-bM-^@M-^\forwardM-bM-^@M-^] (request
              forwardings without command execution), M-bM-^@M-^\cancelM-bM-^@M-^] (cancel
-             forwardings), M-bM-^@M-^\exitM-bM-^@M-^] (request the master to exit), and M-bM-^@M-^\stopM-bM-^@M-^]
+             forwardings), M-bM-^@M-^\proxyM-bM-^@M-^] (connect to a running multiplexing master
+             in proxy mode), M-bM-^@M-^\exitM-bM-^@M-^] (request the master to exit), and M-bM-^@M-^\stopM-bM-^@M-^]
              (request the master to stop accepting further multiplexing
              requests).
 
@@ -264,6 +267,7 @@ DESCRIPTION
                    ControlPath
                    ControlPersist
                    DynamicForward
+                   EnableEscapeCommandline
                    EscapeChar
                    ExitOnForwardFailure
                    FingerprintHash
@@ -313,6 +317,7 @@ DESCRIPTION
                    RemoteCommand
                    RemoteForward
                    RequestTTY
+                   RequiredRSASize
                    SendEnv
                    ServerAliveInterval
                    ServerAliveCountMax
@@ -332,6 +337,9 @@ DESCRIPTION
                    VisualHostKey
                    XAuthLocation
 
+     -P tag  Specify a tag name that may be used to select configuration in
+             ssh_config(5).  Refer to the Tag and Match keywords in
+             ssh_config(5) for more information.
      -p port
              Port to connect to on the remote host.  This can be specified on
              a per-host basis in the configuration file.
@@ -342,7 +350,8 @@ DESCRIPTION
              (supported symmetric ciphers that support authenticated
              encryption), help (supported query terms for use with the -Q
              flag), mac (supported message integrity codes), kex (key exchange
-             algorithms), key (key types), key-cert (certificate key types),
+             algorithms), key (key types), key-ca-sign (valid CA signature
+             algorithms for certificates), key-cert (certificate key types),
              key-plain (non-certificate key types), key-sig (all key types and
              signature algorithms), protocol-version (supported SSH protocol
              versions), and sig (supported signature algorithms).
@@ -494,8 +503,7 @@ AUTHENTICATION
      creates a public/private key pair for authentication purposes.  The
      server knows the public key, and only the user knows the private key.
      ssh implements public key authentication protocol automatically, using
-     one of the DSA, ECDSA, Ed25519 or RSA algorithms.  The HISTORY section of
-     ssl(8) contains a brief discussion of the DSA and RSA algorithms.
+     one of the ECDSA, Ed25519 or RSA algorithms.
 
      The file ~/.ssh/authorized_keys lists the public keys that are permitted
      for logging in.  When the user logs in, the ssh program tells the server
@@ -509,18 +517,18 @@ AUTHENTICATION
      DEBUG or higher (e.g. by using the -v flag).
 
      The user creates their key pair by running ssh-keygen(1).  This stores
-     the private key in ~/.ssh/id_dsa (DSA), ~/.ssh/id_ecdsa (ECDSA),
-     ~/.ssh/id_ecdsa_sk (authenticator-hosted ECDSA), ~/.ssh/id_ed25519
-     (Ed25519), ~/.ssh/id_ed25519_sk (authenticator-hosted Ed25519), or
-     ~/.ssh/id_rsa (RSA) and stores the public key in ~/.ssh/id_dsa.pub (DSA),
-     ~/.ssh/id_ecdsa.pub (ECDSA), ~/.ssh/id_ecdsa_sk.pub (authenticator-hosted
-     ECDSA), ~/.ssh/id_ed25519.pub (Ed25519), ~/.ssh/id_ed25519_sk.pub
-     (authenticator-hosted Ed25519), or ~/.ssh/id_rsa.pub (RSA) in the user's
-     home directory.  The user should then copy the public key to
-     ~/.ssh/authorized_keys in their home directory on the remote machine.
-     The authorized_keys file corresponds to the conventional ~/.rhosts file,
-     and has one key per line, though the lines can be very long.  After this,
-     the user can log in without giving the password.
+     the private key in ~/.ssh/id_ecdsa (ECDSA), ~/.ssh/id_ecdsa_sk
+     (authenticator-hosted ECDSA), ~/.ssh/id_ed25519 (Ed25519),
+     ~/.ssh/id_ed25519_sk (authenticator-hosted Ed25519), or ~/.ssh/id_rsa
+     (RSA) and stores the public key in ~/.ssh/id_ecdsa.pub (ECDSA),
+     ~/.ssh/id_ecdsa_sk.pub (authenticator-hosted ECDSA),
+     ~/.ssh/id_ed25519.pub (Ed25519), ~/.ssh/id_ed25519_sk.pub (authenticator-
+     hosted Ed25519), or ~/.ssh/id_rsa.pub (RSA) in the user's home directory.
+     The user should then copy the public key to ~/.ssh/authorized_keys in
+     their home directory on the remote machine.  The authorized_keys file
+     corresponds to the conventional ~/.rhosts file, and has one key per line,
+     though the lines can be very long.  After this, the user can log in
+     without giving the password.
 
      A variation on public key authentication is available in the form of
      certificate authentication: instead of a set of public/private keys,
@@ -872,11 +880,11 @@ FILES
              for the user, and not accessible by others.
 
      ~/.ssh/authorized_keys
-             Lists the public keys (DSA, ECDSA, Ed25519, RSA) that can be used
-             for logging in as this user.  The format of this file is
-             described in the sshd(8) manual page.  This file is not highly
-             sensitive, but the recommended permissions are read/write for the
-             user, and not accessible by others.
+             Lists the public keys (ECDSA, Ed25519, RSA) that can be used for
+             logging in as this user.  The format of this file is described in
+             the sshd(8) manual page.  This file is not highly sensitive, but
+             the recommended permissions are read/write for the user, and not
+             accessible by others.
 
      ~/.ssh/config
              This is the per-user configuration file.  The file format and
@@ -888,7 +896,6 @@ FILES
              Contains additional definitions for environment variables; see
              ENVIRONMENT, above.
 
-     ~/.ssh/id_dsa
      ~/.ssh/id_ecdsa
      ~/.ssh/id_ecdsa_sk
      ~/.ssh/id_ed25519
@@ -902,7 +909,6 @@ FILES
              will be used to encrypt the sensitive part of this file using
              AES-128.
 
-     ~/.ssh/id_dsa.pub
      ~/.ssh/id_ecdsa.pub
      ~/.ssh/id_ecdsa_sk.pub
      ~/.ssh/id_ed25519.pub
@@ -935,8 +941,6 @@ FILES
              Systemwide configuration file.  The file format and configuration
              options are described in ssh_config(5).
 
-     /etc/ssh/ssh_host_key
-     /etc/ssh/ssh_host_dsa_key
      /etc/ssh/ssh_host_ecdsa_key
      /etc/ssh/ssh_host_ed25519_key
      /etc/ssh/ssh_host_rsa_key
@@ -1013,4 +1017,4 @@ AUTHORS
      created OpenSSH.  Markus Friedl contributed the support for SSH protocol
      versions 1.5 and 2.0.
 
-OpenBSD 7.0                     March 31, 2022                     OpenBSD 7.0
+OpenBSD 7.6                      July 18, 2024                     OpenBSD 7.6

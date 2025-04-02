@@ -1,4 +1,4 @@
-From d08cd2b0cfbedf3ccd2ec3adaef850b8d9a87e85 Mon Sep 17 00:00:00 2001
+From 43481b9209582408a5ca7dcb477e100d5901311e Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:09:58 +0000
 Subject: Allow harmless group-writability
@@ -13,24 +13,24 @@ default.
 
 Bug: https://bugzilla.mindrot.org/show_bug.cgi?id=1060
 Bug-Debian: http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=314347
-Last-Update: 2019-10-09
+Last-Update: 2022-02-23
 
 Patch-Name: user-group-modes.patch
 ---
  auth-rhosts.c |  6 ++----
  auth.c        |  3 +--
- misc.c        | 58 ++++++++++++++++++++++++++++++++++++++++++++++-----
+ misc.c        | 57 ++++++++++++++++++++++++++++++++++++++++++++++-----
  misc.h        |  2 ++
  readconf.c    |  3 +--
  ssh.1         |  2 ++
  ssh_config.5  |  2 ++
- 7 files changed, 63 insertions(+), 13 deletions(-)
+ 7 files changed, 62 insertions(+), 13 deletions(-)
 
 diff --git a/auth-rhosts.c b/auth-rhosts.c
-index e81321b49..3bcc73766 100644
+index d5d2c7a12..13c3c201b 100644
 --- a/auth-rhosts.c
 +++ b/auth-rhosts.c
-@@ -260,8 +260,7 @@ auth_rhosts2(struct passwd *pw, const char *client_user, const char *hostname,
+@@ -265,8 +265,7 @@ auth_rhosts2(struct passwd *pw, const char *client_user, const char *hostname,
  		return 0;
  	}
  	if (options.strict_modes &&
@@ -40,7 +40,7 @@ index e81321b49..3bcc73766 100644
  		logit("Rhosts authentication refused for %.100s: "
  		    "bad ownership or modes for home directory.", pw->pw_name);
  		auth_debug_add("Rhosts authentication refused for %.100s: "
-@@ -287,8 +286,7 @@ auth_rhosts2(struct passwd *pw, const char *client_user, const char *hostname,
+@@ -295,8 +294,7 @@ auth_rhosts2(struct passwd *pw, const char *client_user, const char *hostname,
  		 * allowing access to their account by anyone.
  		 */
  		if (options.strict_modes &&
@@ -51,10 +51,10 @@ index e81321b49..3bcc73766 100644
  			    "bad modes for %.200s", pw->pw_name, path);
  			auth_debug_add("Bad file modes for %.200s", path);
 diff --git a/auth.c b/auth.c
-index 3d31ec860..4152d9c44 100644
+index e4578169b..4b878865f 100644
 --- a/auth.c
 +++ b/auth.c
-@@ -474,8 +474,7 @@ check_key_in_hostfiles(struct passwd *pw, struct sshkey *key, const char *host,
+@@ -430,8 +430,7 @@ check_key_in_hostfiles(struct passwd *pw, struct sshkey *key, const char *host,
  		user_hostfile = tilde_expand_filename(userfile, pw->pw_uid);
  		if (options.strict_modes &&
  		    (stat(user_hostfile, &st) == 0) &&
@@ -65,22 +65,21 @@ index 3d31ec860..4152d9c44 100644
  			    "bad owner or modes for %.200s",
  			    pw->pw_name, user_hostfile);
 diff --git a/misc.c b/misc.c
-index 4623b5755..c75a795c2 100644
+index 1b4b55c50..e9b12989d 100644
 --- a/misc.c
 +++ b/misc.c
-@@ -55,9 +55,9 @@
+@@ -62,9 +62,9 @@
  #include <netdb.h>
  #ifdef HAVE_PATHS_H
  # include <paths.h>
--#include <pwd.h>
--#include <grp.h>
- #endif
-+#include <pwd.h>
-+#include <grp.h>
++#endif
+ #include <pwd.h>
+ #include <grp.h>
+-#endif
  #ifdef SSH_TUN_OPENBSD
  #include <net/if.h>
  #endif
-@@ -1271,6 +1271,55 @@ percent_dollar_expand(const char *string, ...)
+@@ -1449,6 +1449,55 @@ percent_dollar_expand(const char *string, ...)
  	return ret;
  }
  
@@ -136,7 +135,7 @@ index 4623b5755..c75a795c2 100644
  int
  tun_open(int tun, int mode, char **ifname)
  {
-@@ -2056,8 +2105,7 @@ safe_path(const char *name, struct stat *stp, const char *pw_dir,
+@@ -2271,8 +2320,7 @@ safe_path(const char *name, struct stat *stp, const char *pw_dir,
  		snprintf(err, errlen, "%s is not a regular file", buf);
  		return -1;
  	}
@@ -146,7 +145,7 @@ index 4623b5755..c75a795c2 100644
  		snprintf(err, errlen, "bad ownership or modes for file %s",
  		    buf);
  		return -1;
-@@ -2072,8 +2120,7 @@ safe_path(const char *name, struct stat *stp, const char *pw_dir,
+@@ -2287,8 +2335,7 @@ safe_path(const char *name, struct stat *stp, const char *pw_dir,
  		strlcpy(buf, cp, sizeof(buf));
  
  		if (stat(buf, &st) == -1 ||
@@ -157,10 +156,10 @@ index 4623b5755..c75a795c2 100644
  			    "bad ownership or modes for directory %s", buf);
  			return -1;
 diff --git a/misc.h b/misc.h
-index ab94a79c0..b34c798e7 100644
+index efecdf1ad..9ea1128ac 100644
 --- a/misc.h
 +++ b/misc.h
-@@ -192,6 +192,8 @@ struct notifier_ctx *notify_start(int, const char *, ...)
+@@ -247,6 +247,8 @@ struct notifier_ctx *notify_start(int, const char *, ...)
  void	notify_complete(struct notifier_ctx *, const char *, ...)
  	__attribute__((format(printf, 2, 3)));
  
@@ -170,10 +169,10 @@ index ab94a79c0..b34c798e7 100644
  #define MAXIMUM(a, b)	(((a) > (b)) ? (a) : (b))
  #define ROUNDUP(x, y)   ((((x)+((y)-1))/(y))*(y))
 diff --git a/readconf.c b/readconf.c
-index 3d0a812b3..f4f273c96 100644
+index 3227e387b..7053ece9b 100644
 --- a/readconf.c
 +++ b/readconf.c
-@@ -1967,8 +1967,7 @@ read_config_file_depth(const char *filename, struct passwd *pw,
+@@ -2570,8 +2570,7 @@ read_config_file_depth(const char *filename, struct passwd *pw,
  
  		if (fstat(fileno(f), &sb) == -1)
  			fatal("fstat %s: %s", filename, strerror(errno));
@@ -184,10 +183,10 @@ index 3d0a812b3..f4f273c96 100644
  	}
  
 diff --git a/ssh.1 b/ssh.1
-index be8e964f0..5d613076c 100644
+index 8f78b3a1e..d80ce6bfc 100644
 --- a/ssh.1
 +++ b/ssh.1
-@@ -1528,6 +1528,8 @@ The file format and configuration options are described in
+@@ -1572,6 +1572,8 @@ The file format and configuration options are described in
  .Xr ssh_config 5 .
  Because of the potential for abuse, this file must have strict permissions:
  read/write for the user, and not writable by others.
@@ -197,10 +196,10 @@ index be8e964f0..5d613076c 100644
  .It Pa ~/.ssh/environment
  Contains additional definitions for environment variables; see
 diff --git a/ssh_config.5 b/ssh_config.5
-index 3ceb800ba..190e1d927 100644
+index 31142f8c5..073ef69e2 100644
 --- a/ssh_config.5
 +++ b/ssh_config.5
-@@ -2010,6 +2010,8 @@ The format of this file is described above.
+@@ -2417,6 +2417,8 @@ The format of this file is described above.
  This file is used by the SSH client.
  Because of the potential for abuse, this file must have strict permissions:
  read/write for the user, and not writable by others.

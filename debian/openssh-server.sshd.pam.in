@@ -44,7 +44,7 @@ session    required     pam_limits.so
 session    required     pam_env.so # [1]
 # In Debian 4.0 (etch), locale-related environment variables were moved to
 # /etc/default/locale, so read that as well.
-session    required     pam_env.so user_readenv=1 envfile=/etc/default/locale
+session    required     pam_env.so envfile=/etc/default/locale
 
 # SELinux needs to intervene at login time to ensure that the process starts
 # in the proper default security context.  Only sessions which are intended

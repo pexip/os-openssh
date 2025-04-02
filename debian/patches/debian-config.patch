@@ -1,4 +1,4 @@
-From a0c9f82b05d33f3e2cf8e5442cee47c09d1a1dd8 Mon Sep 17 00:00:00 2001
+From 545c1452e2a7c58563d70c4ad88bb3adde99130f Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:10:18 +0000
 Subject: Various Debian-specific configuration changes
@@ -15,7 +15,7 @@ ssh: Enable GSSAPIAuthentication by default.
 
 ssh: Include /etc/ssh/ssh_config.d/*.conf.
 
-sshd: Enable PAM, disable ChallengeResponseAuthentication, and disable
+sshd: Enable PAM, disable KbdInteractiveAuthentication, and disable
 PrintMotd.
 
 sshd: Enable X11Forwarding.
@@ -26,27 +26,32 @@ sshd: Change sftp subsystem path to /usr/lib/openssh/sftp-server.
 
 sshd: Include /etc/ssh/sshd_config.d/*.conf.
 
+sshd: Document Debian's default for SshdSessionPath.
+
+regress: Run tests with 'UsePAM yes', to match sshd_config.
+
 Document all of this.
 
 Author: Russ Allbery <rra@debian.org>
 Forwarded: not-needed
-Last-Update: 2020-10-18
+Last-Update: 2024-07-03
 
 Patch-Name: debian-config.patch
 ---
- readconf.c    |  2 +-
- ssh.1         | 24 ++++++++++++++++++++++++
- ssh_config    |  8 +++++++-
- ssh_config.5  | 26 +++++++++++++++++++++++++-
- sshd_config   | 18 ++++++++++++------
- sshd_config.5 | 29 +++++++++++++++++++++++++++++
- 6 files changed, 98 insertions(+), 9 deletions(-)
+ readconf.c           |  2 +-
+ regress/test-exec.sh |  1 +
+ ssh.1                | 24 ++++++++++++++++++++++++
+ ssh_config           |  8 +++++++-
+ ssh_config.5         | 26 +++++++++++++++++++++++++-
+ sshd_config          | 18 ++++++++++++------
+ sshd_config.5        | 31 ++++++++++++++++++++++++++++++-
+ 7 files changed, 100 insertions(+), 10 deletions(-)
 
 diff --git a/readconf.c b/readconf.c
-index f4f273c96..e676b6be6 100644
+index 7053ece9b..6ce77f640 100644
 --- a/readconf.c
 +++ b/readconf.c
-@@ -2153,7 +2153,7 @@ fill_default_options(Options * options)
+@@ -2791,7 +2791,7 @@ fill_default_options(Options * options)
  	if (options->forward_x11 == -1)
  		options->forward_x11 = 0;
  	if (options->forward_x11_trusted == -1)
@@ -55,11 +60,23 @@ index f4f273c96..e676b6be6 100644
  	if (options->forward_x11_timeout == -1)
  		options->forward_x11_timeout = 1200;
  	/*
+diff --git a/regress/test-exec.sh b/regress/test-exec.sh
+index 7afc28072..02b122a85 100644
+--- a/regress/test-exec.sh
++++ b/regress/test-exec.sh
+@@ -622,6 +622,7 @@ cat << EOF > $OBJ/sshd_config
+ 	Subsystem	sftp	$SFTPSERVER
+ 	SshdSessionPath		$SSHD_SESSION
+ 	PerSourcePenalties	no
++	UsePAM			yes
+ EOF
+ 
+ # This may be necessary if /usr/src and/or /usr/obj are group-writable,
 diff --git a/ssh.1 b/ssh.1
-index 76ddd89b5..ad48fc8c8 100644
+index 3ad246c27..9ca6e18e2 100644
 --- a/ssh.1
 +++ b/ssh.1
-@@ -812,6 +812,16 @@ directive in
+@@ -863,6 +863,16 @@ directive in
  .Xr ssh_config 5
  for more information.
  .Pp
@@ -76,7 +93,7 @@ index 76ddd89b5..ad48fc8c8 100644
  .It Fl x
  Disables X11 forwarding.
  .Pp
-@@ -820,6 +830,20 @@ Enables trusted X11 forwarding.
+@@ -871,6 +881,20 @@ Enables trusted X11 forwarding.
  Trusted X11 forwardings are not subjected to the X11 SECURITY extension
  controls.
  .Pp
@@ -98,7 +115,7 @@ index 76ddd89b5..ad48fc8c8 100644
  Send log information using the
  .Xr syslog 3
 diff --git a/ssh_config b/ssh_config
-index 52aae8692..09a17cf18 100644
+index 16197d15d..92d06ef38 100644
 --- a/ssh_config
 +++ b/ssh_config
 @@ -17,9 +17,12 @@
@@ -123,7 +140,7 @@ index 52aae8692..09a17cf18 100644
 +    HashKnownHosts yes
 +    GSSAPIAuthentication yes
 diff --git a/ssh_config.5 b/ssh_config.5
-index 96ca7a5df..6d6c59521 100644
+index 86258eb4f..9adc0fdb7 100644
 --- a/ssh_config.5
 +++ b/ssh_config.5
 @@ -71,6 +71,29 @@ Since the first obtained value for each parameter is used, more
@@ -156,7 +173,7 @@ index 96ca7a5df..6d6c59521 100644
  The file contains keyword-argument pairs, one per line.
  Lines starting with
  .Ql #
-@@ -742,11 +765,12 @@ elapsed.
+@@ -903,11 +926,12 @@ elapsed.
  .It Cm ForwardX11Trusted
  If this option is set to
  .Cm yes ,
@@ -171,7 +188,7 @@ index 96ca7a5df..6d6c59521 100644
  from stealing or tampering with data belonging to trusted X11
  clients.
 diff --git a/sshd_config b/sshd_config
-index 2c48105f8..459c1b230 100644
+index ecfe8d026..677f97d5d 100644
 --- a/sshd_config
 +++ b/sshd_config
 @@ -10,6 +10,8 @@
@@ -229,7 +246,7 @@ index 2c48105f8..459c1b230 100644
  # Example of overriding settings on a per-user basis
  #Match User anoncvs
 diff --git a/sshd_config.5 b/sshd_config.5
-index 32ae46476..472001dd1 100644
+index e177e4af8..2887ed531 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
 @@ -56,6 +56,35 @@ Arguments may optionally be enclosed in double quotes
@@ -247,7 +264,7 @@ index 32ae46476..472001dd1 100644
 +.It
 +.Cm Include /etc/ssh/sshd_config.d/*.conf
 +.It
-+.Cm ChallengeResponseAuthentication No no
++.Cm KbdInteractiveAuthentication No no
 +.It
 +.Cm X11Forwarding No yes
 +.It
@@ -268,3 +285,12 @@ index 32ae46476..472001dd1 100644
  The possible
  keywords and their meanings are as follows (note that
  keywords are case-insensitive and arguments are case-sensitive):
+@@ -1865,7 +1894,7 @@ Overrides the default path to the
+ .Cm sshd-session
+ binary that is invoked to handle each connection.
+ The default is
+-.Pa /usr/libexec/sshd-session .
++.Pa /usr/lib/openssh/sshd-session .
+ This option is intended for use by tests.
+ .It Cm StreamLocalBindMask
+ Sets the octal file creation mode mask

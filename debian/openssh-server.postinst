@@ -14,25 +14,7 @@ get_config_option() {
 
 	[ -f /etc/ssh/sshd_config ] || return
 
-	# TODO: actually only one '=' allowed after option
-	perl -lne '
-		s/[[:space:]]+/ /g; s/[[:space:]]+$//;
-		print if s/^[[:space:]]*'"$option"'[[:space:]=]+//i' \
-	   /etc/ssh/sshd_config
-}
-
-
-host_keys_required() {
-	hostkeys="$(get_config_option HostKey)"
-	if [ "$hostkeys" ]; then
-		echo "$hostkeys"
-	else
-		# No HostKey directives at all, so the server picks some
-		# defaults.
-		echo /etc/ssh/ssh_host_rsa_key
-		echo /etc/ssh/ssh_host_ecdsa_key
-		echo /etc/ssh/ssh_host_ed25519_key
-	fi
+	/usr/sbin/sshd -G | sed -n "s/^$option //Ip"
 }
 
 
@@ -49,7 +31,7 @@ create_key() {
 		printf %s "$msg"
 		ssh-keygen -q -f "$file" -N '' "$@"
 		echo
-		if which restorecon >/dev/null 2>&1; then
+		if command -v restorecon >/dev/null 2>&1; then
 			restorecon "$file" "$file.pub"
 		fi
 		ssh-keygen -l -f "$file.pub"
@@ -58,7 +40,7 @@ create_key() {
 
 
 create_keys() {
-	hostkeys="$(host_keys_required)"
+	hostkeys="$(get_config_option HostKey)"
 
 	create_key "Creating SSH2 RSA key; this may take some time ..." \
 		"$hostkeys" /etc/ssh/ssh_host_rsa_key -t rsa
@@ -81,23 +63,7 @@ cleanup() {
 
 
 create_sshdconfig() {
-	# XXX cjwatson 2016-12-24: This debconf template is very confusingly
-	# named; its description is "Disable SSH password authentication for
-	# root?", so true -> prohibit-password (the upstream default),
-	# false -> yes.
-	db_get openssh-server/permit-root-login
-	permit_root_login="$RET"
-	db_get openssh-server/password-authentication
-	password_authentication="$RET"
-
-	trap cleanup EXIT
-	new_config="$(mktemp)"
-	cp -a /usr/share/openssh/sshd_config "$new_config"
-	if [ "$permit_root_login" != true ]; then
-		sed -i 's/^#*PermitRootLogin .*/PermitRootLogin yes/' \
-			"$new_config"
-	fi
-
+	mkdir -pZ /etc/ssh
 	cat <<EOF > /etc/ssh/sshd_config
 # Package generated configuration file
 # See the sshd_config(5) manpage for details
@@ -197,13 +163,6 @@ UsePAM yes
 EOF
 }
 
-fix_statoverride() {
-# Remove an erronous override for sshd (we should have overridden ssh)
-	if dpkg-statoverride --list /usr/sbin/sshd >/dev/null; then
-		dpkg-statoverride --remove /usr/sbin/sshd
-	fi
-}
-
 setup_sshd_user() {
 	if ! getent passwd sshd >/dev/null; then
 		adduser --quiet --system --no-create-home --home /run/sshd --shell /usr/sbin/nologin sshd
@@ -213,29 +172,7 @@ setup_sshd_user() {
 if [ "$action" = configure ]; then
 	create_sshdconfig
 	create_keys
-	fix_statoverride
 	setup_sshd_user
-	# Renamed to /etc/ssh/moduli in 2.9.9 (!)
-	if dpkg --compare-versions "$2" lt-nl 1:4.7p1-1; then
-	    rm -f /etc/ssh/primes
-	fi
-	if dpkg --compare-versions "$2" lt-nl 1:5.5p1-6; then
-	    rm -f /run/sshd/.placeholder
-	fi
-	if dpkg --compare-versions "$2" lt-nl 1:6.5p1-2 && \
-	   deb-systemd-helper debian-installed ssh.socket && \
-	   deb-systemd-helper --quiet was-enabled ssh.service && \
-	   deb-systemd-helper --quiet was-enabled ssh.socket; then
-	    # 1:6.5p1-1 mistakenly left both ssh.service and ssh.socket
-	    # enabled.
-	    deb-systemd-helper disable ssh.socket >/dev/null || true
-	fi
-	if dpkg --compare-versions "$2" lt-nl 1:6.5p1-3 && \
-	   [ -d /run/systemd/system ]; then
-	    # We must stop the sysvinit-controlled sshd before we can
-	    # restart it under systemd.
-	    start-stop-daemon --stop --quiet --oknodo --pidfile /run/sshd.pid --exec /usr/sbin/sshd || true
-	fi
 	if dpkg --compare-versions "$2" lt-nl 1:7.9p1-5 && \
 	   [ -f /etc/ssh/moduli.dpkg-bak ]; then
 	    # Handle /etc/ssh/moduli being moved from openssh-client to
@@ -245,6 +182,14 @@ if [ "$action" = configure ]; then
 	    # maintainer scripts will have saved the old file as .dpkg-bak,
 	    # which we now move back into place.
 	    mv /etc/ssh/moduli.dpkg-bak /etc/ssh/moduli
+	fi
+	if dpkg --compare-versions "$2" lt-nl 1:9.1p1-1~ && \
+	   deb-systemd-helper --quiet was-enabled ssh.socket && \
+	   [ -d /run/systemd/system ]
+	then
+		# migrate to systemd socket activation.
+		systemctl unmask ssh.service
+		systemctl disable ssh.service
 	fi
 fi
 
