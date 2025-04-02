@@ -9,6 +9,7 @@ set -ex
 # If we want to test hostbased auth, set up the host for it.
 if [ ! -z "$SUDO" ] && [ ! -z "$TEST_SSH_HOSTBASED_AUTH" ]; then
     sshconf=/usr/local/etc
+    $SUDO mkdir -p "${sshconf}"
     hostname | $SUDO tee $sshconf/shosts.equiv >/dev/null
     echo "EnableSSHKeysign yes" | $SUDO tee $sshconf/ssh_config >/dev/null
     $SUDO mkdir -p $sshconf
@@ -21,7 +22,7 @@ if [ ! -z "$SUDO" ] && [ ! -z "$TEST_SSH_HOSTBASED_AUTH" ]; then
 fi
 
 output_failed_logs() {
-    for i in regress/failed*; do
+    for i in regress/failed*.log; do
         if [ -f "$i" ]; then
             echo -------------------------------------------------------------------------
             echo LOGFILE $i

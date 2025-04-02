@@ -1,4 +1,4 @@
-#	$OpenBSD: multiplex.sh,v 1.35 2023/01/13 04:47:34 dtucker Exp $
+#	$OpenBSD: multiplex.sh,v 1.37 2024/07/19 04:33:36 djm Exp $
 #	Placed in the Public Domain.
 
 make_tmpdir
@@ -8,8 +8,7 @@ tid="connection multiplexing"
 
 trace "will use ProxyCommand $proxycmd"
 if config_defined DISABLE_FD_PASSING ; then
-	echo "skipped (not supported on this platform)"
-	exit 0
+	skip "not supported on this platform (FD passing disabled)"
 fi
 
 P=3301  # test port
@@ -57,19 +56,20 @@ if [ $? -ne 0 ]; then
 	fail "environment not found"
 fi
 
+for mode in "" "-Oproxy"; do
+	verbose "test $tid: transfer $mode"
+	rm -f ${COPY}
+	trace "ssh transfer over $mode multiplexed connection and check result"
+	${SSH} $mode -F $OBJ/ssh_config -S$CTL otherhost cat ${DATA} > ${COPY}
+	test -f ${COPY}		|| fail "ssh -Sctl: failed copy ${DATA}" 
+	cmp ${DATA} ${COPY}	|| fail "ssh -Sctl: corrupted copy of ${DATA}"
 
-verbose "test $tid: transfer"
-rm -f ${COPY}
-trace "ssh transfer over multiplexed connection and check result"
-${SSH} -F $OBJ/ssh_config -S$CTL otherhost cat ${DATA} > ${COPY}
-test -f ${COPY}			|| fail "ssh -Sctl: failed copy ${DATA}" 
-cmp ${DATA} ${COPY}		|| fail "ssh -Sctl: corrupted copy of ${DATA}"
-
-rm -f ${COPY}
-trace "ssh transfer over multiplexed connection and check result"
-${SSH} -F $OBJ/ssh_config -S $CTL otherhost cat ${DATA} > ${COPY}
-test -f ${COPY}			|| fail "ssh -S ctl: failed copy ${DATA}" 
-cmp ${DATA} ${COPY}		|| fail "ssh -S ctl: corrupted copy of ${DATA}"
+	rm -f ${COPY}
+	trace "ssh transfer over $mode multiplexed connection and check result"
+	${SSH} $mode -F $OBJ/ssh_config -S $CTL otherhost cat ${DATA} > ${COPY}
+	test -f ${COPY}		|| fail "ssh -S ctl: failed copy ${DATA}" 
+	cmp ${DATA} ${COPY}	|| fail "ssh -S ctl: corrupted copy of ${DATA}"
+done
 
 rm -f ${COPY}
 trace "sftp transfer over multiplexed connection and check result"
@@ -87,7 +87,7 @@ cmp ${DATA} ${COPY}		|| fail "scp: corrupted copy of ${DATA}"
 rm -f ${COPY}
 verbose "test $tid: forward"
 trace "forward over TCP/IP and check result"
-$NC -N -l 127.0.0.1 $((${PORT} + 1)) < ${DATA} > /dev/null &
+$NC -N -l 127.0.0.1 $((${PORT} + 1)) < ${DATA} >`ssh_logfile nc` &
 netcat_pid=$!
 ${SSH} -F $OBJ/ssh_config -S $CTL -Oforward -L127.0.0.1:$((${PORT} + 2)):127.0.0.1:$((${PORT} + 1)) otherhost >>$TEST_SSH_LOGFILE 2>&1
 sleep 1  # XXX remove once race fixed
