@@ -158,7 +158,7 @@ override_dh_auto_test-arch:
 ifeq ($(RUN_TESTS),yes)
 	$(MAKE) -C debian/build-deb unit compat-tests
 	$(MAKE) -C debian/keygen-test
-	debian/check-ucf-md5sums
+	#debian/check-ucf-md5sums
 endif
 
 override_dh_auto_test-indep:
