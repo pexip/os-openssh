@@ -81,7 +81,6 @@ confflags_udeb := $(confflags)
 confflags += --with-pam
 confflags += --with-libedit
 confflags += --with-kerberos5=/usr
-confflags += --with-ssl-engine
 ifeq ($(DEB_HOST_ARCH_OS),linux)
 confflags += --with-selinux
 confflags += --with-audit=linux
@@ -118,6 +117,7 @@ confflags += --disable-security-key # disable FIDO support
 confflags += --disable-pkcs11
 confflags_udeb += --disable-pkcs11
 confflags += --without-tcp-wrappers
+confflags += --without-ssl-engine
 # END PEXIP CHANGES
 
 ifeq ($(shell dpkg-vendor --is Ubuntu && echo yes) $(DEB_HOST_ARCH), yes i386)
