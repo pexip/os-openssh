@@ -2,36 +2,15 @@ diff --git a/Makefile.in b/Makefile.in
 index 8344160..8b9af83 100644
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -110,7 +110,7 @@ LIBSSH_OBJS=${LIBOPENSSH_OBJS} \
+@@ -113,7 +113,7 @@ LIBSSH_OBJS=${LIBOPENSSH_OBJS} \
  	kexgexc.o kexgexs.o \
- 	kexsntrup761x25519.o sntrup761.o kexgen.o \
+ 	kexsntrup761x25519.o kexmlkem768x25519.o sntrup761.o kexgen.o \
  	sftp-realpath.o platform-pledge.o platform-tracing.o platform-misc.o \
 -	sshbuf-io.o
 +	sshbuf-io.o fips.o
  
  SKOBJS=	ssh-sk-client.o
  
-diff --git a/cipher-ctr.c b/cipher-ctr.c
-index 32771f2..f51d69c 100644
---- a/cipher-ctr.c
-+++ b/cipher-ctr.c
-@@ -26,6 +26,7 @@
- 
- #include "xmalloc.h"
- #include "log.h"
-+#include "fips.h"
- 
- /* compatibility with old or broken OpenSSL versions */
- #include "openbsd-compat/openssl-compat.h"
-@@ -139,6 +140,8 @@ evp_aes_128_ctr(void)
- #ifndef SSH_OLD_EVP
- 	aes_ctr.flags = EVP_CIPH_CBC_MODE | EVP_CIPH_VARIABLE_LENGTH |
- 	    EVP_CIPH_ALWAYS_CALL_INIT | EVP_CIPH_CUSTOM_IV;
-+	if (fips_mode())
-+		aes_ctr.flags |= EVP_CIPH_FLAG_FIPS;
- #endif
- 	return (&aes_ctr);
- }
 diff --git a/cipher.c b/cipher.c
 index 8fb6d3c..238accc 100644
 --- a/cipher.c
@@ -187,19 +166,19 @@ index 0000000..62d4b0f
 +
 +#endif
 +
-diff --git a/kex.c b/kex.c
+diff --git a/kex-names.c b/kex-names.c
 index 761e72d..9a50a62 100644
---- a/kex.c
-+++ b/kex.c
-@@ -61,6 +61,7 @@
+--- a/kex-names.c
++++ b/kex-names.c
+@@ -44,6 +44,7 @@
+ 
  #include "ssherr.h"
- #include "sshbuf.h"
- #include "digest.h"
+ #include "xmalloc.h"
 +#include "fips.h"
  
- /* prototype */
- static int kex_choose_conf(struct ssh *);
-@@ -118,6 +119,39 @@ static const struct kexalg kexalgs[] = {
+ struct kexalg {
+ 	char *name;
+@@ -90,6 +91,39 @@ static const struct kexalg kexalgs[] = {
  	{ NULL, 0, -1, -1},
  };
  
@@ -239,7 +218,7 @@ index 761e72d..9a50a62 100644
  char *
  kex_alg_list(char sep)
  {
-@@ -125,7 +159,7 @@ kex_alg_list(char sep)
+@@ -97,7 +130,7 @@ kex_alg_list(char sep)
  	size_t nlen, rlen = 0;
  	const struct kexalg *k;
  
@@ -248,7 +227,7 @@ index 761e72d..9a50a62 100644
  		if (ret != NULL)
  			ret[rlen++] = sep;
  		nlen = strlen(k->name);
-@@ -145,7 +179,7 @@ kex_alg_by_name(const char *name)
+@@ -117,7 +150,7 @@ kex_alg_by_name(const char *name)
  {
  	const struct kexalg *k;
  
@@ -406,8 +385,8 @@ diff --git a/openbsd-compat/arc4random.c b/openbsd-compat/arc4random.c
 index ce5f054..d3dab72 100644
 --- a/openbsd-compat/arc4random.c
 +++ b/openbsd-compat/arc4random.c
-@@ -215,29 +215,51 @@ _rs_random_u32(u_int32_t *val)
- 	return;
+@@ -205,13 +205,35 @@ _rs_random_u32(uint32_t *val)
+ 	rs->rs_have -= sizeof(*val);
  }
  
 +#include <openssl/crypto.h>
@@ -428,64 +407,22 @@ index ce5f054..d3dab72 100644
 +	return fips_state;
 +}
 +
- void
- arc4random_stir(void)
+ uint32_t
+ arc4random(void)
  {
--	_ARC4_LOCK();
--	_rs_stir();
--	_ARC4_UNLOCK();
-+	if (!fips_mode()) {
-+		_ARC4_LOCK();
-+		_rs_stir();
-+		_ARC4_UNLOCK();
-+	}
- }
- 
- void
- arc4random_addrandom(u_char *dat, int datlen)
- {
--	int m;
--
--	_ARC4_LOCK();
--	if (!rs_initialized)
--		_rs_stir();
--	while (datlen > 0) {
--		m = MINIMUM(datlen, KEYSZ + IVSZ);
--		_rs_rekey(dat, m);
--		dat += m;
--		datlen -= m;
-+	if (!fips_mode()) {
-+		int m;
-+
-+		_ARC4_LOCK();
-+		if (!rs_initialized)
-+			_rs_stir();
-+		while (datlen > 0) {
-+			m = MINIMUM(datlen, KEYSZ + IVSZ);
-+			_rs_rekey(dat, m);
-+			dat += m;
-+			datlen -= m;
-+		}
-+		_ARC4_UNLOCK();
- 	}
--	_ARC4_UNLOCK();
- }
- 
- u_int32_t
-@@ -246,7 +270,11 @@ arc4random(void)
- 	u_int32_t val;
+ 	uint32_t val;
  
  	_ARC4_LOCK();
 -	_rs_random_u32(&val);
 +	if (fips_mode()) {
-+		RAND_bytes((u_int8_t *)&val, sizeof(val));
++		RAND_bytes((uint8_t *)&val, sizeof(val));
 +	} else {
 +		_rs_random_u32(&val);
 +	}
  	_ARC4_UNLOCK();
  	return val;
  }
-@@ -260,7 +288,11 @@ void
+@@ -226,7 +248,11 @@ void
  arc4random_buf(void *buf, size_t n)
  {
  	_ARC4_LOCK();
@@ -497,7 +434,7 @@ index ce5f054..d3dab72 100644
 +	}
  	_ARC4_UNLOCK();
  }
- # endif /* !HAVE_ARC4RANDOM_BUF */
+ DEF_WEAK(arc4random_buf);
 diff --git a/readconf.c b/readconf.c
 index a0309dc..7d21888 100644
 --- a/readconf.c
@@ -545,8 +482,8 @@ index 516b3f1..56d2ec2 100644
  #include "digest.h"
 +#include "fips.h"
  
- static void add_listen_addr(ServerOptions *, const char *,
-     const char *, int);
+ #if !defined(SSHD_PAM_SERVICE)
+ # define SSHD_PAM_SERVICE		"sshd"
 @@ -218,11 +219,19 @@ assemble_algorithms(ServerOptions *o)
  	all_key = sshkey_alg_list(0, 0, 1, ',');
  	all_sig = sshkey_alg_list(0, 1, 1, ',');
@@ -586,7 +523,7 @@ diff --git a/sshkey.c b/sshkey.c
 index 0e9d153..5b51fe9 100644
 --- a/sshkey.c
 +++ b/sshkey.c
-@@ -58,6 +58,7 @@
+@@ -60,6 +60,7 @@
  #include "sshkey.h"
  #include "match.h"
  #include "ssh-sk.h"
@@ -594,135 +531,174 @@ index 0e9d153..5b51fe9 100644
  
  #ifdef WITH_XMSS
  #include "sshkey-xmss.h"
-@@ -165,12 +166,61 @@ static const struct keytype keytypes[] = {
- 	{ NULL, NULL, NULL, -1, -1, 0, 0 }
+@@ -173,27 +174,70 @@ const struct sshkey_impl * const keyimpls[] = {
+ 	NULL
  };
  
-+static const struct keytype keytypes_fips140_2[] = {
++static const struct sshkey_impl * const keyimpls_fips140_2[] = {
 +#ifdef WITH_OPENSSL
-+	{ "ssh-rsa", "RSA", NULL, KEY_RSA, 0, 0, 0 },
-+	{ "rsa-sha2-256", "RSA", NULL, KEY_RSA, 0, 0, 1 },
-+	{ "rsa-sha2-512", "RSA", NULL, KEY_RSA, 0, 0, 1 },
-+	{ "ssh-dss", "DSA", NULL, KEY_DSA, 0, 0, 0 },
 +# ifdef OPENSSL_HAS_ECC
-+	{ "ecdsa-sha2-nistp256", "ECDSA", NULL, KEY_ECDSA, NID_X9_62_prime256v1, 0, 0 },
-+	{ "ecdsa-sha2-nistp384", "ECDSA", NULL, KEY_ECDSA, NID_secp384r1, 0, 0 },
++	&sshkey_ecdsa_nistp256_impl,
++	&sshkey_ecdsa_nistp256_cert_impl,
++	&sshkey_ecdsa_nistp384_impl,
++	&sshkey_ecdsa_nistp384_cert_impl,
 +#  ifdef OPENSSL_HAS_NISTP521
-+	{ "ecdsa-sha2-nistp521", "ECDSA", NULL, KEY_ECDSA, NID_secp521r1, 0, 0 },
++	&sshkey_ecdsa_nistp521_impl,
++	&sshkey_ecdsa_nistp521_cert_impl,
 +#  endif /* OPENSSL_HAS_NISTP521 */
-+	{ "sk-ecdsa-sha2-nistp256@openssh.com", "ECDSA-SK", NULL,
-+	    KEY_ECDSA_SK, NID_X9_62_prime256v1, 0, 0 },
-+	{ "webauthn-sk-ecdsa-sha2-nistp256@openssh.com", "ECDSA-SK", NULL,
-+	    KEY_ECDSA_SK, NID_X9_62_prime256v1, 0, 1 },
++#  ifdef ENABLE_SK
++	&sshkey_ecdsa_sk_impl,
++	&sshkey_ecdsa_sk_cert_impl,
++	&sshkey_ecdsa_sk_webauthn_impl,
++#  endif /* ENABLE_SK */
 +# endif /* OPENSSL_HAS_ECC */
-+	{ "ssh-rsa-cert-v01@openssh.com", "RSA-CERT", NULL, KEY_RSA_CERT, 0, 1, 0 },
-+	{ "rsa-sha2-256-cert-v01@openssh.com", "RSA-CERT",
-+	    "rsa-sha2-256", KEY_RSA_CERT, 0, 1, 1 },
-+	{ "rsa-sha2-512-cert-v01@openssh.com", "RSA-CERT",
-+	    "rsa-sha2-512", KEY_RSA_CERT, 0, 1, 1 },
-+	{ "ssh-dss-cert-v01@openssh.com", "DSA-CERT", NULL, KEY_DSA_CERT, 0, 1, 0 },
-+# ifdef OPENSSL_HAS_ECC
-+	{ "ecdsa-sha2-nistp256-cert-v01@openssh.com", "ECDSA-CERT", NULL,
-+	    KEY_ECDSA_CERT, NID_X9_62_prime256v1, 1, 0 },
-+	{ "ecdsa-sha2-nistp384-cert-v01@openssh.com", "ECDSA-CERT", NULL,
-+	    KEY_ECDSA_CERT, NID_secp384r1, 1, 0 },
-+#  ifdef OPENSSL_HAS_NISTP521
-+	{ "ecdsa-sha2-nistp521-cert-v01@openssh.com", "ECDSA-CERT", NULL,
-+	    KEY_ECDSA_CERT, NID_secp521r1, 1, 0 },
-+#  endif /* OPENSSL_HAS_NISTP521 */
-+	{ "sk-ecdsa-sha2-nistp256-cert-v01@openssh.com", "ECDSA-SK-CERT", NULL,
-+	    KEY_ECDSA_SK_CERT, NID_X9_62_prime256v1, 1, 0 },
-+# endif /* OPENSSL_HAS_ECC */
++# ifdef WITH_DSA
++	&sshkey_dss_impl,
++	&sshkey_dsa_cert_impl,
++# endif
++	&sshkey_rsa_impl,
++	&sshkey_rsa_cert_impl,
++	&sshkey_rsa_sha256_impl,
++	&sshkey_rsa_sha256_cert_impl,
++	&sshkey_rsa_sha512_impl,
++	&sshkey_rsa_sha512_cert_impl,
 +#endif /* WITH_OPENSSL */
-+	{ NULL, NULL, NULL, -1, -1, 0, 0 }
++	NULL
 +};
 +
-+static const struct keytype *
-+fips_select_keytypes(void)
++static const struct sshkey_impl **
++fips_select_keyimpls(void)
 +{
 +	if (fips_mode()) {
-+		return keytypes_fips140_2;
++		return keyimpls_fips140_2;
 +	}
 +
-+	return keytypes;
++	return keyimpls;
 +}
 +
- const char *
- sshkey_type(const struct sshkey *k)
+ static const struct sshkey_impl *
+ sshkey_impl_from_type(int type)
  {
- 	const struct keytype *kt;
+ 	int i;
++	const struct sshkey_impl **impls = fips_select_keyimpls();
  
--	for (kt = keytypes; kt->type != -1; kt++) {
-+	for (kt = fips_select_keytypes(); kt->type != -1; kt++) {
- 		if (kt->type == k->type)
- 			return kt->shortname;
+-	for (i = 0; keyimpls[i] != NULL; i++) {
+-		if (keyimpls[i]->type == type)
+-			return keyimpls[i];
++	for (i = 0; impls[i] != NULL; i++) {
++		if (impls[i]->type == type)
++			return impls[i];
  	}
-@@ -182,7 +232,7 @@ sshkey_ssh_name_from_type_nid(int type, int nid)
- {
- 	const struct keytype *kt;
+ 	return NULL;
+ }
  
--	for (kt = keytypes; kt->type != -1; kt++) {
-+	for (kt = fips_select_keytypes(); kt->type != -1; kt++) {
- 		if (kt->type == type && (kt->nid == 0 || kt->nid == nid))
- 			return kt->name;
+ static const struct sshkey_impl *
+ sshkey_impl_from_type_nid(int type, int nid)
+ {
+ 	int i;
++	const struct sshkey_impl **impls = fips_select_keyimpls();
+ 
+-	for (i = 0; keyimpls[i] != NULL; i++) {
+-		if (keyimpls[i]->type == type &&
+-		    (keyimpls[i]->nid == 0 || keyimpls[i]->nid == nid))
+-			return keyimpls[i];
++	for (i = 0; impls[i] != NULL; i++) {
++		if (impls[i]->type == type &&
++		    (impls[i]->nid == 0 || impls[i]->nid == nid))
++			return impls[i];
  	}
-@@ -194,7 +244,7 @@ sshkey_type_is_cert(int type)
+ 	return NULL;
+ }
+@@ -254,9 +298,10 @@ type_from_name(const char *name, int allow_short)
  {
- 	const struct keytype *kt;
+ 	int i;
+ 	const struct sshkey_impl *impl;
++	const struct sshkey_impl **impls = fips_select_keyimpls();
  
--	for (kt = keytypes; kt->type != -1; kt++) {
-+	for (kt = fips_select_keytypes(); kt->type != -1; kt++) {
- 		if (kt->type == type)
- 			return kt->cert;
- 	}
-@@ -219,7 +269,7 @@ sshkey_type_from_name(const char *name)
- {
- 	const struct keytype *kt;
- 
--	for (kt = keytypes; kt->type != -1; kt++) {
-+	for (kt = fips_select_keytypes(); kt->type != -1; kt++) {
+-	for (i = 0; keyimpls[i] != NULL; i++) {
+-		impl = keyimpls[i];
++	for (i = 0; impls[i] != NULL; i++) {
++		impl = impls[i];
+ 		if (impl->name != NULL && strcmp(name, impl->name) == 0)
+ 			return impl->type;
  		/* Only allow shortname matches for plain key types */
- 		if ((kt->name != NULL && strcmp(name, kt->name) == 0) ||
- 		    (!kt->cert && strcasecmp(kt->shortname, name) == 0))
-@@ -246,7 +296,7 @@ sshkey_ecdsa_nid_from_name(const char *name)
+@@ -296,13 +341,14 @@ sshkey_ecdsa_nid_from_name(const char *name)
+ sshkey_ecdsa_nid_from_name(const char *name)
  {
- 	const struct keytype *kt;
+ 	int i;
++	const struct sshkey_impl **impls = fips_select_keyimpls();
  
--	for (kt = keytypes; kt->type != -1; kt++) {
-+	for (kt = fips_select_keytypes(); kt->type != -1; kt++) {
- 		if (!key_type_is_ecdsa_variant(kt->type))
- 			continue;
- 		if (kt->name != NULL && strcmp(name, kt->name) == 0)
-@@ -285,7 +335,7 @@ sshkey_alg_list(int certs_only, int plain_only, int include_sigonly, char sep)
- 	size_t nlen, rlen = 0;
- 	const struct keytype *kt;
+-	for (i = 0; keyimpls[i] != NULL; i++) {
+-		if (!key_type_is_ecdsa_variant(keyimpls[i]->type))
+-			continue;
+-		if (keyimpls[i]->name != NULL &&
+-		    strcmp(name, keyimpls[i]->name) == 0)
+-			return keyimpls[i]->nid;
++	for (i = 0; impls[i] != NULL; i++) {
++		if (!key_type_is_ecdsa_variant(impls[i]->type))
++			continue;
++		if (impls[i]->name != NULL &&
++		    strcmp(name, impls[i]->name) == 0)
++			return impls[i]->nid;
+ 	}
+ 	return -1;
+ }
+@@ -336,9 +382,10 @@ sshkey_alg_list(int certs_only, int plain_only, int include_sigonly, char sep)
+ 	char *tmp, *ret = NULL;
+ 	size_t i, nlen, rlen = 0;
+ 	const struct sshkey_impl *impl;
++	const struct sshkey_impl **impls = fips_select_keyimpls();
  
--	for (kt = keytypes; kt->type != -1; kt++) {
-+	for (kt = fips_select_keytypes(); kt->type != -1; kt++) {
- 		if (kt->name == NULL)
+-	for (i = 0; keyimpls[i] != NULL; i++) {
+-		impl = keyimpls[i];
++	for (i = 0; impls[i] != NULL; i++) {
++		impl = impls[i];
+ 		if (impl->name == NULL)
  			continue;
- 		if (!include_sigonly && kt->sigonly)
-@@ -327,7 +377,7 @@ sshkey_names_valid2(const char *names, int allow_wildcard)
+ 		if (!include_sigonly && impl->sigonly)
+@@ -380,11 +427,12 @@ sshkey_names_valid2(const char *names, int allow_wildcard)
  				 * If any has a positive or negative match then
  				 * the component is accepted.
  				 */
--				for (kt = keytypes; kt->type != -1; kt++) {
-+				for (kt = fips_select_keytypes(); kt->type != -1; kt++) {
- 					if (match_pattern_list(kt->name,
- 					    p, 0) != 0)
++				const struct sshkey_impl **impls = fips_select_keyimpls();
+ 				impl = NULL;
+-				for (i = 0; keyimpls[i] != NULL; i++) {
++				for (i = 0; impls[i] != NULL; i++) {
+ 					if (match_pattern_list(
+-					    keyimpls[i]->name, p, 0) != 0) {
+-						impl = keyimpls[i];
++					    impls[i]->name, p, 0) != 0) {
++						impl = impls[i];
  						break;
-@@ -1820,6 +1870,10 @@ sshkey_generate(int type, u_int bits, struct sshkey **keyp)
- 		return SSH_ERR_ALLOC_FAIL;
- 	switch (type) {
- 	case KEY_ED25519:
-+		if (fips_mode()) {
-+			/* ED25519 disabled in FIPS mode */
-+			break;
-+		}
- 		if ((k->ed25519_pk = malloc(ED25519_PK_SZ)) == NULL ||
- 		    (k->ed25519_sk = malloc(ED25519_SK_SZ)) == NULL) {
- 			ret = SSH_ERR_ALLOC_FAIL;
-@@ -5107,6 +5161,10 @@ sshkey_private_to_fileblob(struct sshkey *key, struct sshbuf *blob,
+ 					}
+ 				}
+@@ -1294,9 +1342,10 @@ peek_type_nid(const char *s, size_t l, int *nid)
+ {
+ 	const struct sshkey_impl *impl;
+ 	int i;
++	const struct sshkey_impl **impls = fips_select_keyimpls();
+ 
+-	for (i = 0; keyimpls[i] != NULL; i++) {
+-		impl = keyimpls[i];
++	for (i = 0; impls[i] != NULL; i++) {
++		impl = impls[i];
+ 		if (impl->name == NULL || strlen(impl->name) != l)
+ 			continue;
+ 		if (memcmp(s, impl->name, l) == 0) {
+@@ -2154,9 +2203,10 @@ sshkey_sigalg_by_name(const char *name)
+ {
+ 	const struct sshkey_impl *impl;
+ 	int i;
++	const struct sshkey_impl **impls = fips_select_keyimpls();
+ 
+-	for (i = 0; keyimpls[i] != NULL; i++) {
+-		impl = keyimpls[i];
++	for (i = 0; impls[i] != NULL; i++) {
++		impl = impls[i];
+ 		if (strcmp(impl->name, name) != 0)
+ 			continue;
+ 		if (impl->sigalg != NULL)
+@@ -3432,13 +3482,19 @@ sshkey_private_to_fileblob(struct sshkey *key, struct sshbuf *blob,
  #ifdef WITH_OPENSSL
  	case KEY_ECDSA_SK:
  #endif /* WITH_OPENSSL */
@@ -733,7 +709,7 @@ index 0e9d153..5b51fe9 100644
  		return sshkey_private_to_blob2(key, blob, passphrase,
  		    comment, openssh_format_cipher, openssh_format_rounds);
  	default:
-@@ -5114,6 +5172,8 @@ sshkey_private_to_fileblob(struct sshkey *key, struct sshbuf *blob,
+ 		return SSH_ERR_KEY_TYPE_UNKNOWN;
  	}
  
  #ifdef WITH_OPENSSL
@@ -742,9 +718,11 @@ index 0e9d153..5b51fe9 100644
  	switch (format) {
  	case SSHKEY_PRIVATE_OPENSSH:
  		return sshkey_private_to_blob2(key, blob, passphrase,
-@@ -5388,12 +5448,20 @@ sshkey_parse_private_fileblob_type(struct sshbuf *blob, int type,
+@@ -3704,13 +3760,22 @@ sshkey_parse_private_fileblob_type(struct sshbuf *blob, int type,
+ 		*commentp = NULL;
+ 
  	switch (type) {
- 	case KEY_ED25519:
++ 	case KEY_ED25519:
  	case KEY_XMSS:
 +		if (fips_mode()) {
 +			/* ED25519 keys unavailable in FIPS mode */
