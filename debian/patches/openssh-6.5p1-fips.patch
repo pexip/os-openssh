@@ -566,7 +566,7 @@ index 0e9d153..5b51fe9 100644
 +	NULL
 +};
 +
-+static const struct sshkey_impl **
++static const struct sshkey_impl * const *
 +fips_select_keyimpls(void)
 +{
 +	if (fips_mode()) {
@@ -580,7 +580,7 @@ index 0e9d153..5b51fe9 100644
  sshkey_impl_from_type(int type)
  {
  	int i;
-+	const struct sshkey_impl **impls = fips_select_keyimpls();
++	const struct sshkey_impl * const *impls = fips_select_keyimpls();
  
 -	for (i = 0; keyimpls[i] != NULL; i++) {
 -		if (keyimpls[i]->type == type)
@@ -596,7 +596,7 @@ index 0e9d153..5b51fe9 100644
  sshkey_impl_from_type_nid(int type, int nid)
  {
  	int i;
-+	const struct sshkey_impl **impls = fips_select_keyimpls();
++	const struct sshkey_impl * const *impls = fips_select_keyimpls();
  
 -	for (i = 0; keyimpls[i] != NULL; i++) {
 -		if (keyimpls[i]->type == type &&
@@ -613,7 +613,7 @@ index 0e9d153..5b51fe9 100644
  {
  	int i;
  	const struct sshkey_impl *impl;
-+	const struct sshkey_impl **impls = fips_select_keyimpls();
++	const struct sshkey_impl * const *impls = fips_select_keyimpls();
  
 -	for (i = 0; keyimpls[i] != NULL; i++) {
 -		impl = keyimpls[i];
@@ -626,7 +626,7 @@ index 0e9d153..5b51fe9 100644
  sshkey_ecdsa_nid_from_name(const char *name)
  {
  	int i;
-+	const struct sshkey_impl **impls = fips_select_keyimpls();
++	const struct sshkey_impl * const *impls = fips_select_keyimpls();
  
 -	for (i = 0; keyimpls[i] != NULL; i++) {
 -		if (!key_type_is_ecdsa_variant(keyimpls[i]->type))
@@ -647,7 +647,7 @@ index 0e9d153..5b51fe9 100644
  	char *tmp, *ret = NULL;
  	size_t i, nlen, rlen = 0;
  	const struct sshkey_impl *impl;
-+	const struct sshkey_impl **impls = fips_select_keyimpls();
++	const struct sshkey_impl * const *impls = fips_select_keyimpls();
  
 -	for (i = 0; keyimpls[i] != NULL; i++) {
 -		impl = keyimpls[i];
@@ -660,7 +660,7 @@ index 0e9d153..5b51fe9 100644
  				 * If any has a positive or negative match then
  				 * the component is accepted.
  				 */
-+				const struct sshkey_impl **impls = fips_select_keyimpls();
++				const struct sshkey_impl * const *impls = fips_select_keyimpls();
  				impl = NULL;
 -				for (i = 0; keyimpls[i] != NULL; i++) {
 +				for (i = 0; impls[i] != NULL; i++) {
@@ -676,7 +676,7 @@ index 0e9d153..5b51fe9 100644
  {
  	const struct sshkey_impl *impl;
  	int i;
-+	const struct sshkey_impl **impls = fips_select_keyimpls();
++	const struct sshkey_impl * const *impls = fips_select_keyimpls();
  
 -	for (i = 0; keyimpls[i] != NULL; i++) {
 -		impl = keyimpls[i];
@@ -689,7 +689,7 @@ index 0e9d153..5b51fe9 100644
  {
  	const struct sshkey_impl *impl;
  	int i;
-+	const struct sshkey_impl **impls = fips_select_keyimpls();
++	const struct sshkey_impl * const *impls = fips_select_keyimpls();
  
 -	for (i = 0; keyimpls[i] != NULL; i++) {
 -		impl = keyimpls[i];
