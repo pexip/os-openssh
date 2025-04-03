@@ -1,0 +1,28 @@
+diff --git a/sshkey.c b/sshkey.c
+index 1db8378..f332ac6 100644
+--- a/sshkey.c
++++ b/sshkey.c
+@@ -3355,9 +3355,8 @@ sshkey_private_to_blob_pem_pkcs8(struct sshkey *key, struct sshbuf *buf,
+ #ifdef OPENSSL_HAS_ECC
+ 	case KEY_ECDSA:
+ 		if (format == SSHKEY_PRIVATE_PEM) {
+-			success = PEM_write_bio_ECPrivateKey(bio,
+-			    EVP_PKEY_get0_EC_KEY(key->pkey),
+-			    cipher, passphrase, len, NULL, NULL);
++			success = PEM_write_bio_PrivateKey_traditional(bio,
++			    key->pkey, cipher, passphrase, len, NULL, NULL);
+ 		} else {
+ 			pkey = key->pkey;
+ 			EVP_PKEY_up_ref(key->pkey);
+@@ -3367,9 +3366,8 @@ sshkey_private_to_blob_pem_pkcs8(struct sshkey *key, struct sshbuf *buf,
+ #endif
+ 	case KEY_RSA:
+ 		if (format == SSHKEY_PRIVATE_PEM) {
+-			success = PEM_write_bio_RSAPrivateKey(bio,
+-			    EVP_PKEY_get0_RSA(key->pkey),
+-			    cipher, passphrase, len, NULL, NULL);
++			success = PEM_write_bio_PrivateKey_traditional(bio,
++			    key->pkey, cipher, passphrase, len, NULL, NULL);
+ 		} else {
+ 			pkey = key->pkey;
+ 			EVP_PKEY_up_ref(key->pkey);
