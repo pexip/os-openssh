@@ -36,4 +36,5 @@ openssl3-regress-setup.patch
 openssl3-regress-no-DSA.patch
 openssl3-regress-keytests.patch
 openssl3-compat.patch
+openssl3-clean-dsa-rsa-from-sshkey.patch
 openssh-6.5p1-fips.patch
