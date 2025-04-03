@@ -1,0 +1,52 @@
+diff --git a/sshkey.c b/sshkey.c
+index 1db8378..b2326a7 100644
+--- a/sshkey.c
++++ b/sshkey.c
+@@ -3542,7 +3542,9 @@ sshkey_parse_private_pem_fileblob(struct sshbuf *blob, int type,
+ 	struct sshkey *prv = NULL;
+ 	BIO *bio = NULL;
+ 	int r;
++#if OPENSSL_VERSION_NUMBER < 0x30000000L
+ 	RSA *rsa = NULL;
++#endif
+ 	EC_KEY *ecdsa = NULL;
+ 
+ 	if (keyp != NULL)
+@@ -3577,19 +3579,23 @@ sshkey_parse_private_pem_fileblob(struct sshbuf *blob, int type,
+ 			r = SSH_ERR_ALLOC_FAIL;
+ 			goto out;
+ 		}
++		prv->type = KEY_RSA;
++#ifdef DEBUG_PK
++		EVP_PKEY_print_public_fp(stderr, pk, 8, NULL);
++		EVP_PKEY_print_private_fp(stderr, pk, 8, NULL);
++		EVP_PKEY_print_params_fp(stderr, pk, 8, NULL);
++#endif
++#if OPENSSL_VERSION_NUMBER < 0x30000000L
+ 		if ((rsa = EVP_PKEY_get1_RSA(pk)) == NULL) {
+ 			r = SSH_ERR_LIBCRYPTO_ERROR;
+ 			goto out;
+ 		}
+-		prv->type = KEY_RSA;
+-#ifdef DEBUG_PK
+-		RSA_print_fp(stderr, rsa, 8);
+-#endif
+ 		if (RSA_blinding_on(rsa, NULL) != 1 ||
+ 		    EVP_PKEY_set1_RSA(pk, rsa) != 1) {
+ 			r = SSH_ERR_LIBCRYPTO_ERROR;
+ 			goto out;
+ 		}
++#endif
+ 		EVP_PKEY_up_ref(pk);
+ 		prv->pkey = pk;
+ 		if ((r = sshkey_check_rsa_length(prv, 0)) != 0)
+@@ -3683,7 +3689,9 @@ sshkey_parse_private_pem_fileblob(struct sshbuf *blob, int type,
+  out:
+ 	BIO_free(bio);
+ 	EVP_PKEY_free(pk);
++#if OPENSSL_VERSION_NUMBER < 0x30000000L
+ 	RSA_free(rsa);
++#endif
+ #ifdef OPENSSL_HAS_ECC
+ 	EC_KEY_free(ecdsa);
+ #endif
