@@ -39,4 +39,5 @@ openssl3-compat.patch
 openssl3-clean-dsa-rsa-from-sshkey.patch
 openssl3-sshkey-pem-serialization.patch
 openssl3-sshkey-no-RSA.patch
+openssl3-sshkey-no-EC_KEY.patch
 openssh-6.5p1-fips.patch
