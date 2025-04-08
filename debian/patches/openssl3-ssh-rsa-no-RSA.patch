@@ -1,0 +1,496 @@
+diff --git a/sshkey.h b/sshkey.h
+index d0cdea0..0a73174 100644
+--- a/sshkey.h
++++ b/sshkey.h
+@@ -32,6 +32,7 @@
+ #include <openssl/rsa.h>
+ #include <openssl/dsa.h>
+ #include <openssl/evp.h>
++#include <openssl/x509.h>
+ # ifdef OPENSSL_HAS_ECC
+ #  include <openssl/ec.h>
+ #  include <openssl/ecdsa.h>
+@@ -49,6 +50,7 @@
+ # define EC_GROUP	void
+ # define EC_POINT	void
+ # define EVP_PKEY	void
++# define PKCS8_PRIV_KEY_INFO void
+ #define SSH_OPENSSL_VERSION "without OpenSSL"
+ #endif /* WITH_OPENSSL */
+ 
+@@ -321,6 +323,9 @@ int sshkey_check_rsa_length(const struct sshkey *, int);
+ /* XXX should be internal, but used by ssh-keygen */
+ int ssh_rsa_complete_crt_parameters(const BIGNUM *, const BIGNUM *,
+     const BIGNUM *, const BIGNUM *, BIGNUM **, BIGNUM **);
++int ssh_rsa_make_pkcs8(const BIGNUM *n, const BIGNUM *e, const BIGNUM *d,
++    const BIGNUM *p, const BIGNUM *q, const BIGNUM *dmp1, const BIGNUM *dmq1,
++    const BIGNUM *iqmp, PKCS8_PRIV_KEY_INFO **ppkcs8);
+ 
+ /* stateful keys (e.g. XMSS) */
+ int	 sshkey_set_filename(struct sshkey *, const char *);
+@@ -356,6 +361,7 @@ int check_rsa_length(const RSA *rsa); /* XXX remove */
+ # undef EC_GROUP
+ # undef EC_POINT
+ # undef EVP_PKEY
++# undef PKCS8_PRIV_KEY_INFO
+ #else
+ # if !defined(OPENSSL_HAS_ECC)
+ #  undef EC_KEY
+diff --git a/ssh-rsa.c b/ssh-rsa.c
+index 3ad1fdd..aef1cb2 100644
+--- a/ssh-rsa.c
++++ b/ssh-rsa.c
+@@ -21,8 +21,10 @@
+ 
+ #include <sys/types.h>
+ 
++#include <openssl/asn1t.h>
+ #include <openssl/evp.h>
+ #include <openssl/err.h>
++#include <openssl/x509.h>
+ 
+ #include <stdarg.h>
+ #include <string.h>
+@@ -36,6 +38,46 @@
+ 
+ #include "openbsd-compat/openssl-compat.h"
+ 
++typedef struct {
++	const BIGNUM *n;
++	const BIGNUM *e;
++} rsapub;
++
++typedef struct {
++	int version;
++	const BIGNUM *n;
++	const BIGNUM *e;
++	const BIGNUM *d;
++	const BIGNUM *p;
++	const BIGNUM *q;
++	const BIGNUM *dmp1;
++	const BIGNUM *dmq1;
++	const BIGNUM *iqmp;
++} rsapriv;
++
++ASN1_SEQUENCE(rsapub) = {
++	ASN1_SIMPLE(rsapub, n, BIGNUM),
++	ASN1_SIMPLE(rsapub, e, BIGNUM)
++} static_ASN1_SEQUENCE_END(rsapub)
++DECLARE_ASN1_FUNCTIONS(rsapub)
++DECLARE_ASN1_ENCODE_FUNCTIONS_name(rsapub, rsapub)
++IMPLEMENT_ASN1_FUNCTIONS(rsapub)
++
++ASN1_SEQUENCE(rsapriv) = {
++	ASN1_EMBED(rsapriv, version, INT32),
++	ASN1_SIMPLE(rsapriv, n, BIGNUM),
++	ASN1_SIMPLE(rsapriv, e, BIGNUM),
++	ASN1_SIMPLE(rsapriv, d, CBIGNUM),
++	ASN1_SIMPLE(rsapriv, p, CBIGNUM),
++	ASN1_SIMPLE(rsapriv, q, CBIGNUM),
++	ASN1_SIMPLE(rsapriv, dmp1, CBIGNUM),
++	ASN1_SIMPLE(rsapriv, dmq1, CBIGNUM),
++	ASN1_SIMPLE(rsapriv, iqmp, CBIGNUM)
++} static_ASN1_SEQUENCE_END(rsapriv)
++DECLARE_ASN1_FUNCTIONS(rsapriv)
++DECLARE_ASN1_ENCODE_FUNCTIONS_name(rsapriv, rsapriv)
++IMPLEMENT_ASN1_FUNCTIONS(rsapriv)
++
+ static u_int
+ ssh_rsa_size(const struct sshkey *k)
+ {
+@@ -64,7 +106,7 @@ ssh_rsa_equal(const struct sshkey *a, const struct sshkey *b)
+ {
+ 	if (a->pkey == NULL || b->pkey == NULL)
+ 		return 0;
+-	return EVP_PKEY_cmp(a->pkey, b->pkey) == 1;
++	return EVP_PKEY_eq(a->pkey, b->pkey) == 1;
+ }
+ 
+ static int
+@@ -72,20 +114,30 @@ ssh_rsa_serialize_public(const struct sshkey *key, struct sshbuf *b,
+     enum sshkey_serialize_rep opts)
+ {
+ 	int r;
+-	const BIGNUM *rsa_n, *rsa_e;
+-	const RSA *rsa;
++	BIGNUM *rsa_n = NULL, *rsa_e = NULL;
+ 
+-	if (key->pkey == NULL)
+-		return SSH_ERR_INVALID_ARGUMENT;
+-	if ((rsa = EVP_PKEY_get0_RSA(key->pkey)) == NULL)
+-		return SSH_ERR_LIBCRYPTO_ERROR;
++	if (key->pkey == NULL) {
++		r = SSH_ERR_INVALID_ARGUMENT;
++		goto out;
++	}
++
++	if (EVP_PKEY_get_bn_param(key->pkey, OSSL_PKEY_PARAM_RSA_N,
++	    &rsa_n) == 0 ||
++	    EVP_PKEY_get_bn_param(key->pkey, OSSL_PKEY_PARAM_RSA_E,
++	    &rsa_e) == 0) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
+ 
+-	RSA_get0_key(rsa, &rsa_n, &rsa_e, NULL);
+ 	if ((r = sshbuf_put_bignum2(b, rsa_e)) != 0 ||
+ 	    (r = sshbuf_put_bignum2(b, rsa_n)) != 0)
+-		return r;
++		goto out;
+ 
+-	return 0;
++	r = 0;
++out:
++	BN_clear_free(rsa_e);
++	BN_clear_free(rsa_n);
++	return r;
+ }
+ 
+ static int
+@@ -93,28 +145,51 @@ ssh_rsa_serialize_private(const struct sshkey *key, struct sshbuf *b,
+     enum sshkey_serialize_rep opts)
+ {
+ 	int r;
+-	const BIGNUM *rsa_n, *rsa_e, *rsa_d, *rsa_iqmp, *rsa_p, *rsa_q;
+-	const RSA *rsa;
++	BIGNUM *rsa_n = NULL, *rsa_e = NULL;
++	BIGNUM *rsa_d = NULL, *rsa_iqmp = NULL, *rsa_p = NULL, *rsa_q = NULL;
+ 
+-	if ((rsa = EVP_PKEY_get0_RSA(key->pkey)) == NULL)
+-		return SSH_ERR_LIBCRYPTO_ERROR;
+-	RSA_get0_key(rsa, &rsa_n, &rsa_e, &rsa_d);
+-	RSA_get0_factors(rsa, &rsa_p, &rsa_q);
+-	RSA_get0_crt_params(rsa, NULL, NULL, &rsa_iqmp);
++	if (key->pkey == NULL) {
++		r = SSH_ERR_INVALID_ARGUMENT;
++		goto out;
++	}
++
++	if (EVP_PKEY_get_bn_param(key->pkey, OSSL_PKEY_PARAM_RSA_N,
++	    &rsa_n) == 0 ||
++	    EVP_PKEY_get_bn_param(key->pkey, OSSL_PKEY_PARAM_RSA_E,
++	    &rsa_e) == 0 ||
++	    EVP_PKEY_get_bn_param(key->pkey, OSSL_PKEY_PARAM_RSA_D,
++	    &rsa_d) == 0 ||
++	    EVP_PKEY_get_bn_param(key->pkey, OSSL_PKEY_PARAM_RSA_COEFFICIENT1,
++	    &rsa_iqmp) == 0 ||
++	    EVP_PKEY_get_bn_param(key->pkey, OSSL_PKEY_PARAM_RSA_FACTOR1,
++	    &rsa_p) == 0 ||
++	    EVP_PKEY_get_bn_param(key->pkey, OSSL_PKEY_PARAM_RSA_FACTOR2,
++	    &rsa_q) == 0) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
+ 
+ 	if (!sshkey_is_cert(key)) {
+ 		/* Note: can't reuse ssh_rsa_serialize_public: e, n vs. n, e */
+ 		if ((r = sshbuf_put_bignum2(b, rsa_n)) != 0 ||
+ 		    (r = sshbuf_put_bignum2(b, rsa_e)) != 0)
+-			return r;
++			goto out;
+ 	}
+ 	if ((r = sshbuf_put_bignum2(b, rsa_d)) != 0 ||
+ 	    (r = sshbuf_put_bignum2(b, rsa_iqmp)) != 0 ||
+ 	    (r = sshbuf_put_bignum2(b, rsa_p)) != 0 ||
+ 	    (r = sshbuf_put_bignum2(b, rsa_q)) != 0)
+-		return r;
++		goto out;
+ 
+-	return 0;
++	r = 0;
++out:
++	BN_clear_free(rsa_q);
++	BN_clear_free(rsa_p);
++	BN_clear_free(rsa_iqmp);
++	BN_clear_free(rsa_d);
++	BN_clear_free(rsa_e);
++	BN_clear_free(rsa_n);
++	return r;
+ }
+ 
+ static int
+@@ -156,39 +231,73 @@ ssh_rsa_generate(struct sshkey *k, int bits)
+ static int
+ ssh_rsa_copy_public(const struct sshkey *from, struct sshkey *to)
+ {
+-	const BIGNUM *rsa_n, *rsa_e;
+-	BIGNUM *rsa_n_dup = NULL, *rsa_e_dup = NULL;
++	EVP_PKEY *pkey = NULL;
++	u_char *buf = NULL;
++	const u_char *pbuf = NULL;
++	int len = 0;
+ 	int r = SSH_ERR_INTERNAL_ERROR;
+-	const RSA *rsa_from;
+-	RSA *rsa_to = NULL;
+ 
+-	if ((rsa_from = EVP_PKEY_get0_RSA(from->pkey)) == NULL ||
+-	    (rsa_to = RSA_new()) == NULL)
+-		return SSH_ERR_LIBCRYPTO_ERROR;
++	if ((len = i2d_PublicKey(from->pkey, &buf)) <= 0 ||
++	    (pbuf = buf) == NULL ||
++	    (pkey = d2i_PublicKey(EVP_PKEY_RSA, NULL, &pbuf, len)) == NULL) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
+ 
+-	RSA_get0_key(rsa_from, &rsa_n, &rsa_e, NULL);
+-	if ((rsa_n_dup = BN_dup(rsa_n)) == NULL ||
+-	    (rsa_e_dup = BN_dup(rsa_e)) == NULL) {
+-		r = SSH_ERR_ALLOC_FAIL;
++	EVP_PKEY_free(to->pkey);
++	to->pkey = pkey;
++	pkey = NULL;
++	/* success */
++	r = 0;
++ out:
++	EVP_PKEY_free(pkey);
++	freezero(buf, len);
++	return r;
++}
++
++static int
++ssh_rsa_make_encoded_x509_pubkey(const BIGNUM *n, const BIGNUM *e,
++    u_char **penc, int *plen)
++{
++	rsapub p;
++	X509_PUBKEY *xp = NULL;
++	u_char *buf = NULL;
++	int len = 0;
++	int ret = SSH_ERR_INTERNAL_ERROR;
++
++	if ((xp = X509_PUBKEY_new()) == NULL) {
++		ret = SSH_ERR_LIBCRYPTO_ERROR;
+ 		goto out;
+ 	}
+-	if (!RSA_set0_key(rsa_to, rsa_n_dup, rsa_e_dup, NULL)) {
+-		r = SSH_ERR_LIBCRYPTO_ERROR;
++
++	p.n = n;
++	p.e = e;
++
++	if ((len = i2d_rsapub(&p, &buf)) == 0) {
++		ret = SSH_ERR_LIBCRYPTO_ERROR;
+ 		goto out;
+ 	}
+-	rsa_n_dup = rsa_e_dup = NULL; /* transferred */
++	if (X509_PUBKEY_set0_param(xp, OBJ_nid2obj(EVP_PKEY_RSA), V_ASN1_NULL,
++	    NULL, buf, len) == 0) {
++		ret = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
++	buf = NULL;
+ 
+-	if (EVP_PKEY_set1_RSA(to->pkey, rsa_to) != 1) {
+-		r = SSH_ERR_LIBCRYPTO_ERROR;
++	if ((len = i2d_X509_PUBKEY(xp, &buf)) == 0) {
++		ret = SSH_ERR_LIBCRYPTO_ERROR;
+ 		goto out;
+ 	}
++
++	*penc = buf;
++	*plen = len;
++	buf = NULL;
+ 	/* success */
+-	r = 0;
+- out:
+-	RSA_free(rsa_to);
+-	BN_clear_free(rsa_n_dup);
+-	BN_clear_free(rsa_e_dup);
+-	return r;
++	ret = 0;
++out:
++	freezero(buf, len);
++	X509_PUBKEY_free(xp);
++	return ret;
+ }
+ 
+ static int
+@@ -197,39 +306,92 @@ ssh_rsa_deserialize_public(const char *ktype, struct sshbuf *b,
+ {
+ 	int ret = SSH_ERR_INTERNAL_ERROR;
+ 	BIGNUM *rsa_n = NULL, *rsa_e = NULL;
+-	RSA *rsa = NULL;
+-
+-	if ((rsa = RSA_new()) == NULL)
+-		return SSH_ERR_LIBCRYPTO_ERROR;
++	EVP_PKEY *pkey = NULL;
++	u_char *buf = NULL;
++	const u_char *pbuf = NULL;
++	int len = 0;
+ 
+ 	if (sshbuf_get_bignum2(b, &rsa_e) != 0 ||
+ 	    sshbuf_get_bignum2(b, &rsa_n) != 0) {
+ 		ret = SSH_ERR_INVALID_FORMAT;
+ 		goto out;
+ 	}
+-	if (!RSA_set0_key(rsa, rsa_n, rsa_e, NULL)) {
+-		ret = SSH_ERR_LIBCRYPTO_ERROR;
++	if ((ret = ssh_rsa_make_encoded_x509_pubkey(rsa_n, rsa_e,
++	    &buf, &len)) != 0)
+ 		goto out;
+-	}
+-	rsa_n = rsa_e = NULL; /* transferred */
+-	if (EVP_PKEY_set1_RSA(key->pkey, rsa) != 1) {
++	if ((pbuf = buf) == NULL ||
++	    (pkey = d2i_PUBKEY(NULL, &pbuf, len)) == NULL) {
+ 		ret = SSH_ERR_LIBCRYPTO_ERROR;
+ 		goto out;
+ 	}
++	EVP_PKEY_free(key->pkey);
++	key->pkey = pkey;
++	pkey = NULL;
+ 	if ((ret = sshkey_check_rsa_length(key, 0)) != 0)
+ 		goto out;
+ #ifdef DEBUG_PK
+-	RSA_print_fp(stderr, rsa, 8);
++	EVP_PKEY_print_public_fp(stderr, key->pkey, 8, NULL);
++	EVP_PKEY_print_private_fp(stderr, key->pkey, 8, NULL);
++	EVP_PKEY_print_params_fp(stderr, key->pkey, 8, NULL);
+ #endif
+ 	/* success */
+ 	ret = 0;
+  out:
+-	RSA_free(rsa);
++	EVP_PKEY_free(pkey);
++	freezero(buf, len);
+ 	BN_clear_free(rsa_n);
+ 	BN_clear_free(rsa_e);
+ 	return ret;
+ }
+ 
++int
++ssh_rsa_make_pkcs8(const BIGNUM *n, const BIGNUM *e, const BIGNUM *d,
++    const BIGNUM *p, const BIGNUM *q, const BIGNUM *dmp1, const BIGNUM *dmq1,
++    const BIGNUM *iqmp, PKCS8_PRIV_KEY_INFO **ppkcs8)
++{
++	rsapriv priv;
++	PKCS8_PRIV_KEY_INFO *p8 = NULL;
++	u_char *buf = NULL;
++	int len = 0;
++	int r;
++
++	priv.version = 0;
++	priv.n = n;
++	priv.e = e;
++	priv.d = d;
++	priv.p = p;
++	priv.q = q;
++	priv.dmp1 = dmp1;
++	priv.dmq1 = dmq1;
++	priv.iqmp = iqmp;
++
++	if ((p8 = PKCS8_PRIV_KEY_INFO_new()) == NULL) {
++		r = SSH_ERR_ALLOC_FAIL;
++		goto out;
++	}
++
++	if ((len = i2d_rsapriv(&priv, &buf)) == 0) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
++
++	if (PKCS8_pkey_set0(p8, OBJ_nid2obj(EVP_PKEY_RSA), 0,
++	    V_ASN1_NULL, NULL, buf, len) == 0) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
++	buf = NULL;
++
++	*ppkcs8 = p8;
++	p8 = NULL;
++	/* success */
++	r = 0;
++out:
++	freezero(buf, len);
++	PKCS8_PRIV_KEY_INFO_free(p8);
++	return r;
++}
++
+ static int
+ ssh_rsa_deserialize_private(const char *ktype, struct sshbuf *b,
+     struct sshkey *key)
+@@ -238,28 +400,23 @@ ssh_rsa_deserialize_private(const char *ktype, struct sshbuf *b,
+ 	BIGNUM *rsa_n = NULL, *rsa_e = NULL, *rsa_d = NULL;
+ 	BIGNUM *rsa_iqmp = NULL, *rsa_p = NULL, *rsa_q = NULL;
+ 	BIGNUM *rsa_dmp1 = NULL, *rsa_dmq1 = NULL;
+-	RSA *rsa = NULL;
++	PKCS8_PRIV_KEY_INFO *p8 = NULL;
++	EVP_PKEY *pkey = NULL;
+ 
+ 	if (sshkey_is_cert(key)) {
+ 		/* sshkey_private_deserialize already has pubkey from cert */
+-		if ((rsa = EVP_PKEY_get1_RSA(key->pkey)) == NULL) {
++		if (EVP_PKEY_get_bn_param(key->pkey, OSSL_PKEY_PARAM_RSA_N,
++		    &rsa_n) == 0 ||
++		    EVP_PKEY_get_bn_param(key->pkey, OSSL_PKEY_PARAM_RSA_E,
++		    &rsa_e) == 0) {
+ 			r = SSH_ERR_LIBCRYPTO_ERROR;
+ 			goto out;
+ 		}
+ 	} else {
+-		if ((rsa = RSA_new()) == NULL) {
+-			r = SSH_ERR_LIBCRYPTO_ERROR;
+-			goto out;
+-		}
+ 		/* Note: can't reuse ssh_rsa_deserialize_public: e,n vs. n,e */
+ 		if ((r = sshbuf_get_bignum2(b, &rsa_n)) != 0 ||
+ 		    (r = sshbuf_get_bignum2(b, &rsa_e)) != 0)
+ 			goto out;
+-		if (!RSA_set0_key(rsa, rsa_n, rsa_e, NULL)) {
+-			r = SSH_ERR_LIBCRYPTO_ERROR;
+-			goto out;
+-		}
+-		rsa_n = rsa_e = NULL; /* transferred */
+ 	}
+ 	if ((r = sshbuf_get_bignum2(b, &rsa_d)) != 0 ||
+ 	    (r = sshbuf_get_bignum2(b, &rsa_iqmp)) != 0 ||
+@@ -269,35 +426,32 @@ ssh_rsa_deserialize_private(const char *ktype, struct sshbuf *b,
+ 	if ((r = ssh_rsa_complete_crt_parameters(rsa_d, rsa_p, rsa_q,
+ 	    rsa_iqmp, &rsa_dmp1, &rsa_dmq1)) != 0)
+ 		goto out;
+-	if (!RSA_set0_key(rsa, NULL, NULL, rsa_d)) {
+-		r = SSH_ERR_LIBCRYPTO_ERROR;
+-		goto out;
+-	}
+-	rsa_d = NULL; /* transferred */
+-	if (!RSA_set0_factors(rsa, rsa_p, rsa_q)) {
+-		r = SSH_ERR_LIBCRYPTO_ERROR;
+-		goto out;
+-	}
+-	rsa_p = rsa_q = NULL; /* transferred */
+-	if (!RSA_set0_crt_params(rsa, rsa_dmp1, rsa_dmq1, rsa_iqmp)) {
+-		r = SSH_ERR_LIBCRYPTO_ERROR;
++
++	if ((r = ssh_rsa_make_pkcs8(rsa_n, rsa_e, rsa_d, rsa_p, rsa_q,
++	    rsa_dmp1, rsa_dmq1, rsa_iqmp, &p8)) != 0)
+ 		goto out;
+-	}
+-	rsa_dmp1 = rsa_dmq1 = rsa_iqmp = NULL;
+-	if (RSA_blinding_on(rsa, NULL) != 1) {
++	if ((pkey = EVP_PKCS82PKEY(p8)) == NULL) {
+ 		r = SSH_ERR_LIBCRYPTO_ERROR;
+ 		goto out;
+ 	}
+-	if (EVP_PKEY_set1_RSA(key->pkey, rsa) != 1) {
++
++#if OPENSSL_VERSION_NUMBER < 0x30000000L
++	if (RSA_blinding_on(EVP_PKEY_get0_RSA(pkey), NULL) != 1) {
+ 		r = SSH_ERR_LIBCRYPTO_ERROR;
+ 		goto out;
+ 	}
++#endif
++
++	EVP_PKEY_free(key->pkey);
++	key->pkey = pkey;
++	pkey = NULL;
+ 	if ((r = sshkey_check_rsa_length(key, 0)) != 0)
+ 		goto out;
+ 	/* success */
+ 	r = 0;
+  out:
+-	RSA_free(rsa);
++	EVP_PKEY_free(pkey);
++	PKCS8_PRIV_KEY_INFO_free(p8);
+ 	BN_clear_free(rsa_n);
+ 	BN_clear_free(rsa_e);
+ 	BN_clear_free(rsa_d);
