@@ -43,4 +43,5 @@ openssl3-sshkey-no-EC_KEY.patch
 openssl3-sshbuf-no-EC_KEY.patch
 openssl3-kex-no-EC_KEY.patch
 openssl3-ssh-ecdsa-no-EC_KEY.patch
+openssl3-moduli-no-BN_is_prime_ex.patch
 openssh-6.5p1-fips.patch
