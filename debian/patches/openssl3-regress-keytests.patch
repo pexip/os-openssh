@@ -1,0 +1,394 @@
+diff --git a/regress/unittests/sshkey/common.c b/regress/unittests/sshkey/common.c
+index f325c2a..c1fdf83 100644
+--- a/regress/unittests/sshkey/common.c
++++ b/regress/unittests/sshkey/common.c
+@@ -83,48 +83,226 @@ load_bignum(const char *name)
+ 	return ret;
+ }
+ 
+-const BIGNUM *
+-rsa_n(struct sshkey *k)
++int
++has_ec_pub_key(struct sshkey *k)
+ {
+-	const BIGNUM *n = NULL;
++	char pubbuf[4096];
++	size_t publen = 0;
++	int r = 0;
+ 
+ 	ASSERT_PTR_NE(k, NULL);
+ 	ASSERT_PTR_NE(k->pkey, NULL);
+-	RSA_get0_key(EVP_PKEY_get0_RSA(k->pkey), &n, NULL, NULL);
+-	return n;
++	if (EVP_PKEY_get_octet_string_param(k->pkey, OSSL_PKEY_PARAM_PUB_KEY,
++	    NULL, 0, &publen) == 1) {
++		ASSERT_SIZE_T_LT(publen, sizeof(pubbuf));
++		if (publen > 0 && EVP_PKEY_get_octet_string_param(k->pkey,
++		    OSSL_PKEY_PARAM_PUB_KEY, pubbuf, publen, NULL) == 1)
++			r = 1;
++	}
++	return r;
+ }
+ 
+-const BIGNUM *
+-rsa_e(struct sshkey *k)
++int
++has_ec_priv_key(struct sshkey *k)
+ {
+-	const BIGNUM *e = NULL;
++	BIGNUM *priv_key = NULL;
++	int r = 0;
+ 
+ 	ASSERT_PTR_NE(k, NULL);
+ 	ASSERT_PTR_NE(k->pkey, NULL);
+-	RSA_get0_key(EVP_PKEY_get0_RSA(k->pkey), NULL, &e, NULL);
+-	return e;
++	if (EVP_PKEY_get_bn_param(k->pkey, OSSL_PKEY_PARAM_PRIV_KEY,
++	    &priv_key) == 1) {
++		BN_clear_free(priv_key);
++		r = 1;
++	}
++	return r;
+ }
+ 
+-const BIGNUM *
+-rsa_p(struct sshkey *k)
++int
++has_rsa_n(struct sshkey *k)
+ {
+-	const BIGNUM *p = NULL;
++	BIGNUM *n = NULL;
++	int r = 0;
+ 
+ 	ASSERT_PTR_NE(k, NULL);
+-	ASSERT_PTR_NE(EVP_PKEY_get0_RSA(k->pkey), NULL);
+-	RSA_get0_factors(EVP_PKEY_get0_RSA(k->pkey), &p, NULL);
+-	return p;
++	ASSERT_PTR_NE(k->pkey, NULL);
++	if (EVP_PKEY_get_bn_param(k->pkey, OSSL_PKEY_PARAM_RSA_N, &n) == 1) {
++		BN_clear_free(n);
++		r = 1;
++	}
++	return r;
+ }
+ 
+-const BIGNUM *
+-rsa_q(struct sshkey *k)
++int
++has_rsa_e(struct sshkey *k)
++{
++	BIGNUM *e = NULL;
++	int r = 0;
++
++	ASSERT_PTR_NE(k, NULL);
++	ASSERT_PTR_NE(k->pkey, NULL);
++	if (EVP_PKEY_get_bn_param(k->pkey, OSSL_PKEY_PARAM_RSA_E, &e) == 1) {
++		BN_clear_free(e);
++		r = 1;
++	}
++	return r;
++}
++
++int
++has_rsa_p(struct sshkey *k)
++{
++	BIGNUM *p = NULL;
++	int r = 0;
++
++	ASSERT_PTR_NE(k, NULL);
++	ASSERT_PTR_NE(k->pkey, NULL);
++	if (EVP_PKEY_get_bn_param(k->pkey, OSSL_PKEY_PARAM_RSA_FACTOR1, &p)
++	    == 1) {
++		BN_clear_free(p);
++		r = 1;
++	}
++	return r;
++}
++
++int
++has_rsa_q(struct sshkey *k)
++{
++	BIGNUM *q = NULL;
++	int r = 0;
++
++	ASSERT_PTR_NE(k, NULL);
++	ASSERT_PTR_NE(k->pkey, NULL);
++	if (EVP_PKEY_get_bn_param(k->pkey, OSSL_PKEY_PARAM_RSA_FACTOR2, &q)
++	    == 1) {
++		BN_clear_free(q);
++		r = 1;
++	}
++	return r;
++}
++
++int
++rsa_n_size(struct sshkey *k)
++{
++	BIGNUM *n = NULL;
++	int r;
++
++	ASSERT_PTR_NE(k, NULL);
++	ASSERT_PTR_NE(k->pkey, NULL);
++	ASSERT_INT_EQ(EVP_PKEY_get_bn_param(k->pkey,
++	    OSSL_PKEY_PARAM_RSA_N, &n), 1);
++	r = BN_num_bits(n);
++	BN_clear_free(n);
++	return r;
++}
++
++int
++with_ec_pub_key(struct sshkey *k, const BIGNUM *exp)
++{
++	EC_GROUP *g = NULL;
++	EC_POINT *p = NULL;
++	BIGNUM *pub = NULL;
++	u_char *buf = NULL;
++	size_t len = 0;
++	int r;
++
++	ASSERT_PTR_NE(k, NULL);
++	ASSERT_PTR_NE(k->pkey, NULL);
++	g = EC_GROUP_new_by_curve_name(k->ecdsa_nid);
++	ASSERT_PTR_NE(g, NULL);
++	len = EVP_PKEY_get1_encoded_public_key(k->pkey, &buf);
++	ASSERT_INT_NE(len, 0);
++	p = EC_POINT_new(g);
++	ASSERT_PTR_NE(p, NULL);
++	ASSERT_INT_EQ(EC_POINT_oct2point(g, p, buf, len, NULL), 1);
++	freezero(buf, len);
++	buf = NULL;
++	ASSERT_PTR_NE(p, NULL);
++	len = EC_POINT_point2buf(g, p, POINT_CONVERSION_UNCOMPRESSED, &buf,
++	    NULL);
++	ASSERT_INT_NE(len, 0);
++	pub = BN_bin2bn(buf, len, NULL);
++	ASSERT_PTR_NE(pub, NULL);
++	r = BN_cmp(pub, exp);
++	BN_clear_free(pub);
++	freezero(buf, len);
++	EC_POINT_free(p);
++	EC_GROUP_free(g);
++	return r == 0;
++}
++
++int
++with_ec_priv_key(struct sshkey *k, const BIGNUM *exp)
++{
++	BIGNUM *priv = NULL;
++	int r;
++
++	ASSERT_PTR_NE(k, NULL);
++	ASSERT_PTR_NE(k->pkey, NULL);
++	ASSERT_INT_EQ(EVP_PKEY_get_bn_param(k->pkey,
++	    OSSL_PKEY_PARAM_PRIV_KEY, &priv), 1);
++	r = BN_cmp(priv, exp);
++	BN_clear_free(priv);
++	return r == 0;
++}
++
++int
++with_rsa_n(struct sshkey *k, const BIGNUM *exp)
++{
++	BIGNUM *n = NULL;
++	int r;
++
++	ASSERT_PTR_NE(k, NULL);
++	ASSERT_PTR_NE(k->pkey, NULL);
++	ASSERT_INT_EQ(EVP_PKEY_get_bn_param(k->pkey,
++	    OSSL_PKEY_PARAM_RSA_N, &n), 1);
++	r = BN_cmp(n, exp);
++	BN_clear_free(n);
++	return r == 0;
++}
++
++int
++with_rsa_e(struct sshkey *k, const BIGNUM *exp)
+ {
+-	const BIGNUM *q = NULL;
++	BIGNUM *e = NULL;
++	int r;
+ 
+ 	ASSERT_PTR_NE(k, NULL);
+-	ASSERT_PTR_NE(EVP_PKEY_get0_RSA(k->pkey), NULL);
+-	RSA_get0_factors(EVP_PKEY_get0_RSA(k->pkey), NULL, &q);
+-	return q;
++	ASSERT_PTR_NE(k->pkey, NULL);
++	ASSERT_INT_EQ(EVP_PKEY_get_bn_param(k->pkey,
++	    OSSL_PKEY_PARAM_RSA_E, &e), 1);
++	r = BN_cmp(e, exp);
++	BN_clear_free(e);
++	return r == 0;
++}
++
++int
++with_rsa_p(struct sshkey *k, const BIGNUM *exp)
++{
++	BIGNUM *p = NULL;
++	int r;
++
++	ASSERT_PTR_NE(k, NULL);
++	ASSERT_PTR_NE(k->pkey, NULL);
++	ASSERT_INT_EQ(EVP_PKEY_get_bn_param(k->pkey,
++	    OSSL_PKEY_PARAM_RSA_FACTOR1, &p), 1);
++	r = BN_cmp(p, exp);
++	BN_clear_free(p);
++	return r == 0;
++}
++
++int
++with_rsa_q(struct sshkey *k, const BIGNUM *exp)
++{
++	BIGNUM *q = NULL;
++	int r;
++
++	ASSERT_PTR_NE(k, NULL);
++	ASSERT_PTR_NE(k->pkey, NULL);
++	ASSERT_INT_EQ(EVP_PKEY_get_bn_param(k->pkey,
++	    OSSL_PKEY_PARAM_RSA_FACTOR2, &q), 1);
++	r = BN_cmp(q, exp);
++	BN_clear_free(q);
++	return r == 0;
+ }
+ 
+ # if WITH_DSA
+diff --git a/regress/unittests/sshkey/common.h b/regress/unittests/sshkey/common.h
+index 7a514fd..9fcecff 100644
+--- a/regress/unittests/sshkey/common.h
++++ b/regress/unittests/sshkey/common.h
+@@ -15,13 +15,25 @@ struct sshbuf *load_text_file(const char *name);
+ BIGNUM *load_bignum(const char *name);
+ 
+ /* Accessors for key components */
+-const BIGNUM *rsa_n(struct sshkey *k);
+-const BIGNUM *rsa_e(struct sshkey *k);
+-const BIGNUM *rsa_p(struct sshkey *k);
+-const BIGNUM *rsa_q(struct sshkey *k);
+ #if WITH_DSA
+ const BIGNUM *dsa_g(struct sshkey *k);
+ const BIGNUM *dsa_pub_key(struct sshkey *k);
+ const BIGNUM *dsa_priv_key(struct sshkey *k);
+ #endif
+ 
++/* Tests for key components */
++int has_rsa_n(struct sshkey *k);
++int has_rsa_e(struct sshkey *k);
++int has_rsa_p(struct sshkey *k);
++int has_rsa_q(struct sshkey *k);
++int has_ec_pub_key(struct sshkey *k);
++int has_ec_priv_key(struct sshkey *k);
++
++int with_rsa_n(struct sshkey *k, const BIGNUM *exp);
++int with_rsa_e(struct sshkey *k, const BIGNUM *exp);
++int with_rsa_p(struct sshkey *k, const BIGNUM *exp);
++int with_rsa_q(struct sshkey *k, const BIGNUM *exp);
++int with_ec_pub_key(struct sshkey *k, const BIGNUM *exp);
++int with_ec_priv_key(struct sshkey *k, const BIGNUM *exp);
++
++int rsa_n_size(struct sshkey *k);
+diff --git a/regress/unittests/sshkey/test_file.c b/regress/unittests/sshkey/test_file.c
+index 3babe60..1ca9cc2 100644
+--- a/regress/unittests/sshkey/test_file.c
++++ b/regress/unittests/sshkey/test_file.c
+@@ -64,9 +64,9 @@ sshkey_file_tests(void)
+ 	a = load_bignum("rsa_1.param.n");
+ 	b = load_bignum("rsa_1.param.p");
+ 	c = load_bignum("rsa_1.param.q");
+-	ASSERT_BIGNUM_EQ(rsa_n(k1), a);
+-	ASSERT_BIGNUM_EQ(rsa_p(k1), b);
+-	ASSERT_BIGNUM_EQ(rsa_q(k1), c);
++	ASSERT_INT_EQ(with_rsa_n(k1, a), 1);
++	ASSERT_INT_EQ(with_rsa_p(k1, b), 1);
++	ASSERT_INT_EQ(with_rsa_q(k1, c), 1);
+ 	BN_free(a);
+ 	BN_free(b);
+ 	BN_free(c);
+@@ -268,20 +268,12 @@ sshkey_file_tests(void)
+ 	ASSERT_STRING_EQ((const char *)sshbuf_ptr(buf),
+ 	    OBJ_nid2sn(k1->ecdsa_nid));
+ 	sshbuf_free(buf);
+-#ifndef OPENSSL_IS_BORINGSSL /* lacks EC_POINT_point2bn() */
+ 	a = load_bignum("ecdsa_1.param.priv");
+ 	b = load_bignum("ecdsa_1.param.pub");
+-	c = EC_POINT_point2bn(EC_KEY_get0_group(EVP_PKEY_get0_EC_KEY(k1->pkey)),
+-	    EC_KEY_get0_public_key(EVP_PKEY_get0_EC_KEY(k1->pkey)),
+-	    POINT_CONVERSION_UNCOMPRESSED, NULL, NULL);
+-	ASSERT_PTR_NE(c, NULL);
+-	ASSERT_BIGNUM_EQ(
+-	    EC_KEY_get0_private_key(EVP_PKEY_get0_EC_KEY(k1->pkey)), a);
+-	ASSERT_BIGNUM_EQ(b, c);
++	ASSERT_INT_EQ(with_ec_priv_key(k1, a), 1);
++	ASSERT_INT_EQ(with_ec_pub_key(k1, b), 1);
+ 	BN_free(a);
+ 	BN_free(b);
+-	BN_free(c);
+-#endif /* OPENSSL_IS_BORINGSSL */
+ 	TEST_DONE();
+ 
+ 	TEST_START("parse ECDSA from private w/ passphrase");
+diff --git a/regress/unittests/sshkey/test_sshkey.c b/regress/unittests/sshkey/test_sshkey.c
+index 5bf4b65..3e94631 100644
+--- a/regress/unittests/sshkey/test_sshkey.c
++++ b/regress/unittests/sshkey/test_sshkey.c
+@@ -270,11 +270,11 @@ sshkey_tests(void)
+ 	    SSH_ERR_KEY_LENGTH);
+ 	ASSERT_INT_EQ(sshkey_generate(KEY_RSA, 1024, &kr), 0);
+ 	ASSERT_PTR_NE(kr, NULL);
+-	ASSERT_PTR_NE(EVP_PKEY_get0_RSA(kr->pkey), NULL);
+-	ASSERT_PTR_NE(rsa_n(kr), NULL);
+-	ASSERT_PTR_NE(rsa_e(kr), NULL);
+-	ASSERT_PTR_NE(rsa_p(kr), NULL);
+-	ASSERT_INT_EQ(BN_num_bits(rsa_n(kr)), 1024);
++	ASSERT_PTR_NE(kr->pkey, NULL);
++	ASSERT_INT_EQ(has_rsa_n(kr), 1);
++	ASSERT_INT_EQ(has_rsa_e(kr), 1);
++	ASSERT_INT_EQ(has_rsa_p(kr), 1);
++	ASSERT_INT_EQ(rsa_n_size(kr), 1024);
+ 	TEST_DONE();
+ 
+ #ifdef WITH_DSA
+@@ -291,11 +291,9 @@ sshkey_tests(void)
+ 	TEST_START("generate KEY_ECDSA");
+ 	ASSERT_INT_EQ(sshkey_generate(KEY_ECDSA, 256, &ke), 0);
+ 	ASSERT_PTR_NE(ke, NULL);
+-	ASSERT_PTR_NE(EVP_PKEY_get0_EC_KEY(ke->pkey), NULL);
+-	ASSERT_PTR_NE(EC_KEY_get0_public_key(EVP_PKEY_get0_EC_KEY(ke->pkey)),
+-	    NULL);
+-	ASSERT_PTR_NE(EC_KEY_get0_private_key(EVP_PKEY_get0_EC_KEY(ke->pkey)),
+-	    NULL);
++	ASSERT_PTR_NE(ke->pkey, NULL);
++	ASSERT_INT_EQ(has_ec_pub_key(ke), 1);
++	ASSERT_INT_EQ(has_ec_priv_key(ke), 1);
+ 	TEST_DONE();
+ #endif /* OPENSSL_HAS_ECC */
+ #endif /* WITH_OPENSSL */
+@@ -314,10 +312,10 @@ sshkey_tests(void)
+ 	ASSERT_PTR_NE(k1, NULL);
+ 	ASSERT_PTR_NE(kr, k1);
+ 	ASSERT_INT_EQ(k1->type, KEY_RSA);
+-	ASSERT_PTR_NE(EVP_PKEY_get0_RSA(k1->pkey), NULL);
+-	ASSERT_PTR_NE(rsa_n(k1), NULL);
+-	ASSERT_PTR_NE(rsa_e(k1), NULL);
+-	ASSERT_PTR_EQ(rsa_p(k1), NULL);
++	ASSERT_PTR_NE(k1->pkey, NULL);
++	ASSERT_INT_EQ(has_rsa_n(k1), 1);
++	ASSERT_INT_EQ(has_rsa_e(k1), 1);
++	ASSERT_INT_EQ(has_rsa_p(k1), 0);
+ 	TEST_DONE();
+ 
+ 	TEST_START("equal KEY_RSA/demoted KEY_RSA");
+@@ -348,12 +346,10 @@ sshkey_tests(void)
+ 	ASSERT_PTR_NE(k1, NULL);
+ 	ASSERT_PTR_NE(ke, k1);
+ 	ASSERT_INT_EQ(k1->type, KEY_ECDSA);
+-	ASSERT_PTR_NE(EVP_PKEY_get0_EC_KEY(k1->pkey), NULL);
++	ASSERT_PTR_NE(k1->pkey, NULL);
+ 	ASSERT_INT_EQ(k1->ecdsa_nid, ke->ecdsa_nid);
+-	ASSERT_PTR_NE(EC_KEY_get0_public_key(EVP_PKEY_get0_EC_KEY(ke->pkey)),
+-	   NULL);
+-	ASSERT_PTR_EQ(EC_KEY_get0_private_key(EVP_PKEY_get0_EC_KEY(k1->pkey)),
+-	   NULL);
++	ASSERT_INT_EQ(has_ec_pub_key(ke), 1);
++	ASSERT_INT_EQ(has_ec_priv_key(k1), 0);
+ 	TEST_DONE();
+ 
+ 	TEST_START("equal KEY_ECDSA/demoted KEY_ECDSA");
