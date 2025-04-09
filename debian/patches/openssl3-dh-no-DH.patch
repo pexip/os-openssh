@@ -1,0 +1,744 @@
+diff --git a/dh.c b/dh.c
+index ce2eb47..0b4b429 100644
+--- a/dh.c
++++ b/dh.c
+@@ -34,8 +34,9 @@
+ #include <string.h>
+ #include <limits.h>
+ 
++#include <openssl/asn1t.h>
+ #include <openssl/bn.h>
+-#include <openssl/dh.h>
++#include <openssl/evp.h>
+ 
+ #include "dh.h"
+ #include "pathnames.h"
+@@ -45,6 +46,15 @@
+ 
+ #include "openbsd-compat/openssl-compat.h"
+ 
++typedef struct dhgroup dhgroup;
++ASN1_SEQUENCE(dhgroup) = {
++	ASN1_SIMPLE(dhgroup, p, BIGNUM),
++	ASN1_SIMPLE(dhgroup, g, BIGNUM)
++} static_ASN1_SEQUENCE_END(dhgroup)
++DECLARE_ASN1_FUNCTIONS(dhgroup)
++DECLARE_ASN1_ENCODE_FUNCTIONS_name(dhgroup, dhgroup)
++IMPLEMENT_ASN1_FUNCTIONS(dhgroup)
++
+ static const char *moduli_filename;
+ 
+ void dh_set_moduli_file(const char *filename)
+@@ -155,7 +165,7 @@ parse_prime(int linenum, char *line, struct dhgroup *dhg)
+ 	return 0;
+ }
+ 
+-DH *
++EVP_PKEY *
+ choose_dh(int min, int wantbits, int max)
+ {
+ 	FILE *f;
+@@ -233,32 +243,39 @@ choose_dh(int min, int wantbits, int max)
+ /* diffie-hellman-groupN-sha1 */
+ 
+ int
+-dh_pub_is_valid(const DH *dh, const BIGNUM *dh_pub)
++dh_pub_is_valid(const EVP_PKEY *dh, const BIGNUM *dh_pub)
+ {
+ 	int i;
+ 	int n = BN_num_bits(dh_pub);
+ 	int bits_set = 0;
+ 	BIGNUM *tmp;
+-	const BIGNUM *dh_p;
++	BIGNUM *dh_p = NULL;
+ 
+-	DH_get0_pqg(dh, &dh_p, NULL, NULL);
++	if (EVP_PKEY_get_bn_param(dh, OSSL_PKEY_PARAM_FFC_P, &dh_p) == 0) {
++		logit("failed retrieving modulus");
++		return 0;
++	}
+ 
+ 	if (BN_is_negative(dh_pub)) {
++		BN_clear_free(dh_p);
+ 		logit("invalid public DH value: negative");
+ 		return 0;
+ 	}
+ 	if (BN_cmp(dh_pub, BN_value_one()) != 1) {	/* pub_exp <= 1 */
++		BN_clear_free(dh_p);
+ 		logit("invalid public DH value: <= 1");
+ 		return 0;
+ 	}
+ 
+ 	if ((tmp = BN_new()) == NULL) {
++		BN_clear_free(dh_p);
+ 		error_f("BN_new failed");
+ 		return 0;
+ 	}
+ 	if (!BN_sub(tmp, dh_p, BN_value_one()) ||
+ 	    BN_cmp(dh_pub, tmp) != -1) {		/* pub_exp > p-2 */
+ 		BN_clear_free(tmp);
++		BN_clear_free(dh_p);
+ 		logit("invalid public DH value: >= p-1");
+ 		return 0;
+ 	}
+@@ -275,56 +292,72 @@ dh_pub_is_valid(const DH *dh, const BIGNUM *dh_pub)
+ 	if (bits_set < 4) {
+ 		logit("invalid public DH value (%d/%d)",
+ 		    bits_set, BN_num_bits(dh_p));
++		BN_clear_free(dh_p);
+ 		return 0;
+ 	}
++	BN_clear_free(dh_p);
+ 	return 1;
+ }
+ 
+ int
+-dh_gen_key(DH *dh, int need)
++dh_gen_key(EVP_PKEY *dh, int need)
+ {
++	EVP_PKEY_CTX *pctx = NULL;
+ 	int pbits;
+-	const BIGNUM *dh_p, *pub_key;
++	BIGNUM *dh_p = NULL, *pub_key = NULL;
++	int r;
+ 
+-	DH_get0_pqg(dh, &dh_p, NULL, NULL);
++	if (EVP_PKEY_get_bn_param(dh, OSSL_PKEY_PARAM_FFC_P, &dh_p) == 0) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
+ 
+ 	if (need < 0 || dh_p == NULL ||
+ 	    (pbits = BN_num_bits(dh_p)) <= 0 ||
+-	    need > INT_MAX / 2 || 2 * need > pbits)
+-		return SSH_ERR_INVALID_ARGUMENT;
++	    need > INT_MAX / 2 || 2 * need > pbits) {
++		r = SSH_ERR_INVALID_ARGUMENT;
++		goto out;
++	}
+ 	if (need < 256)
+ 		need = 256;
+-	/*
+-	 * Pollard Rho, Big step/Little Step attacks are O(sqrt(n)),
+-	 * so double requested need here.
+-	 */
+-	if (!DH_set_length(dh, MINIMUM(need * 2, pbits - 1)))
+-		return SSH_ERR_LIBCRYPTO_ERROR;
+-
+-	if (DH_generate_key(dh) == 0)
+-		return SSH_ERR_LIBCRYPTO_ERROR;
+-	DH_get0_key(dh, &pub_key, NULL);
+-	if (!dh_pub_is_valid(dh, pub_key))
+-		return SSH_ERR_INVALID_FORMAT;
+-	return 0;
++
++	if ((pctx = EVP_PKEY_CTX_new(dh, NULL)) == NULL) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
++	if (EVP_PKEY_keygen_init(pctx) <= 0 ||
++	    EVP_PKEY_generate(pctx, &dh) <= 0) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
++	if (EVP_PKEY_get_bn_param(dh,
++	    OSSL_PKEY_PARAM_PUB_KEY, &pub_key) == 0) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
++	if (!dh_pub_is_valid(dh, pub_key)) {
++		r = SSH_ERR_INVALID_FORMAT;
++		goto out;
++	}
++	/* success */
++	r = 0;
++out:
++	BN_clear_free(pub_key);
++	EVP_PKEY_CTX_free(pctx);
++	BN_clear_free(dh_p);
++	return r;
+ }
+ 
+-DH *
++EVP_PKEY *
+ dh_new_group_asc(const char *gen, const char *modulus)
+ {
+-	DH *dh;
+ 	BIGNUM *dh_p = NULL, *dh_g = NULL;
+ 
+-	if ((dh = DH_new()) == NULL)
+-		return NULL;
+ 	if (BN_hex2bn(&dh_p, modulus) == 0 ||
+ 	    BN_hex2bn(&dh_g, gen) == 0)
+ 		goto fail;
+-	if (!DH_set0_pqg(dh, dh_p, NULL, dh_g))
+-		goto fail;
+-	return dh;
++	return dh_new_group(dh_g, dh_p);
+  fail:
+-	DH_free(dh);
+ 	BN_clear_free(dh_p);
+ 	BN_clear_free(dh_g);
+ 	return NULL;
+@@ -334,23 +367,33 @@ dh_new_group_asc(const char *gen, const char *modulus)
+  * This just returns the group, we still need to generate the exchange
+  * value.
+  */
+-DH *
++EVP_PKEY *
+ dh_new_group(BIGNUM *gen, BIGNUM *modulus)
+ {
+-	DH *dh;
++	struct dhgroup dhg;
++	EVP_PKEY *dh = NULL;
++	u_char *buf = NULL;
++	const u_char *pbuf = NULL;
++	int len = 0;
++
++	dhg.p = modulus;
++	dhg.g = gen;
+ 
+-	if ((dh = DH_new()) == NULL)
+-		return NULL;
+-	if (!DH_set0_pqg(dh, modulus, NULL, gen)) {
+-		DH_free(dh);
+-		return NULL;
++	if ((len = i2d_dhgroup(&dhg, &buf)) <= 0 ||
++	    (pbuf = buf) == NULL ||
++	    (dh = d2i_KeyParams(EVP_PKEY_DH, NULL, &pbuf, len)) == NULL) {
++		goto out;
+ 	}
+ 
++out:
++	freezero(buf, len);
++	BN_clear_free(modulus);
++	BN_clear_free(gen);
+ 	return dh;
+ }
+ 
+ /* rfc2409 "Second Oakley Group" (1024 bits) */
+-DH *
++EVP_PKEY *
+ dh_new_group1(void)
+ {
+ 	static char *gen = "2", *group1 =
+@@ -365,7 +408,7 @@ dh_new_group1(void)
+ }
+ 
+ /* rfc3526 group 14 "2048-bit MODP Group" */
+-DH *
++EVP_PKEY *
+ dh_new_group14(void)
+ {
+ 	static char *gen = "2", *group14 =
+@@ -385,7 +428,7 @@ dh_new_group14(void)
+ }
+ 
+ /* rfc3526 group 16 "4096-bit MODP Group" */
+-DH *
++EVP_PKEY *
+ dh_new_group16(void)
+ {
+ 	static char *gen = "2", *group16 =
+@@ -416,7 +459,7 @@ dh_new_group16(void)
+ }
+ 
+ /* rfc3526 group 18 "8192-bit MODP Group" */
+-DH *
++EVP_PKEY *
+ dh_new_group18(void)
+ {
+ 	static char *gen = "2", *group18 =
+@@ -468,7 +511,7 @@ dh_new_group18(void)
+ }
+ 
+ /* Select fallback group used by DH-GEX if moduli file cannot be read. */
+-DH *
++EVP_PKEY *
+ dh_new_group_fallback(int max)
+ {
+ 	debug3_f("requested max size %d", max);
+diff --git a/dh.h b/dh.h
+index c6326a3..2e8ad56 100644
+--- a/dh.h
++++ b/dh.h
+@@ -34,17 +34,17 @@ struct dhgroup {
+ 	BIGNUM *p;
+ };
+ 
+-DH	*choose_dh(int, int, int);
+-DH	*dh_new_group_asc(const char *, const char *);
+-DH	*dh_new_group(BIGNUM *, BIGNUM *);
+-DH	*dh_new_group1(void);
+-DH	*dh_new_group14(void);
+-DH	*dh_new_group16(void);
+-DH	*dh_new_group18(void);
+-DH	*dh_new_group_fallback(int);
++EVP_PKEY	*choose_dh(int, int, int);
++EVP_PKEY	*dh_new_group_asc(const char *, const char *);
++EVP_PKEY	*dh_new_group(BIGNUM *, BIGNUM *);
++EVP_PKEY	*dh_new_group1(void);
++EVP_PKEY	*dh_new_group14(void);
++EVP_PKEY	*dh_new_group16(void);
++EVP_PKEY	*dh_new_group18(void);
++EVP_PKEY	*dh_new_group_fallback(int);
+ 
+-int	 dh_gen_key(DH *, int);
+-int	 dh_pub_is_valid(const DH *, const BIGNUM *);
++int	 dh_gen_key(EVP_PKEY *, int);
++int	 dh_pub_is_valid(const EVP_PKEY *, const BIGNUM *);
+ 
+ u_int	 dh_estimate(int);
+ void	 dh_set_moduli_file(const char *);
+diff --git a/kex.c b/kex.c
+index 6b957e5..06e917a 100644
+--- a/kex.c
++++ b/kex.c
+@@ -722,7 +722,7 @@ kex_free(struct kex *kex)
+ 		return;
+ 
+ #ifdef WITH_OPENSSL
+-	DH_free(kex->dh);
++	EVP_PKEY_free(kex->dh);
+ #ifdef OPENSSL_HAS_ECC
+ 	EVP_PKEY_free(kex->ec_client_key);
+ 	EC_GROUP_free(kex->ec_group);
+diff --git a/kex.h b/kex.h
+index d08988b..facd27d 100644
+--- a/kex.h
++++ b/kex.h
+@@ -174,7 +174,7 @@ struct kex {
+ 	    u_char **, size_t *, const u_char *, size_t, const char *);
+ 	int	(*kex[KEX_MAX])(struct ssh *);
+ 	/* kex specific state */
+-	DH	*dh;			/* DH */
++	EVP_PKEY *dh;			/* DH */
+ 	u_int	min, max, nbits;	/* GEX */
+ 	EVP_PKEY *ec_client_key;	/* ECDH */
+ 	EC_GROUP *ec_group;		/* ECDH */
+diff --git a/kexdh.c b/kexdh.c
+index c1084f2..ef517bd 100644
+--- a/kexdh.c
++++ b/kexdh.c
+@@ -34,7 +34,7 @@
+ #include <signal.h>
+ 
+ #include "openbsd-compat/openssl-compat.h"
+-#include <openssl/dh.h>
++#include <openssl/evp.h>
+ 
+ #include "sshkey.h"
+ #include "kex.h"
+@@ -72,17 +72,20 @@ kex_dh_keygen(struct kex *kex)
+ int
+ kex_dh_compute_key(struct kex *kex, BIGNUM *dh_pub, struct sshbuf *out)
+ {
++	EVP_PKEY_CTX *pctx = NULL;
++	BIGNUM *dh_p = NULL;
++	EVP_PKEY *pkey = NULL;
+ 	BIGNUM *shared_secret = NULL;
+-	u_char *kbuf = NULL;
++	u_char *kbuf = NULL, *pbuf = NULL;
+ 	size_t klen = 0;
+-	int kout, r;
++	int r, plen = 0;
+ 
+ #ifdef DEBUG_KEXDH
+ 	fprintf(stderr, "dh_pub= ");
+ 	BN_print_fp(stderr, dh_pub);
+ 	fprintf(stderr, "\n");
+ 	debug("bits %d", BN_num_bits(dh_pub));
+-	DHparams_print_fp(stderr, kex->dh);
++	EVP_PKEY_print_params_fp(stderr, kex->dh, 0, NULL);
+ 	fprintf(stderr, "\n");
+ #endif
+ 
+@@ -90,44 +93,78 @@ kex_dh_compute_key(struct kex *kex, BIGNUM *dh_pub, struct sshbuf *out)
+ 		r = SSH_ERR_MESSAGE_INCOMPLETE;
+ 		goto out;
+ 	}
+-	klen = DH_size(kex->dh);
++
++	if (EVP_PKEY_get_bn_param(kex->dh, OSSL_PKEY_PARAM_FFC_P,
++	    &dh_p) == 0 ||
++	    (plen = BN_num_bytes(dh_p)) == 0) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
++
++	if ((pbuf = malloc(plen)) == NULL ||
++	    (pkey = EVP_PKEY_new()) == NULL ||
++	    (pctx = EVP_PKEY_CTX_new(kex->dh, NULL)) == NULL) {
++		r = SSH_ERR_ALLOC_FAIL;
++		goto out;
++	}
++
++	if (BN_bn2binpad(dh_pub, pbuf, plen) != plen ||
++	    EVP_PKEY_copy_parameters(pkey, kex->dh) == 0 ||
++	    EVP_PKEY_set1_encoded_public_key(pkey, pbuf, plen) <= 0 ||
++	    EVP_PKEY_derive_init(pctx) <= 0 ||
++	    EVP_PKEY_derive_set_peer(pctx, pkey) <= 0 ||
++	    EVP_PKEY_derive(pctx, NULL, &klen) <= 0) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
++
+ 	if ((kbuf = malloc(klen)) == NULL ||
+ 	    (shared_secret = BN_new()) == NULL) {
+ 		r = SSH_ERR_ALLOC_FAIL;
+ 		goto out;
+ 	}
+-	if ((kout = DH_compute_key(kbuf, dh_pub, kex->dh)) < 0 ||
+-	    BN_bin2bn(kbuf, kout, shared_secret) == NULL) {
++	if (EVP_PKEY_derive(pctx, kbuf, &klen) <= 0 ||
++	    BN_bin2bn(kbuf, (int) klen, shared_secret) == NULL) {
+ 		r = SSH_ERR_LIBCRYPTO_ERROR;
+ 		goto out;
+ 	}
+ #ifdef DEBUG_KEXDH
+-	dump_digest("shared secret", kbuf, kout);
++	dump_digest("shared secret", kbuf, klen);
+ #endif
+ 	r = sshbuf_put_bignum2(out, shared_secret);
+  out:
+ 	freezero(kbuf, klen);
+ 	BN_clear_free(shared_secret);
++	EVP_PKEY_CTX_free(pctx);
++	EVP_PKEY_free(pkey);
++	freezero(pbuf, plen);
++	BN_clear_free(dh_p);
+ 	return r;
+ }
+ 
+ int
+ kex_dh_keypair(struct kex *kex)
+ {
+-	const BIGNUM *pub_key;
++	BIGNUM *pub_key = NULL;
+ 	struct sshbuf *buf = NULL;
+ 	int r;
+ 
+ 	if ((r = kex_dh_keygen(kex)) != 0)
+ 		return r;
+-	DH_get0_key(kex->dh, &pub_key, NULL);
+-	if ((buf = sshbuf_new()) == NULL)
+-		return SSH_ERR_ALLOC_FAIL;
++	if (EVP_PKEY_get_bn_param(kex->dh, OSSL_PKEY_PARAM_PUB_KEY,
++	    &pub_key) == 0) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
++	if ((buf = sshbuf_new()) == NULL) {
++		r = SSH_ERR_ALLOC_FAIL;
++		goto out;
++	}
+ 	if ((r = sshbuf_put_bignum2(buf, pub_key)) != 0 ||
+ 	    (r = sshbuf_get_u32(buf, NULL)) != 0)
+ 		goto out;
+ #ifdef DEBUG_KEXDH
+-	DHparams_print_fp(stderr, kex->dh);
++	EVP_PKEY_print_params_fp(stderr, kex->dh, 0, NULL);
+ 	fprintf(stderr, "pub= ");
+ 	BN_print_fp(stderr, pub_key);
+ 	fprintf(stderr, "\n");
+@@ -136,6 +173,7 @@ kex_dh_keypair(struct kex *kex)
+ 	buf = NULL;
+  out:
+ 	sshbuf_free(buf);
++	BN_clear_free(pub_key);
+ 	return r;
+ }
+ 
+@@ -143,7 +181,7 @@ int
+ kex_dh_enc(struct kex *kex, const struct sshbuf *client_blob,
+     struct sshbuf **server_blobp, struct sshbuf **shared_secretp)
+ {
+-	const BIGNUM *pub_key;
++	BIGNUM *pub_key = NULL;
+ 	struct sshbuf *server_blob = NULL;
+ 	int r;
+ 
+@@ -152,7 +190,11 @@ kex_dh_enc(struct kex *kex, const struct sshbuf *client_blob,
+ 
+ 	if ((r = kex_dh_keygen(kex)) != 0)
+ 		goto out;
+-	DH_get0_key(kex->dh, &pub_key, NULL);
++	if (EVP_PKEY_get_bn_param(kex->dh, OSSL_PKEY_PARAM_PUB_KEY,
++	    &pub_key) == 0) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
+ 	if ((server_blob = sshbuf_new()) == NULL) {
+ 		r = SSH_ERR_ALLOC_FAIL;
+ 		goto out;
+@@ -165,9 +207,10 @@ kex_dh_enc(struct kex *kex, const struct sshbuf *client_blob,
+ 	*server_blobp = server_blob;
+ 	server_blob = NULL;
+  out:
+-	DH_free(kex->dh);
++	EVP_PKEY_free(kex->dh);
+ 	kex->dh = NULL;
+ 	sshbuf_free(server_blob);
++	BN_clear_free(pub_key);
+ 	return r;
+ }
+ 
+@@ -195,7 +238,7 @@ kex_dh_dec(struct kex *kex, const struct sshbuf *dh_blob,
+ 	buf = NULL;
+  out:
+ 	BN_free(dh_pub);
+-	DH_free(kex->dh);
++	EVP_PKEY_free(kex->dh);
+ 	kex->dh = NULL;
+ 	sshbuf_free(buf);
+ 	return r;
+diff --git a/kexgexc.c b/kexgexc.c
+index e99e0cf..d6ae303 100644
+--- a/kexgexc.c
++++ b/kexgexc.c
+@@ -95,8 +95,7 @@ static int
+ input_kex_dh_gex_group(int type, u_int32_t seq, struct ssh *ssh)
+ {
+ 	struct kex *kex = ssh->kex;
+-	BIGNUM *p = NULL, *g = NULL;
+-	const BIGNUM *pub_key;
++	BIGNUM *p = NULL, *g = NULL, *pub_key = NULL;
+ 	int r, bits;
+ 
+ 	debug("SSH2_MSG_KEX_DH_GEX_GROUP received");
+@@ -120,14 +119,18 @@ input_kex_dh_gex_group(int type, u_int32_t seq, struct ssh *ssh)
+ 	/* generate and send 'e', client DH public key */
+ 	if ((r = dh_gen_key(kex->dh, kex->we_need * 8)) != 0)
+ 		goto out;
+-	DH_get0_key(kex->dh, &pub_key, NULL);
++	if (EVP_PKEY_get_bn_param(kex->dh, OSSL_PKEY_PARAM_PUB_KEY,
++	    &pub_key) == 0) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
+ 	if ((r = sshpkt_start(ssh, SSH2_MSG_KEX_DH_GEX_INIT)) != 0 ||
+ 	    (r = sshpkt_put_bignum2(ssh, pub_key)) != 0 ||
+ 	    (r = sshpkt_send(ssh)) != 0)
+ 		goto out;
+ 	debug("SSH2_MSG_KEX_DH_GEX_INIT sent");
+ #ifdef DEBUG_KEXDH
+-	DHparams_print_fp(stderr, kex->dh);
++	EVP_PKEY_print_params_fp(stderr, kex->dh, 0, NULL);
+ 	fprintf(stderr, "pub= ");
+ 	BN_print_fp(stderr, pub_key);
+ 	fprintf(stderr, "\n");
+@@ -136,6 +139,7 @@ input_kex_dh_gex_group(int type, u_int32_t seq, struct ssh *ssh)
+ 	ssh_dispatch_set(ssh, SSH2_MSG_KEX_DH_GEX_REPLY, &input_kex_dh_gex_reply);
+ 	r = 0;
+ out:
++	BN_clear_free(pub_key);
+ 	BN_clear_free(p);
+ 	BN_clear_free(g);
+ 	return r;
+@@ -146,7 +150,7 @@ input_kex_dh_gex_reply(int type, u_int32_t seq, struct ssh *ssh)
+ {
+ 	struct kex *kex = ssh->kex;
+ 	BIGNUM *dh_server_pub = NULL;
+-	const BIGNUM *pub_key, *dh_p, *dh_g;
++	BIGNUM *pub_key = NULL, *dh_p = NULL, *dh_g = NULL;
+ 	struct sshbuf *shared_secret = NULL;
+ 	struct sshbuf *tmp = NULL, *server_host_key_blob = NULL;
+ 	struct sshkey *server_host_key = NULL;
+@@ -184,8 +188,15 @@ input_kex_dh_gex_reply(int type, u_int32_t seq, struct ssh *ssh)
+ 		kex->min = kex->max = -1;
+ 
+ 	/* calc and verify H */
+-	DH_get0_key(kex->dh, &pub_key, NULL);
+-	DH_get0_pqg(kex->dh, &dh_p, NULL, &dh_g);
++	if (EVP_PKEY_get_bn_param(kex->dh,
++	    OSSL_PKEY_PARAM_PUB_KEY, &pub_key) == 0 ||
++	    EVP_PKEY_get_bn_param(kex->dh,
++	    OSSL_PKEY_PARAM_FFC_P, &dh_p) == 0 ||
++	    EVP_PKEY_get_bn_param(kex->dh,
++	    OSSL_PKEY_PARAM_FFC_G, &dh_g) == 0) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
+ 	hashlen = sizeof(hash);
+ 	if ((r = kexgex_hash(
+ 	    kex->hash_alg,
+@@ -228,7 +239,10 @@ input_kex_dh_gex_reply(int type, u_int32_t seq, struct ssh *ssh)
+ 	/* success */
+  out:
+ 	explicit_bzero(hash, sizeof(hash));
+-	DH_free(kex->dh);
++	BN_clear_free(pub_key);
++	BN_clear_free(dh_p);
++	BN_clear_free(dh_g);
++	EVP_PKEY_free(kex->dh);
+ 	kex->dh = NULL;
+ 	BN_clear_free(dh_server_pub);
+ 	sshbuf_free(shared_secret);
+diff --git a/kexgexs.c b/kexgexs.c
+index 100be03..dc46f29 100644
+--- a/kexgexs.c
++++ b/kexgexs.c
+@@ -73,7 +73,7 @@ input_kex_dh_gex_request(int type, u_int32_t seq, struct ssh *ssh)
+ 	struct kex *kex = ssh->kex;
+ 	int r;
+ 	u_int min = 0, max = 0, nbits = 0;
+-	const BIGNUM *dh_p, *dh_g;
++	BIGNUM *dh_p = NULL, *dh_g = NULL;
+ 
+ 	debug("SSH2_MSG_KEX_DH_GEX_REQUEST received");
+ 	ssh_dispatch_set(ssh, SSH2_MSG_KEX_DH_GEX_REQUEST, &kex_protocol_error);
+@@ -105,7 +105,13 @@ input_kex_dh_gex_request(int type, u_int32_t seq, struct ssh *ssh)
+ 		goto out;
+ 	}
+ 	debug("SSH2_MSG_KEX_DH_GEX_GROUP sent");
+-	DH_get0_pqg(kex->dh, &dh_p, NULL, &dh_g);
++	if (EVP_PKEY_get_bn_param(kex->dh,
++	    OSSL_PKEY_PARAM_FFC_P, &dh_p) == 0 ||
++	    EVP_PKEY_get_bn_param(kex->dh,
++	    OSSL_PKEY_PARAM_FFC_G, &dh_g) == 0) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
+ 	if ((r = sshpkt_start(ssh, SSH2_MSG_KEX_DH_GEX_GROUP)) != 0 ||
+ 	    (r = sshpkt_put_bignum2(ssh, dh_p)) != 0 ||
+ 	    (r = sshpkt_put_bignum2(ssh, dh_g)) != 0 ||
+@@ -120,6 +126,8 @@ input_kex_dh_gex_request(int type, u_int32_t seq, struct ssh *ssh)
+ 	ssh_dispatch_set(ssh, SSH2_MSG_KEX_DH_GEX_INIT, &input_kex_dh_gex_init);
+ 	r = 0;
+  out:
++	BN_clear_free(dh_g);
++	BN_clear_free(dh_p);
+ 	return r;
+ }
+ 
+@@ -128,7 +136,7 @@ input_kex_dh_gex_init(int type, u_int32_t seq, struct ssh *ssh)
+ {
+ 	struct kex *kex = ssh->kex;
+ 	BIGNUM *dh_client_pub = NULL;
+-	const BIGNUM *pub_key, *dh_p, *dh_g;
++	BIGNUM *pub_key = NULL, *dh_p = NULL, *dh_g = NULL;
+ 	struct sshbuf *shared_secret = NULL;
+ 	struct sshbuf *server_host_key_blob = NULL;
+ 	struct sshkey *server_host_public, *server_host_private;
+@@ -162,8 +170,15 @@ input_kex_dh_gex_init(int type, u_int32_t seq, struct ssh *ssh)
+ 		goto out;
+ 
+ 	/* calc H */
+-	DH_get0_key(kex->dh, &pub_key, NULL);
+-	DH_get0_pqg(kex->dh, &dh_p, NULL, &dh_g);
++	if (EVP_PKEY_get_bn_param(kex->dh,
++	    OSSL_PKEY_PARAM_PUB_KEY, &pub_key) == 0 ||
++	    EVP_PKEY_get_bn_param(kex->dh,
++	    OSSL_PKEY_PARAM_FFC_P, &dh_p) == 0 ||
++	    EVP_PKEY_get_bn_param(kex->dh,
++	    OSSL_PKEY_PARAM_FFC_G, &dh_g) == 0) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
+ 	hashlen = sizeof(hash);
+ 	if ((r = kexgex_hash(
+ 	    kex->hash_alg,
+@@ -205,7 +220,10 @@ input_kex_dh_gex_init(int type, u_int32_t seq, struct ssh *ssh)
+ 	/* success */
+  out:
+ 	explicit_bzero(hash, sizeof(hash));
+-	DH_free(kex->dh);
++	BN_clear_free(pub_key);
++	BN_clear_free(dh_p);
++	BN_clear_free(dh_g);
++	EVP_PKEY_free(kex->dh);
+ 	kex->dh = NULL;
+ 	BN_clear_free(dh_client_pub);
+ 	sshbuf_free(shared_secret);
+diff --git a/monitor.c b/monitor.c
+index 5966b4f..2331e30 100644
+--- a/monitor.c
++++ b/monitor.c
+@@ -574,8 +574,8 @@ monitor_reset_key_state(void)
+ int
+ mm_answer_moduli(struct ssh *ssh, int sock, struct sshbuf *m)
+ {
+-	DH *dh;
+-	const BIGNUM *dh_p, *dh_g;
++	EVP_PKEY *dh = NULL;
++	BIGNUM *dh_p = NULL, *dh_g = NULL;
+ 	int r;
+ 	u_int min, want, max;
+ 
+@@ -598,13 +598,26 @@ mm_answer_moduli(struct ssh *ssh, int sock, struct sshbuf *m)
+ 		return (0);
+ 	} else {
+ 		/* Send first bignum */
+-		DH_get0_pqg(dh, &dh_p, NULL, &dh_g);
++		if (EVP_PKEY_get_bn_param(dh, OSSL_PKEY_PARAM_FFC_P,
++		    &dh_p) == 0 ||
++		    EVP_PKEY_get_bn_param(dh, OSSL_PKEY_PARAM_FFC_G,
++		    &dh_g) == 0) {
++			if ((r = sshbuf_put_u8(m, 0)) != 0)
++				fatal_fr(r, "assemble empty");
++			BN_clear_free(dh_p);
++			BN_clear_free(dh_g);
++			EVP_PKEY_free(dh);
++			return (0);
++		}
++
+ 		if ((r = sshbuf_put_u8(m, 1)) != 0 ||
+ 		    (r = sshbuf_put_bignum2(m, dh_p)) != 0 ||
+ 		    (r = sshbuf_put_bignum2(m, dh_g)) != 0)
+ 			fatal_fr(r, "assemble");
+ 
+-		DH_free(dh);
++		BN_clear_free(dh_p);
++		BN_clear_free(dh_g);
++		EVP_PKEY_free(dh);
+ 	}
+ 	mm_request_send(sock, MONITOR_ANS_MODULI, m);
+ 	return (0);
+diff --git a/monitor_wrap.c b/monitor_wrap.c
+index 5358c77..b2e1f1d 100644
+--- a/monitor_wrap.c
++++ b/monitor_wrap.c
+@@ -223,7 +223,7 @@ mm_request_receive_expect(int sock, enum monitor_reqtype type, struct sshbuf *m)
+ }
+ 
+ #ifdef WITH_OPENSSL
+-DH *
++EVP_PKEY *
+ mm_choose_dh(int min, int nbits, int max)
+ {
+ 	BIGNUM *p, *g;
+diff --git a/monitor_wrap.h b/monitor_wrap.h
+index e768036..bc74561 100644
+--- a/monitor_wrap.h
++++ b/monitor_wrap.h
+@@ -40,7 +40,7 @@ struct sshkey_sig_details;
+ void mm_log_handler(LogLevel, int, const char *, void *);
+ int mm_is_monitor(void);
+ #ifdef WITH_OPENSSL
+-DH *mm_choose_dh(int, int, int);
++EVP_PKEY *mm_choose_dh(int, int, int);
+ #endif
+ int mm_sshkey_sign(struct ssh *, struct sshkey *, u_char **, size_t *,
+     const u_char *, size_t, const char *, const char *,
+diff --git a/ssh_api.c b/ssh_api.c
+index 5faaffd..50fd360 100644
+--- a/ssh_api.c
++++ b/ssh_api.c
+@@ -56,7 +56,7 @@ int	mm_sshkey_sign(struct sshkey *, u_char **, u_int *,
+     const u_char *, u_int, const char *, const char *, const char *, u_int);
+ 
+ #ifdef WITH_OPENSSL
+-DH	*mm_choose_dh(int, int, int);
++EVP_PKEY	*mm_choose_dh(int, int, int);
+ #endif
+ 
+ int
+@@ -74,7 +74,7 @@ mm_sshkey_sign(struct sshkey *key, u_char **sigp, u_int *lenp,
+ }
+ 
+ #ifdef WITH_OPENSSL
+-DH *
++EVP_PKEY *
+ mm_choose_dh(int min, int nbits, int max)
+ {
+ 	return choose_dh(min, nbits, max);
