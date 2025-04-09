@@ -1,0 +1,164 @@
+diff --git a/ssh-keygen.c b/ssh-keygen.c
+index 8396c40..51405d2 100644
+--- a/ssh-keygen.c
++++ b/ssh-keygen.c
+@@ -21,6 +21,7 @@
+ #ifdef WITH_OPENSSL
+ #include <openssl/evp.h>
+ #include <openssl/pem.h>
++#include <openssl/x509.h>
+ #include "openbsd-compat/openssl-compat.h"
+ #endif
+ 
+@@ -378,9 +379,8 @@ do_convert_to_pkcs8(struct sshkey *k)
+ {
+ 	switch (sshkey_type_plain(k->type)) {
+ 	case KEY_RSA:
+-		if (!PEM_write_RSA_PUBKEY(stdout,
+-		    EVP_PKEY_get0_RSA(k->pkey)))
+-			fatal("PEM_write_RSA_PUBKEY failed");
++		if (!PEM_write_PUBKEY(stdout, k->pkey))
++			fatal("PEM_write_PUBKEY failed");
+ 		break;
+ #ifdef WITH_DSA
+ 	case KEY_DSA:
+@@ -390,9 +390,8 @@ do_convert_to_pkcs8(struct sshkey *k)
+ #endif
+ #ifdef OPENSSL_HAS_ECC
+ 	case KEY_ECDSA:
+-		if (!PEM_write_EC_PUBKEY(stdout,
+-		    EVP_PKEY_get0_EC_KEY(k->pkey)))
+-			fatal("PEM_write_EC_PUBKEY failed");
++		if (!PEM_write_PUBKEY(stdout, k->pkey))
++			fatal("PEM_write_PUBKEY failed");
+ 		break;
+ #endif
+ 	default:
+@@ -406,9 +405,10 @@ do_convert_to_pem(struct sshkey *k)
+ {
+ 	switch (sshkey_type_plain(k->type)) {
+ 	case KEY_RSA:
+-		if (!PEM_write_RSAPublicKey(stdout,
+-		    EVP_PKEY_get0_RSA(k->pkey)))
+-			fatal("PEM_write_RSAPublicKey failed");
++		if (!PEM_ASN1_write((i2d_of_void *) i2d_PublicKey,
++		    PEM_STRING_RSA_PUBLIC, stdout, k->pkey,
++		    NULL, NULL, 0, NULL, NULL))
++			fatal("PEM_ASN1_write failed");
+ 		break;
+ #ifdef WITH_DSA
+ 	case KEY_DSA:
+@@ -418,9 +418,8 @@ do_convert_to_pem(struct sshkey *k)
+ #endif
+ #ifdef OPENSSL_HAS_ECC
+ 	case KEY_ECDSA:
+-		if (!PEM_write_EC_PUBKEY(stdout,
+-		    EVP_PKEY_get0_EC_KEY(k->pkey)))
+-			fatal("PEM_write_EC_PUBKEY failed");
++		if (!PEM_write_PUBKEY(stdout, k->pkey))
++			fatal("PEM_write_PUBKEY failed");
+ 		break;
+ #endif
+ 	default:
+@@ -498,7 +497,7 @@ do_convert_private_ssh2(struct sshbuf *b)
+ 	BIGNUM *rsa_n = NULL, *rsa_e = NULL, *rsa_d = NULL;
+ 	BIGNUM *rsa_p = NULL, *rsa_q = NULL, *rsa_iqmp = NULL;
+ 	BIGNUM *rsa_dmp1 = NULL, *rsa_dmq1 = NULL;
+-	RSA *rsa = NULL;
++	PKCS8_PRIV_KEY_INFO *p8 = NULL;
+ 
+ 	if ((r = sshbuf_get_u32(b, &magic)) != 0)
+ 		fatal_fr(r, "parse magic");
+@@ -596,22 +595,20 @@ do_convert_private_ssh2(struct sshbuf *b)
+ 		if ((r = ssh_rsa_complete_crt_parameters(rsa_d, rsa_p, rsa_q,
+ 		    rsa_iqmp, &rsa_dmp1, &rsa_dmq1)) != 0)
+ 			fatal_fr(r, "generate RSA CRT parameters");
+-		if ((key->pkey = EVP_PKEY_new()) == NULL)
+-			fatal_f("EVP_PKEY_new failed");
+-		if ((rsa = RSA_new()) == NULL)
+-			fatal_f("RSA_new failed");
+-		if (!RSA_set0_key(rsa, rsa_n, rsa_e, rsa_d))
+-			fatal_f("RSA_set0_key failed");
+-		rsa_n = rsa_e = rsa_d = NULL; /* transferred */
+-		if (!RSA_set0_factors(rsa, rsa_p, rsa_q))
+-			fatal_f("RSA_set0_factors failed");
+-		rsa_p = rsa_q = NULL; /* transferred */
+-		if (RSA_set0_crt_params(rsa, rsa_dmp1, rsa_dmq1, rsa_iqmp) != 1)
+-			fatal_f("RSA_set0_crt_params failed");
+-		rsa_dmp1 = rsa_dmq1 = rsa_iqmp = NULL;
+-		if (EVP_PKEY_set1_RSA(key->pkey, rsa) != 1)
+-			fatal_f("EVP_PKEY_set1_RSA failed");
+-		RSA_free(rsa);
++		if ((r = ssh_rsa_make_pkcs8(rsa_n, rsa_e, rsa_d, rsa_p, rsa_q,
++		    rsa_dmp1, rsa_dmq1, rsa_iqmp, &p8)) != 0)
++			fatal_fr(r, "make PKCS8");
++		if ((key->pkey = EVP_PKCS82PKEY(p8)) == NULL)
++			fatal_f("EVP_PKCS82PKEY failed");
++		PKCS8_PRIV_KEY_INFO_free(p8);
++		BN_clear_free(rsa_dmq1);
++		BN_clear_free(rsa_dmp1);
++		BN_clear_free(rsa_iqmp);
++		BN_clear_free(rsa_q);
++		BN_clear_free(rsa_p);
++		BN_clear_free(rsa_d);
++		BN_clear_free(rsa_n);
++		BN_clear_free(rsa_e);
+ 		alg = "rsa-sha2-256";
+ 		break;
+ 	}
+@@ -761,23 +758,26 @@ do_convert_from_pkcs8(struct sshkey **k, int *private)
+ 	return;
+ }
+ 
++static EVP_PKEY *
++d2i_PublicKey_RSA(EVP_PKEY **a, const u_char **pp, long length)
++{
++	return d2i_PublicKey(EVP_PKEY_RSA, a, pp, length);
++}
++
+ static void
+ do_convert_from_pem(struct sshkey **k, int *private)
+ {
+ 	FILE *fp;
+-	RSA *rsa;
++	EVP_PKEY *pkey;
+ 
+ 	if ((fp = fopen(identity_file, "r")) == NULL)
+ 		fatal("%s: %s: %s", __progname, identity_file, strerror(errno));
+-	if ((rsa = PEM_read_RSAPublicKey(fp, NULL, NULL, NULL)) != NULL) {
++	if ((pkey = PEM_ASN1_read((d2i_of_void *) d2i_PublicKey_RSA,
++	    PEM_STRING_RSA_PUBLIC, fp, NULL, NULL, NULL)) != NULL) {
+ 		if ((*k = sshkey_new(KEY_UNSPEC)) == NULL)
+ 			fatal("sshkey_new failed");
+-		if (((*k)->pkey = EVP_PKEY_new()) == NULL)
+-			fatal("EVP_PKEY_new failed");
+ 		(*k)->type = KEY_RSA;
+-		if (EVP_PKEY_set1_RSA((*k)->pkey, rsa) != 1)
+-			fatal("EVP_PKEY_set1_RSA failed");
+-		RSA_free(rsa);
++		(*k)->pkey = pkey;
+ 		fclose(fp);
+ 		return;
+ 	}
+@@ -825,15 +825,15 @@ do_convert_from(struct passwd *pw)
+ #endif
+ #ifdef OPENSSL_HAS_ECC
+ 		case KEY_ECDSA:
+-			ok = PEM_write_ECPrivateKey(stdout,
+-			    EVP_PKEY_get0_EC_KEY(k->pkey), NULL, NULL, 0,
+-			    NULL, NULL);
++			ok = PEM_ASN1_write((i2d_of_void *) i2d_PrivateKey,
++			    PEM_STRING_ECPRIVATEKEY, stdout, k->pkey,
++			    NULL, NULL, 0, NULL, NULL);
+ 			break;
+ #endif
+ 		case KEY_RSA:
+-			ok = PEM_write_RSAPrivateKey(stdout,
+-			    EVP_PKEY_get0_RSA(k->pkey), NULL, NULL, 0,
+-			    NULL, NULL);
++			ok = PEM_ASN1_write((i2d_of_void *) i2d_PrivateKey,
++			    PEM_STRING_RSA, stdout, k->pkey,
++			    NULL, NULL, 0, NULL, NULL);
+ 			break;
+ 		default:
+ 			fatal_f("unsupported key type %s", sshkey_type(k));
