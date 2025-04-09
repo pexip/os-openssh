@@ -1,0 +1,34 @@
+diff --git a/openbsd-compat/libressl-api-compat.c b/openbsd-compat/libressl-api-compat.c
+index 59be173..88825a3 100644
+--- a/openbsd-compat/libressl-api-compat.c
++++ b/openbsd-compat/libressl-api-compat.c
+@@ -26,6 +26,7 @@
+ #include <openssl/evp.h>
+ 
+ #ifndef HAVE_EVP_CIPHER_CTX_GET_IV
++# ifndef HAVE_EVP_CIPHER_CTX_GET_UPDATED_IV
+ int
+ EVP_CIPHER_CTX_get_iv(const EVP_CIPHER_CTX *ctx, unsigned char *iv, size_t len)
+ {
+@@ -52,6 +53,7 @@ EVP_CIPHER_CTX_get_iv(const EVP_CIPHER_CTX *ctx, unsigned char *iv, size_t len)
+ 	}
+ 	return 1;
+ }
++# endif /* HAVE_EVP_CIPHER_CTX_GET_UPDATED_IV */
+ #endif /* HAVE_EVP_CIPHER_CTX_GET_IV */
+ 
+ #ifndef HAVE_EVP_CIPHER_CTX_SET_IV
+@@ -73,11 +75,13 @@ EVP_CIPHER_CTX_set_iv(EVP_CIPHER_CTX *ctx, const unsigned char *iv, size_t len)
+ 	if (len != 0) {
+ 		if (iv == NULL)
+ 			return 0;
++# if 0 /* Disable: this function is never used, anyway */
+ # ifdef HAVE_EVP_CIPHER_CTX_IV_NOCONST
+ 		memcpy(EVP_CIPHER_CTX_iv_noconst(ctx), iv, len);
+ # else
+ 		memcpy(ctx->iv, iv, len);
+ # endif /* HAVE_EVP_CIPHER_CTX_IV_NOCONST */
++# endif
+ 	}
+ 	return 1;
+ }

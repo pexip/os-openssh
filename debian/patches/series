@@ -48,4 +48,5 @@ openssl3-ssh-rsa-no-RSA.patch
 openssl3-dh-no-DH.patch
 openssl3-umac-no-AES.patch
 openssl3-ssh-keygen-no-legacy.patch
+openssl3-libressl-api-compat-IV.patch
 openssh-6.5p1-fips.patch
