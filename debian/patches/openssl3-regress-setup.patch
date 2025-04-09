@@ -1,0 +1,28 @@
+diff --git a/regress/unittests/sshsig/tests.c b/regress/unittests/sshsig/tests.c
+index 80966bd..573a8e8 100644
+--- a/regress/unittests/sshsig/tests.c
++++ b/regress/unittests/sshsig/tests.c
+@@ -86,8 +86,10 @@ tests(void)
+ #endif
+ 
+ #ifdef WITH_OPENSSL
++# if OPENSSL_VERSION_NUMBER < 0x30000000L
+ 	OpenSSL_add_all_algorithms();
+ 	ERR_load_crypto_strings();
++# endif
+ #endif
+ 
+ 	TEST_START("load data");
+diff --git a/regress/unittests/test_helper/test_helper.c b/regress/unittests/test_helper/test_helper.c
+index e23128a..d2212fb 100644
+--- a/regress/unittests/test_helper/test_helper.c
++++ b/regress/unittests/test_helper/test_helper.c
+@@ -130,7 +130,7 @@ main(int argc, char **argv)
+ 	int ch;
+ 
+ 	seed_rng();
+-#ifdef WITH_OPENSSL
++#if defined(WITH_OPENSSL) && OPENSSL_VERSION_NUMBER < 0x30000000L
+ 	ERR_load_crypto_strings();
+ #endif
+ 

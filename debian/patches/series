@@ -32,4 +32,5 @@ dropbear-check-sha1.patch
 # Extra patches for Pexip needs
 extra-config.patch
 openssl3-api.patch
+openssl3-regress-setup.patch
 openssh-6.5p1-fips.patch
