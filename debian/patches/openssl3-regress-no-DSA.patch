@@ -1,0 +1,33 @@
+diff --git a/regress/unittests/sshkey/common.c b/regress/unittests/sshkey/common.c
+index f325c2a..6a3f6a7 100644
+--- a/regress/unittests/sshkey/common.c
++++ b/regress/unittests/sshkey/common.c
+@@ -127,6 +127,7 @@ rsa_q(struct sshkey *k)
+ 	return q;
+ }
+ 
++# if WITH_DSA
+ const BIGNUM *
+ dsa_g(struct sshkey *k)
+ {
+@@ -159,5 +160,6 @@ dsa_priv_key(struct sshkey *k)
+ 	DSA_get0_key(k->dsa, NULL, &priv_key);
+ 	return priv_key;
+ }
++# endif /* WITH_DSA */
+ #endif /* WITH_OPENSSL */
+ 
+diff --git a/regress/unittests/sshkey/common.h b/regress/unittests/sshkey/common.h
+index 7a514fd..188c267 100644
+--- a/regress/unittests/sshkey/common.h
++++ b/regress/unittests/sshkey/common.h
+@@ -19,7 +19,9 @@ const BIGNUM *rsa_n(struct sshkey *k);
+ const BIGNUM *rsa_e(struct sshkey *k);
+ const BIGNUM *rsa_p(struct sshkey *k);
+ const BIGNUM *rsa_q(struct sshkey *k);
++#if WITH_DSA
+ const BIGNUM *dsa_g(struct sshkey *k);
+ const BIGNUM *dsa_pub_key(struct sshkey *k);
+ const BIGNUM *dsa_priv_key(struct sshkey *k);
++#endif
+ 

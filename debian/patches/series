@@ -33,4 +33,5 @@ dropbear-check-sha1.patch
 extra-config.patch
 openssl3-api.patch
 openssl3-regress-setup.patch
+openssl3-regress-no-DSA.patch
 openssh-6.5p1-fips.patch
