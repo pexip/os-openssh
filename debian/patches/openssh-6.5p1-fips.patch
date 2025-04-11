@@ -23,7 +23,7 @@ index 8fb6d3c..238accc 100644
  
  #include "openbsd-compat/openssl-compat.h"
  
-@@ -112,8 +113,36 @@ static const struct sshcipher ciphers[] = {
+@@ -112,8 +113,34 @@ static const struct sshcipher ciphers[] = {
  	{ NULL,			0, 0, 0, 0, 0, NULL }
  };
  
@@ -34,12 +34,10 @@ index 8fb6d3c..238accc 100644
 +	{ "aes128-ctr",		16, 16, 0, 0, 0, EVP_aes_128_ctr },
 +	{ "aes192-ctr",		16, 24, 0, 0, 0, EVP_aes_192_ctr },
 +	{ "aes256-ctr",		16, 32, 0, 0, 0, EVP_aes_256_ctr },
-+# ifdef OPENSSL_HAVE_EVPGCM
 +	{ "aes128-gcm@openssh.com",
 +				16, 16, 12, 16, 0, EVP_aes_128_gcm },
 +	{ "aes256-gcm@openssh.com",
 +				16, 32, 12, 16, 0, EVP_aes_256_gcm },
-+# endif /* OPENSSL_HAVE_EVPGCM */
 +	{ "none",		8, 0, 0, 0, CFLAG_NONE, NULL },
 +
 +	{ NULL,			0, 0, 0, 0, 0, NULL }
@@ -60,7 +58,7 @@ index 8fb6d3c..238accc 100644
  /* Returns a comma-separated list of supported ciphers. */
  char *
  cipher_alg_list(char sep, int auth_only)
-@@ -122,7 +151,7 @@ cipher_alg_list(char sep, int auth_only)
+@@ -122,7 +149,7 @@ cipher_alg_list(char sep, int auth_only)
  	size_t nlen, rlen = 0;
  	const struct sshcipher *c;
  
@@ -69,7 +67,7 @@ index 8fb6d3c..238accc 100644
  		if ((c->flags & CFLAG_INTERNAL) != 0)
  			continue;
  		if (auth_only && c->auth_len == 0)
-@@ -205,7 +234,7 @@ const struct sshcipher *
+@@ -205,7 +232,7 @@ const struct sshcipher *
  cipher_by_name(const char *name)
  {
  	const struct sshcipher *c;
