@@ -177,8 +177,8 @@ index 695ed45..b566157 100644
 +	EVP_PKEY *ek = NULL;
 +	u_char *buf = NULL, *parambuf = NULL;
 +	const u_char *pparambuf = NULL;
-+	size_t len;
-+	int paramlen;
++	size_t len = 0;
++	int paramlen = 0;
  
  	if ((key->ecdsa_nid = sshkey_ecdsa_nid_from_name(ktype)) == -1)
  		return SSH_ERR_INVALID_ARGUMENT;
