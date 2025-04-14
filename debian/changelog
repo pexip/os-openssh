@@ -1,6 +1,28 @@
 openssh (1:9.9p2-2pexip1) pexip; urgency=medium
 
   * Migrate to Trixie
+  * debian/control: drop dh-sequence-movetousr dependency
+  * debian/patches/openssh-6.5p1-fips.patch: refresh
+  * debian/rules: disable OpenSSL ENGINE support
+  * OpenSSL 3: add the following series:
+    - debian/patches/openssl3-api.patch
+    - debian/patches/openssl3-clean-dsa-rsa-from-sshkey.patch
+    - debian/patches/openssl3-compat.patch
+    - debian/patches/openssl3-dh-no-DH.patch
+    - debian/patches/openssl3-kex-no-EC_KEY.patch
+    - debian/patches/openssl3-libressl-api-compat-IV.patch
+    - debian/patches/openssl3-moduli-no-BN_is_prime_ex.patch
+    - debian/patches/openssl3-regress-keytests.patch
+    - debian/patches/openssl3-regress-no-DSA.patch
+    - debian/patches/openssl3-regress-setup.patch
+    - debian/patches/openssl3-ssh-ecdsa-no-EC_KEY.patch
+    - debian/patches/openssl3-ssh-keygen-no-legacy.patch
+    - debian/patches/openssl3-ssh-rsa-no-RSA.patch
+    - debian/patches/openssl3-sshbuf-no-EC_KEY.patch
+    - debian/patches/openssl3-sshkey-no-EC_KEY.patch
+    - debian/patches/openssl3-sshkey-no-RSA.patch
+    - debian/patches/openssl3-sshkey-pem-serialization.patch
+    - debian/patches/openssl3-umac-no-AES.patch
 
  -- John-Mark Bell <jmb@pexip.com>  Wed, 02 Apr 2025 12:49:08 +0100
 
