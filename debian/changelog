@@ -3,6 +3,9 @@ openssh (1:9.9p2-2pexip1) pexip; urgency=medium
   * Migrate to Trixie
   * debian/control: drop dh-sequence-movetousr dependency
   * debian/patches/openssh-6.5p1-fips.patch: refresh
+  * debian/patches/openssl3-support.patch: drop: superceded
+  * debian/patches/pexip_sshsigdie-async-signal-unsafe.patch: drop: fixed
+    upstream
   * debian/rules: disable OpenSSL ENGINE support
   * OpenSSL 3: add the following series:
     - debian/patches/openssl3-api.patch
