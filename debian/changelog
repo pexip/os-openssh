@@ -1,4 +1,4 @@
-openssh (1:9.9p2-2pexip1) pexip; urgency=medium
+openssh (1:9.9p2-2+pexip24u1) pexip; urgency=medium
 
   * Migrate to Trixie
   * debian/control: drop dh-sequence-movetousr dependency
