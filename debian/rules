@@ -125,7 +125,7 @@ ifeq ($(shell dpkg-vendor --is Ubuntu && echo yes) $(DEB_HOST_ARCH), yes i386)
 endif
 
 %:
-	dh $@ --with=runit $(BUILD_PACKAGES)
+	dh $@ $(BUILD_PACKAGES)
 
 override_dh_autoreconf-indep:
 
@@ -212,9 +212,6 @@ endif
 
 override_dh_installpam: debian/openssh-server.sshd.pam
 	dh_installpam --name sshd
-
-override_dh_runit:
-	dh_runit -popenssh-server
 
 execute_after_dh_fixperms-arch:
 	chmod u+s debian/openssh-client/usr/lib/openssh/ssh-keysign
