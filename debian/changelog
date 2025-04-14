@@ -1,3 +1,9 @@
+openssh (1:9.9p2-2+pexip24u2) pexip; urgency=medium
+
+  * debian/patches/openssl3-ssh-ecdsa-no-EC_KEY.patch: initialise variables
+
+ -- John-Mark Bell <jmb@pexip.com>  Mon, 14 Apr 2025 12:43:44 +0100
+
 openssh (1:9.9p2-2+pexip24u1) pexip; urgency=medium
 
   * Migrate to Trixie
