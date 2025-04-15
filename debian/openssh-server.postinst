@@ -88,16 +88,9 @@ create_sshdconfig() {
 	ucfr openssh-server /etc/ssh/sshd_config
 }
 
-setup_sshd_user() {
-	if ! getent passwd sshd >/dev/null; then
-		adduser --quiet --system --no-create-home --home /run/sshd --shell /usr/sbin/nologin sshd
-	fi
-}
-
 if [ "$action" = configure ]; then
 	create_sshdconfig
 	create_keys
-	setup_sshd_user
 	if dpkg --compare-versions "$2" lt-nl 1:7.9p1-5 && \
 	   [ -f /etc/ssh/moduli.dpkg-bak ]; then
 	    # Handle /etc/ssh/moduli being moved from openssh-client to

@@ -17,6 +17,7 @@ Build-Depends:
  libselinux1-dev [linux-any],
  libssl-dev (>= 1.1.1),
  libwrap0-dev | libwrap-dev,
+ libwtmpdb-dev,
  pkgconf,
  zlib1g-dev,
 Standards-Version: 4.6.2
@@ -33,6 +34,7 @@ Package: openssh-client
 Architecture: any
 Depends:
  adduser,
+ init-system-helpers (>= 1.66~),
  passwd,
  ${misc:Depends},
  ${shlibs:Depends},
@@ -110,7 +112,6 @@ Architecture: any
 Pre-Depends:
  ${misc:Pre-Depends},
 Depends:
- adduser,
  libpam-modules,
  libpam-runtime,
  lsb-base,

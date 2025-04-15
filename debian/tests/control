@@ -22,6 +22,7 @@ Restrictions:
  isolation-container,
  needs-root,
 Depends:
+ adduser,
  krb5-admin-server,
  krb5-kdc,
  openssh-server-gssapi,

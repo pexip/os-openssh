@@ -1,4 +1,4 @@
-From 27c040a7ec411b638f128c9bd4572c8ee87ac59b Mon Sep 17 00:00:00 2001
+From f5c89caec93130da905a95602cf36a4e25f2303e Mon Sep 17 00:00:00 2001
 From: Daan De Meyer <daan.j.demeyer@gmail.com>
 Date: Mon, 20 Mar 2023 20:22:14 +0100
 Subject: Only set PAM_RHOST if the remote host is not "UNKNOWN"

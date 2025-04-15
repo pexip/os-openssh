@@ -1,4 +1,4 @@
-From e58bc55bd44f69fb68cfe38cc7c3eedaa30751c8 Mon Sep 17 00:00:00 2001
+From ad6e66e766ecc3a76c62c6daf81ebf19432713cb Mon Sep 17 00:00:00 2001
 From: Manoj Srivastava <srivasta@debian.org>
 Date: Sun, 9 Feb 2014 16:09:49 +0000
 Subject: Handle SELinux authorisation roles
@@ -43,7 +43,7 @@ index 98bb23d4c..59799a812 100644
  	/* Method lists for multiple authentication */
  	char		**auth_methods;	/* modified from server config */
 diff --git a/auth2.c b/auth2.c
-index f75f1d20d..44558851e 100644
+index 4fff5a5f7..7ca8a96f8 100644
 --- a/auth2.c
 +++ b/auth2.c
 @@ -272,7 +272,7 @@ input_userauth_request(int type, u_int32_t seq, struct ssh *ssh)
@@ -80,10 +80,10 @@ index f75f1d20d..44558851e 100644
  		if ((r = kex_server_update_ext_info(ssh)) != 0)
  			fatal_fr(r, "kex_server_update_ext_info failed");
 diff --git a/monitor.c b/monitor.c
-index ad7fef5a9..05d63a8ee 100644
+index 1aa81094e..180c6dbbc 100644
 --- a/monitor.c
 +++ b/monitor.c
-@@ -118,6 +118,7 @@ int mm_answer_sign(struct ssh *, int, struct sshbuf *);
+@@ -120,6 +120,7 @@ int mm_answer_sign(struct ssh *, int, struct sshbuf *);
  int mm_answer_pwnamallow(struct ssh *, int, struct sshbuf *);
  int mm_answer_auth2_read_banner(struct ssh *, int, struct sshbuf *);
  int mm_answer_authserv(struct ssh *, int, struct sshbuf *);
@@ -91,7 +91,7 @@ index ad7fef5a9..05d63a8ee 100644
  int mm_answer_authpassword(struct ssh *, int, struct sshbuf *);
  int mm_answer_bsdauthquery(struct ssh *, int, struct sshbuf *);
  int mm_answer_bsdauthrespond(struct ssh *, int, struct sshbuf *);
-@@ -192,6 +193,7 @@ struct mon_table mon_dispatch_proto20[] = {
+@@ -196,6 +197,7 @@ struct mon_table mon_dispatch_proto20[] = {
      {MONITOR_REQ_SIGN, MON_ONCE, mm_answer_sign},
      {MONITOR_REQ_PWNAM, MON_ONCE, mm_answer_pwnamallow},
      {MONITOR_REQ_AUTHSERV, MON_ONCE, mm_answer_authserv},
@@ -99,7 +99,7 @@ index ad7fef5a9..05d63a8ee 100644
      {MONITOR_REQ_AUTH2_READ_BANNER, MON_ONCE, mm_answer_auth2_read_banner},
      {MONITOR_REQ_AUTHPASSWORD, MON_AUTH, mm_answer_authpassword},
  #ifdef USE_PAM
-@@ -842,6 +844,7 @@ mm_answer_pwnamallow(struct ssh *ssh, int sock, struct sshbuf *m)
+@@ -929,6 +931,7 @@ mm_answer_pwnamallow(struct ssh *ssh, int sock, struct sshbuf *m)
  
  	/* Allow service/style information on the auth context */
  	monitor_permit(mon_dispatch, MONITOR_REQ_AUTHSERV, 1);
@@ -107,7 +107,7 @@ index ad7fef5a9..05d63a8ee 100644
  	monitor_permit(mon_dispatch, MONITOR_REQ_AUTH2_READ_BANNER, 1);
  
  #ifdef USE_PAM
-@@ -875,15 +878,42 @@ mm_answer_authserv(struct ssh *ssh, int sock, struct sshbuf *m)
+@@ -962,15 +965,42 @@ mm_answer_authserv(struct ssh *ssh, int sock, struct sshbuf *m)
  	monitor_permit_authentications(1);
  
  	if ((r = sshbuf_get_cstring(m, &authctxt->service, NULL)) != 0 ||
@@ -152,7 +152,7 @@ index ad7fef5a9..05d63a8ee 100644
  	return (0);
  }
  
-@@ -1604,7 +1634,7 @@ mm_answer_pty(struct ssh *ssh, int sock, struct sshbuf *m)
+@@ -1691,7 +1721,7 @@ mm_answer_pty(struct ssh *ssh, int sock, struct sshbuf *m)
  	res = pty_allocate(&s->ptyfd, &s->ttyfd, s->tty, sizeof(s->tty));
  	if (res == 0)
  		goto error;
@@ -162,10 +162,10 @@ index ad7fef5a9..05d63a8ee 100644
  	if ((r = sshbuf_put_u32(m, 1)) != 0 ||
  	    (r = sshbuf_put_cstring(m, s->tty)) != 0)
 diff --git a/monitor.h b/monitor.h
-index 7d8f3c6fa..d84415fe2 100644
+index 4076f71ea..1eda94540 100644
 --- a/monitor.h
 +++ b/monitor.h
-@@ -65,6 +65,8 @@ enum monitor_reqtype {
+@@ -66,6 +66,8 @@ enum monitor_reqtype {
  
  	MONITOR_REQ_GSSSIGN = 150, MONITOR_ANS_GSSSIGN = 151,
  	MONITOR_REQ_GSSUPCREDS = 152, MONITOR_ANS_GSSUPCREDS = 153,
@@ -175,10 +175,10 @@ index 7d8f3c6fa..d84415fe2 100644
  
  struct ssh;
 diff --git a/monitor_wrap.c b/monitor_wrap.c
-index cb3261b4d..60c339d02 100644
+index 8a6b4442f..9bf62aac2 100644
 --- a/monitor_wrap.c
 +++ b/monitor_wrap.c
-@@ -431,10 +431,10 @@ mm_auth2_read_banner(void)
+@@ -421,10 +421,10 @@ mm_auth2_read_banner(void)
  	return (banner);
  }
  
@@ -191,7 +191,7 @@ index cb3261b4d..60c339d02 100644
  {
  	struct sshbuf *m;
  	int r;
-@@ -444,7 +444,8 @@ mm_inform_authserv(char *service, char *style)
+@@ -434,7 +434,8 @@ mm_inform_authserv(char *service, char *style)
  	if ((m = sshbuf_new()) == NULL)
  		fatal_f("sshbuf_new failed");
  	if ((r = sshbuf_put_cstring(m, service)) != 0 ||
@@ -201,7 +201,7 @@ index cb3261b4d..60c339d02 100644
  		fatal_fr(r, "assemble");
  
  	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_AUTHSERV, m);
-@@ -452,6 +453,26 @@ mm_inform_authserv(char *service, char *style)
+@@ -442,6 +443,26 @@ mm_inform_authserv(char *service, char *style)
  	sshbuf_free(m);
  }
  
@@ -229,7 +229,7 @@ index cb3261b4d..60c339d02 100644
  int
  mm_auth_password(struct ssh *ssh, char *password)
 diff --git a/monitor_wrap.h b/monitor_wrap.h
-index 09b0ccaaa..2493da591 100644
+index 01251cf1b..fb6d7e15b 100644
 --- a/monitor_wrap.h
 +++ b/monitor_wrap.h
 @@ -45,7 +45,8 @@ DH *mm_choose_dh(int, int, int);
@@ -243,7 +243,7 @@ index 09b0ccaaa..2493da591 100644
  char *mm_auth2_read_banner(void);
  int mm_auth_password(struct ssh *, char *);
 diff --git a/openbsd-compat/port-linux.c b/openbsd-compat/port-linux.c
-index 8adfec5a7..61e239561 100644
+index c1d54f38d..1fd3bfa81 100644
 --- a/openbsd-compat/port-linux.c
 +++ b/openbsd-compat/port-linux.c
 @@ -65,7 +65,7 @@ ssh_selinux_enabled(void)
@@ -311,7 +311,7 @@ index 8adfec5a7..61e239561 100644
  	/* XXX: should these calls fatal() upon failure in enforcing mode? */
  
 diff --git a/openbsd-compat/port-linux.h b/openbsd-compat/port-linux.h
-index 14064f87d..6c4c37115 100644
+index 959430de1..7f9a7c195 100644
 --- a/openbsd-compat/port-linux.h
 +++ b/openbsd-compat/port-linux.h
 @@ -19,8 +19,8 @@
@@ -348,11 +348,11 @@ index 4c4fe57ea..f3dc7c3a8 100644
  }
  
 diff --git a/platform.h b/platform.h
-index 5dec23276..1b77c3e3d 100644
+index 08cbd225d..2a7364578 100644
 --- a/platform.h
 +++ b/platform.h
-@@ -26,7 +26,7 @@ void platform_post_fork_parent(pid_t child_pid);
- void platform_post_fork_child(void);
+@@ -27,7 +27,7 @@ void platform_post_fork_child(void);
+ void platform_pre_session_start(void);
  int  platform_privileged_uidswap(void);
  void platform_setusercontext(struct passwd *);
 -void platform_setusercontext_post_groups(struct passwd *);
@@ -361,7 +361,7 @@ index 5dec23276..1b77c3e3d 100644
  char *platform_krb5_get_principal_name(const char *);
  int platform_locked_account(struct passwd *);
 diff --git a/session.c b/session.c
-index 3d9a16b1e..1c67f9fd1 100644
+index b3833e44c..6614d8560 100644
 --- a/session.c
 +++ b/session.c
 @@ -1344,7 +1344,7 @@ safely_chroot(const char *path, uid_t uid)
@@ -382,7 +382,7 @@ index 3d9a16b1e..1c67f9fd1 100644
  
  		if (!in_chroot && options.chroot_directory != NULL &&
  		    strcasecmp(options.chroot_directory, "none") != 0) {
-@@ -1516,7 +1516,7 @@ do_child(struct ssh *ssh, Session *s, const char *command)
+@@ -1515,7 +1515,7 @@ do_child(struct ssh *ssh, Session *s, const char *command)
  
  	/* Force a password change */
  	if (s->authctxt->force_pwchange) {
@@ -391,7 +391,7 @@ index 3d9a16b1e..1c67f9fd1 100644
  		child_close_fds(ssh);
  		do_pwchange(s);
  		exit(1);
-@@ -1534,7 +1534,7 @@ do_child(struct ssh *ssh, Session *s, const char *command)
+@@ -1533,7 +1533,7 @@ do_child(struct ssh *ssh, Session *s, const char *command)
  	/* When PAM is enabled we rely on it to do the nologin check */
  	if (!options.use_pam)
  		do_nologin(pw);
@@ -414,10 +414,10 @@ index 344a1ddf9..20ea822a7 100644
  const char	*session_get_remote_name_or_ip(struct ssh *, u_int, int);
  
 diff --git a/sshd-session.c b/sshd-session.c
-index f36d58b1b..1d7cdd00a 100644
+index c171c8923..372a610b3 100644
 --- a/sshd-session.c
 +++ b/sshd-session.c
-@@ -440,7 +440,7 @@ privsep_postauth(struct ssh *ssh, Authctxt *authctxt)
+@@ -471,7 +471,7 @@ privsep_postauth(struct ssh *ssh, Authctxt *authctxt)
  
  	/* Drop privileges */
  	if (!skip_privdrop)

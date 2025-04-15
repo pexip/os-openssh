@@ -1,4 +1,4 @@
-From 3276673b8fdfb8a8f805a0d25c75b729fb319508 Mon Sep 17 00:00:00 2001
+From d3fc1f4d6bf0c2a857af1d5f90e7a0b061cdb490 Mon Sep 17 00:00:00 2001
 From: Richard Kettlewell <rjk@greenend.org.uk>
 Date: Sun, 9 Feb 2014 16:09:52 +0000
 Subject: Various keepalive extensions
@@ -16,7 +16,7 @@ keepalives.
 Author: Ian Jackson <ian@chiark.greenend.org.uk>
 Author: Matthew Vernon <matthew@debian.org>
 Author: Colin Watson <cjwatson@debian.org>
-Last-Update: 2024-09-13
+Last-Update: 2025-04-10
 
 Patch-Name: keepalive-extensions.patch
 ---
@@ -26,27 +26,27 @@ Patch-Name: keepalive-extensions.patch
  3 files changed, 34 insertions(+), 4 deletions(-)
 
 diff --git a/readconf.c b/readconf.c
-index 8e59864c2..3227e387b 100644
+index 2b6f2c1e3..5a38016eb 100644
 --- a/readconf.c
 +++ b/readconf.c
-@@ -182,6 +182,7 @@ typedef enum {
- 	oPubkeyAcceptedAlgorithms, oCASignatureAlgorithms, oProxyJump,
+@@ -184,6 +184,7 @@ typedef enum {
  	oSecurityKeyProvider, oKnownHostsCommand, oRequiredRSASize,
  	oEnableEscapeCommandline, oObscureKeystrokeTiming, oChannelTimeout,
+ 	oVersionAddendum,
 +	oProtocolKeepAlives, oSetupTimeOut,
  	oIgnore, oIgnoredUnknownOption, oDeprecated, oUnsupported
  } OpCodes;
  
-@@ -345,6 +346,8 @@ static struct {
- 	{ "enableescapecommandline", oEnableEscapeCommandline },
+@@ -348,6 +349,8 @@ static struct {
  	{ "obscurekeystroketiming", oObscureKeystrokeTiming },
  	{ "channeltimeout", oChannelTimeout },
+ 	{ "versionaddendum", oVersionAddendum },
 +	{ "protocolkeepalives", oProtocolKeepAlives },
 +	{ "setuptimeout", oSetupTimeOut },
  
  	{ NULL, oBadOption }
  };
-@@ -1184,6 +1187,7 @@ process_config_line_depth(Options *options, struct passwd *pw, const char *host,
+@@ -1230,6 +1233,7 @@ process_config_line_depth(Options *options, struct passwd *pw, const char *host,
  		argv_consume(&ac);
  		break;
  	case oConnectTimeout:
@@ -54,7 +54,7 @@ index 8e59864c2..3227e387b 100644
  		intptr = &options->connection_timeout;
  parse_time:
  		arg = argv_next(&ac, &av);
-@@ -1926,6 +1930,7 @@ parse_pubkey_algos:
+@@ -1972,6 +1976,7 @@ parse_pubkey_algos:
  		goto parse_flag;
  
  	case oServerAliveInterval:
@@ -62,7 +62,7 @@ index 8e59864c2..3227e387b 100644
  		intptr = &options->server_alive_interval;
  		goto parse_time;
  
-@@ -2911,8 +2916,13 @@ fill_default_options(Options * options)
+@@ -2980,8 +2985,13 @@ fill_default_options(Options * options)
  		options->rekey_interval = 0;
  	if (options->verify_host_key_dns == -1)
  		options->verify_host_key_dns = 0;
@@ -79,10 +79,10 @@ index 8e59864c2..3227e387b 100644
  		options->server_alive_count_max = 3;
  	if (options->control_master == -1)
 diff --git a/ssh_config.5 b/ssh_config.5
-index 4a48c5775..31142f8c5 100644
+index cb65089f6..a82ea54db 100644
 --- a/ssh_config.5
 +++ b/ssh_config.5
-@@ -297,9 +297,13 @@ If set to
+@@ -335,9 +335,13 @@ If set to
  .Cm yes ,
  user interaction such as password prompts and host key confirmation requests
  will be disabled.
@@ -97,7 +97,7 @@ index 4a48c5775..31142f8c5 100644
  The argument must be
  .Cm yes
  or
-@@ -620,6 +624,8 @@ Specifies the timeout (in seconds) used when connecting to the
+@@ -658,6 +662,8 @@ Specifies the timeout (in seconds) used when connecting to the
  SSH server, instead of using the default system TCP timeout.
  This timeout is applied both to establishing the connection and to performing
  the initial SSH protocol handshake and key exchange.
@@ -106,7 +106,7 @@ index 4a48c5775..31142f8c5 100644
  .It Cm ControlMaster
  Enables the sharing of multiple sessions over a single network connection.
  When set to
-@@ -1933,7 +1939,12 @@ from the server,
+@@ -1982,7 +1988,12 @@ from the server,
  will send a message through the encrypted
  channel to request a response from the server.
  The default
@@ -120,7 +120,7 @@ index 4a48c5775..31142f8c5 100644
  .It Cm SessionType
  May be used to either request invocation of a subsystem on the remote system,
  or to prevent the execution of a remote command at all.
-@@ -2047,6 +2058,12 @@ Specifies whether the system should send TCP keepalive messages to the
+@@ -2105,6 +2116,12 @@ Specifies whether the system should send TCP keepalive messages to the
  other side.
  If they are sent, death of the connection or crash of one
  of the machines will be properly noticed.
@@ -134,10 +134,10 @@ index 4a48c5775..31142f8c5 100644
  connections will die if the route is down temporarily, and some people
  find it annoying.
 diff --git a/sshd_config.5 b/sshd_config.5
-index 6959d5f6c..11a8e922f 100644
+index c36484972..b79e8a3ee 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
-@@ -1984,6 +1984,9 @@ This avoids infinitely hanging sessions.
+@@ -1996,6 +1996,9 @@ This avoids infinitely hanging sessions.
  .Pp
  To disable TCP keepalive messages, the value should be set to
  .Cm no .

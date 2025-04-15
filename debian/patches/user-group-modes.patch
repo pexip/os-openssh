@@ -1,4 +1,4 @@
-From 43481b9209582408a5ca7dcb477e100d5901311e Mon Sep 17 00:00:00 2001
+From 69d17a6efb4ca9c28fdc700154affb67d696a4ee Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:09:58 +0000
 Subject: Allow harmless group-writability
@@ -65,7 +65,7 @@ index e4578169b..4b878865f 100644
  			    "bad owner or modes for %.200s",
  			    pw->pw_name, user_hostfile);
 diff --git a/misc.c b/misc.c
-index 1b4b55c50..e9b12989d 100644
+index dd0bd032a..081d07993 100644
 --- a/misc.c
 +++ b/misc.c
 @@ -62,9 +62,9 @@
@@ -169,10 +169,10 @@ index efecdf1ad..9ea1128ac 100644
  #define MAXIMUM(a, b)	(((a) > (b)) ? (a) : (b))
  #define ROUNDUP(x, y)   ((((x)+((y)-1))/(y))*(y))
 diff --git a/readconf.c b/readconf.c
-index 3227e387b..7053ece9b 100644
+index 5a38016eb..8419b5451 100644
 --- a/readconf.c
 +++ b/readconf.c
-@@ -2570,8 +2570,7 @@ read_config_file_depth(const char *filename, struct passwd *pw,
+@@ -2638,8 +2638,7 @@ read_config_file_depth(const char *filename, struct passwd *pw,
  
  		if (fstat(fileno(f), &sb) == -1)
  			fatal("fstat %s: %s", filename, strerror(errno));
@@ -183,10 +183,10 @@ index 3227e387b..7053ece9b 100644
  	}
  
 diff --git a/ssh.1 b/ssh.1
-index 8f78b3a1e..d80ce6bfc 100644
+index f83514c8f..62bb40a50 100644
 --- a/ssh.1
 +++ b/ssh.1
-@@ -1572,6 +1572,8 @@ The file format and configuration options are described in
+@@ -1582,6 +1582,8 @@ The file format and configuration options are described in
  .Xr ssh_config 5 .
  Because of the potential for abuse, this file must have strict permissions:
  read/write for the user, and not writable by others.
@@ -196,10 +196,10 @@ index 8f78b3a1e..d80ce6bfc 100644
  .It Pa ~/.ssh/environment
  Contains additional definitions for environment variables; see
 diff --git a/ssh_config.5 b/ssh_config.5
-index 31142f8c5..073ef69e2 100644
+index a82ea54db..dd0084c82 100644
 --- a/ssh_config.5
 +++ b/ssh_config.5
-@@ -2417,6 +2417,8 @@ The format of this file is described above.
+@@ -2490,6 +2490,8 @@ The format of this file is described above.
  This file is used by the SSH client.
  Because of the potential for abuse, this file must have strict permissions:
  read/write for the user, and not writable by others.
