@@ -1,3 +1,9 @@
+openssh (1:9.9p2-2+pexip25u1) pexip-trixie; urgency=medium
+
+  * Initial trixie build
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Tue, 29 Apr 2025 22:33:54 +0100
+
 openssh (1:9.9p2-2+pexip24u2) pexip; urgency=medium
 
   * debian/patches/openssl3-ssh-ecdsa-no-EC_KEY.patch: initialise variables
