@@ -74,6 +74,10 @@ ifeq ($(DEB_HOST_ARCH),ppc64el)
 confflags += ossh_cv_cflag__fzero_call_used_regs_used=no
 endif
 
+# passwd isn't otherwise needed and may not be installed at build time.
+# Ensure that sshd knows its path.
+confflags += PATH_PASSWD_PROG=/usr/bin/passwd
+
 # Everything above here is common to the deb and udeb builds.
 confflags_udeb := $(confflags)
 
@@ -88,11 +92,6 @@ ifeq ($(DEB_HOST_ARCH_OS),linux)
 confflags += --with-selinux
 confflags += --with-audit=linux
 confflags += --with-security-key-builtin
-# On riscv64, this causes failures in ed25519-sk keytype tests, for unclear
-# reasons.
-ifneq ($(DEB_HOST_ARCH),riscv64)
-confflags += --with-linux-memlock-onfault
-endif
 endif
 
 # The deb build wants xauth; the udeb build doesn't.
