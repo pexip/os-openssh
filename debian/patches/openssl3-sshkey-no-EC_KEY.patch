@@ -1,8 +1,8 @@
-diff --git a/ssh-ecdsa.c b/ssh-ecdsa.c
-index 695ed45..642f1f1 100644
---- a/ssh-ecdsa.c
-+++ b/ssh-ecdsa.c
-@@ -302,7 +302,8 @@ ssh_ecdsa_deserialize_private(const char *ktype, struct sshbuf *b,
+Index: os-openssh/ssh-ecdsa.c
+===================================================================
+--- os-openssh.orig/ssh-ecdsa.c
++++ os-openssh/ssh-ecdsa.c
+@@ -302,7 +302,8 @@ ssh_ecdsa_deserialize_private(const char
  		r = SSH_ERR_LIBCRYPTO_ERROR;
  		goto out;
  	}
@@ -12,11 +12,11 @@ index 695ed45..642f1f1 100644
  		goto out;
  	if (EVP_PKEY_set1_EC_KEY(key->pkey, ec) != 1) {
  		r = SSH_ERR_LIBCRYPTO_ERROR;
-diff --git a/ssh-pkcs11.c b/ssh-pkcs11.c
-index fadf9c9..0d6f4d1 100644
---- a/ssh-pkcs11.c
-+++ b/ssh-pkcs11.c
-@@ -792,7 +792,7 @@ pkcs11_fetch_ecdsa_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
+Index: os-openssh/ssh-pkcs11.c
+===================================================================
+--- os-openssh.orig/ssh-pkcs11.c
++++ os-openssh/ssh-pkcs11.c
+@@ -792,7 +792,7 @@ pkcs11_fetch_ecdsa_pubkey(struct pkcs11_
  		goto fail;
  	}
  
@@ -25,7 +25,7 @@ index fadf9c9..0d6f4d1 100644
  	if (nid < 0) {
  		error("couldn't get curve nid");
  		goto fail;
-@@ -1042,7 +1042,7 @@ pkcs11_fetch_x509_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
+@@ -1042,7 +1042,7 @@ pkcs11_fetch_x509_pubkey(struct pkcs11_p
  			goto out;
  		}
  
@@ -34,11 +34,11 @@ index fadf9c9..0d6f4d1 100644
  		if (nid < 0) {
  			error("couldn't get curve nid");
  			goto out;
-diff --git a/sshkey.c b/sshkey.c
-index 1db8378..5234468 100644
---- a/sshkey.c
-+++ b/sshkey.c
-@@ -1485,14 +1485,11 @@ sshkey_check_rsa_length(const struct sshkey *k, int min_size)
+Index: os-openssh/sshkey.c
+===================================================================
+--- os-openssh.orig/sshkey.c
++++ os-openssh/sshkey.c
+@@ -1482,14 +1482,11 @@ sshkey_check_rsa_length(const struct ssh
  
  #if defined(WITH_OPENSSL) && defined(OPENSSL_HAS_ECC)
  int
@@ -55,7 +55,7 @@ index 1db8378..5234468 100644
  		return -1;
  	return nid;
  }
-@@ -1500,7 +1497,20 @@ sshkey_ecdsa_key_to_nid(const EC_KEY *k)
+@@ -1497,7 +1494,20 @@ sshkey_ecdsa_key_to_nid(const EC_KEY *k)
  int
  sshkey_ecdsa_pkey_to_nid(EVP_PKEY *pkey)
  {
@@ -77,17 +77,7 @@ index 1db8378..5234468 100644
  }
  #endif /* defined(WITH_OPENSSL) && defined(OPENSSL_HAS_ECC) */
  
-@@ -2712,8 +2722,7 @@ sshkey_ec_validate_public(const EC_GROUP *group, const EC_POINT *public)
- 	 * We shouldn't ever hit this case because bignum_get_ecpoint()
- 	 * refuses to load GF2m points.
- 	 */
--	if (EC_METHOD_get_field_type(EC_GROUP_method_of(group)) !=
--	    NID_X9_62_prime_field)
-+	if (EC_GROUP_get_field_type(group) != NID_X9_62_prime_field)
- 		goto out;
- 
- 	/* Q != infinity */
-@@ -2730,8 +2739,7 @@ sshkey_ec_validate_public(const EC_GROUP *group, const EC_POINT *public)
+@@ -2719,8 +2729,7 @@ sshkey_ec_validate_public(const EC_GROUP
  
  	/* log2(x) > log2(order)/2, log2(y) > log2(order)/2 */
  	if (EC_GROUP_get_order(group, order, NULL) != 1 ||
@@ -97,7 +87,7 @@ index 1db8378..5234468 100644
  		ret = SSH_ERR_LIBCRYPTO_ERROR;
  		goto out;
  	}
-@@ -2769,7 +2777,7 @@ sshkey_ec_validate_public(const EC_GROUP *group, const EC_POINT *public)
+@@ -2758,7 +2767,7 @@ sshkey_ec_validate_public(const EC_GROUP
  }
  
  int
@@ -106,7 +96,7 @@ index 1db8378..5234468 100644
  {
  	BIGNUM *order = NULL, *tmp = NULL;
  	int ret = SSH_ERR_KEY_INVALID_EC_VALUE;
-@@ -2780,12 +2788,11 @@ sshkey_ec_validate_private(const EC_KEY *key)
+@@ -2769,12 +2778,11 @@ sshkey_ec_validate_private(const EC_KEY
  	}
  
  	/* log2(private) > log2(order)/2 */
@@ -121,7 +111,7 @@ index 1db8378..5234468 100644
  		goto out;
  
  	/* private < order - 1 */
-@@ -2793,7 +2800,7 @@ sshkey_ec_validate_private(const EC_KEY *key)
+@@ -2782,7 +2790,7 @@ sshkey_ec_validate_private(const EC_KEY
  		ret = SSH_ERR_LIBCRYPTO_ERROR;
  		goto out;
  	}
@@ -130,7 +120,7 @@ index 1db8378..5234468 100644
  		goto out;
  	ret = 0;
   out:
-@@ -2802,6 +2809,36 @@ sshkey_ec_validate_private(const EC_KEY *key)
+@@ -2791,6 +2799,36 @@ sshkey_ec_validate_private(const EC_KEY
  	return ret;
  }
  
@@ -167,23 +157,19 @@ index 1db8378..5234468 100644
  void
  sshkey_dump_ec_point(const EC_GROUP *group, const EC_POINT *point)
  {
-@@ -2815,13 +2852,11 @@ sshkey_dump_ec_point(const EC_GROUP *group, const EC_POINT *point)
+@@ -2804,9 +2842,8 @@ sshkey_dump_ec_point(const EC_GROUP *gro
  		fprintf(stderr, "%s: BN_new failed\n", __func__);
- 		goto out;
- 	}
--	if (EC_METHOD_get_field_type(EC_GROUP_method_of(group)) !=
--	    NID_X9_62_prime_field) {
-+	if (EC_GROUP_get_field_type(group) != NID_X9_62_prime_field) {
- 		fprintf(stderr, "%s: group is not a prime field\n", __func__);
  		goto out;
  	}
 -	if (EC_POINT_get_affine_coordinates_GFp(group, point,
 -	    x, y, NULL) != 1) {
+-		fprintf(stderr, "%s: EC_POINT_get_affine_coordinates_GFp\n",
 +	if (EC_POINT_get_affine_coordinates(group, point, x, y, NULL) != 1) {
- 		fprintf(stderr, "%s: EC_POINT_get_affine_coordinates_GFp\n",
++		fprintf(stderr, "%s: EC_POINT_get_affine_coordinates\n",
  		    __func__);
  		goto out;
-@@ -2837,17 +2872,15 @@ sshkey_dump_ec_point(const EC_GROUP *group, const EC_POINT *point)
+ 	}
+@@ -2821,17 +2858,15 @@ sshkey_dump_ec_point(const EC_GROUP *gro
  }
  
  void
@@ -206,7 +192,7 @@ index 1db8378..5234468 100644
  	fputs("\n", stderr);
  }
  #endif /* WITH_OPENSSL && OPENSSL_HAS_ECC */
-@@ -3543,7 +3576,11 @@ sshkey_parse_private_pem_fileblob(struct sshbuf *blob, int type,
+@@ -3527,7 +3562,11 @@ sshkey_parse_private_pem_fileblob(struct
  #if OPENSSL_VERSION_NUMBER < 0x30000000L
  	RSA *rsa = NULL;
  #endif
@@ -219,7 +205,7 @@ index 1db8378..5234468 100644
  
  	if (keyp != NULL)
  		*keyp = NULL;
-@@ -3615,15 +3652,16 @@ sshkey_parse_private_pem_fileblob(struct sshbuf *blob, int type,
+@@ -3603,15 +3642,16 @@ sshkey_parse_private_pem_fileblob(struct
  			goto out;
  		}
  		if ((prv->ecdsa_nid = sshkey_ecdsa_fixup_group(pk)) == -1 ||
@@ -240,7 +226,7 @@ index 1db8378..5234468 100644
  			r = SSH_ERR_INVALID_FORMAT;
  			goto out;
  		}
-@@ -3631,7 +3669,7 @@ sshkey_parse_private_pem_fileblob(struct sshbuf *blob, int type,
+@@ -3619,7 +3659,7 @@ sshkey_parse_private_pem_fileblob(struct
  		prv->pkey = pk;
  #ifdef DEBUG_PK
  		if (prv != NULL && prv->pkey != NULL)
@@ -249,7 +235,7 @@ index 1db8378..5234468 100644
  #endif
  #endif /* OPENSSL_HAS_ECC */
  #ifdef OPENSSL_HAS_ED25519
-@@ -3686,7 +3724,9 @@ sshkey_parse_private_pem_fileblob(struct sshbuf *blob, int type,
+@@ -3675,7 +3715,9 @@ sshkey_parse_private_pem_fileblob(struct
  	RSA_free(rsa);
  #endif
  #ifdef OPENSSL_HAS_ECC
@@ -260,11 +246,11 @@ index 1db8378..5234468 100644
  #endif
  	sshkey_free(prv);
  	return r;
-diff --git a/sshkey.h b/sshkey.h
-index d0cdea0..c1792a9 100644
---- a/sshkey.h
-+++ b/sshkey.h
-@@ -260,11 +260,13 @@ int		 sshkey_curve_name_to_nid(const char *);
+Index: os-openssh/sshkey.h
+===================================================================
+--- os-openssh.orig/sshkey.h
++++ os-openssh/sshkey.h
+@@ -265,11 +265,13 @@ int		 sshkey_curve_name_to_nid(const cha
  const char *	 sshkey_curve_nid_to_name(int);
  u_int		 sshkey_curve_nid_to_bits(int);
  int		 sshkey_ecdsa_bits_to_nid(int);
@@ -280,7 +266,7 @@ index d0cdea0..c1792a9 100644
  const char	*sshkey_ssh_name(const struct sshkey *);
  const char	*sshkey_ssh_name_plain(const struct sshkey *);
  int		 sshkey_names_valid2(const char *, int, int);
-@@ -298,7 +300,7 @@ int	sshkey_pkey_digest_verify(EVP_PKEY *, int, const u_char *,
+@@ -303,7 +305,7 @@ int	sshkey_pkey_digest_verify(EVP_PKEY *
  
  /* for debug */
  void	sshkey_dump_ec_point(const EC_GROUP *, const EC_POINT *);

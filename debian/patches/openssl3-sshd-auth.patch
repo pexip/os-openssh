@@ -1,0 +1,14 @@
+Index: os-openssh/sshd-auth.c
+===================================================================
+--- os-openssh.orig/sshd-auth.c
++++ os-openssh/sshd-auth.c
+@@ -601,7 +601,9 @@ main(int ac, char **av)
+ 		fatal("sshd-auth should not be executed directly");
+ 
+ #ifdef WITH_OPENSSL
++# if OPENSSL_VERSION_NUMBER < 0x30000000L
+ 	OpenSSL_add_all_algorithms();
++# endif
+ #endif
+ 
+ 	/* If requested, redirect the logs to the specified logfile. */

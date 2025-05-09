@@ -1,10 +1,10 @@
-Index: openssh/ssh_config
+Index: os-openssh/ssh_config
 ===================================================================
---- openssh.orig/ssh_config
-+++ openssh/ssh_config
-@@ -47,4 +47,9 @@ Host *
+--- os-openssh.orig/ssh_config
++++ os-openssh/ssh_config
+@@ -49,4 +49,9 @@ Host *
  #   UserKnownHostsFile ~/.ssh/known_hosts.d/%k
-     SendEnv LANG LC_*
+     SendEnv LANG LC_* COLORTERM NO_COLOR
      HashKnownHosts yes
 -    GSSAPIAuthentication yes
 +    GSSAPIAuthentication no
