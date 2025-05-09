@@ -1,3 +1,9 @@
+openssh (1:10.0p1-2+pexip25u1) pexip-trixie; urgency=medium
+
+  * New upstream release.
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Fri, 09 May 2025 14:40:42 +0000
+
 openssh (1:10.0p1-2) unstable; urgency=medium
 
   [ Colin Watson ]
