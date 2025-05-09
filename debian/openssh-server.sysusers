@@ -1,0 +1,1 @@
+u sshd -:nogroup "sshd user" /run/sshd

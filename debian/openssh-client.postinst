@@ -41,6 +41,13 @@ if [ "$action" = configure ]; then
 	if dpkg --compare-versions "$2" lt-nl 1:9.1p1-1~; then
 		remove_obsolete_alternatives
 	fi
+
+	# debhelper compatibility level 14 may supersede this with something
+	# more complete; in the meantime, just reload systemd's state so
+	# that it at least has the current ssh-agent.* unit files.
+	if [ -z "$DPKG_ROOT" ] && [ -d /run/systemd/system ]; then
+		deb-systemd-invoke --user daemon-reload >/dev/null || true
+	fi
 fi
 
 #DEBHELPER#

@@ -1,3 +1,34 @@
+openssh (1:10.0p1-1) unstable; urgency=medium
+
+  OpenSSH 10.0p1 includes a number of changes that may affect existing
+  configurations:
+
+   * This release removes support for the weak DSA signature algorithm,
+     completing the deprecation process that began in 2015 (when DSA was
+     disabled by default) and repeatedly warned over the last 12 months.
+
+   * scp(1), sftp(1): pass "ControlMaster no" to ssh when invoked by scp &
+     sftp. This disables implicit session creation by these tools when
+     ControlMaster was set to yes/auto by configuration, which some users
+     found surprising. This change will not prevent scp/sftp from using an
+     existing multiplexing session if one had already been created.
+
+   * sshd(8): this release disables finite field (a.k.a modp) Diffie-Hellman
+     key exchange in sshd by default. Specifically, this removes the
+     "diffie-hellman-group*" and "diffie-hellman-group-exchange-*" methods
+     from the default KEXAlgorithms list. The client is unchanged and
+     continues to support these methods by default.
+
+   * sshd(8): this release removes the implicit fallback to compiled-in
+     groups for Diffie-Hellman Group Exchange KEX when the moduli file
+     exists but does not contain moduli within the client-requested range.
+     The fallback behaviour remains for the case where the moduli file does
+     not exist at all. This allows administrators more explicit control over
+     which DH groups will be selected, but can lead to connection failures
+     if the moduli file is edited incorrectly.
+
+ -- Colin Watson <cjwatson@debian.org>  Fri, 11 Apr 2025 11:16:19 +0100
+
 openssh (1:9.9p1-1) unstable; urgency=medium
 
   OpenSSH 9.9p1 includes a number of changes that may affect existing

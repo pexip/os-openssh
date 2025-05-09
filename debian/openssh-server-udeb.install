@@ -1,3 +1,4 @@
 sshd usr/sbin
+sshd-auth usr/lib/openssh
 sshd-session usr/lib/openssh
 ssh-keygen usr/bin

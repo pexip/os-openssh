@@ -1,4 +1,4 @@
-From 545c1452e2a7c58563d70c4ad88bb3adde99130f Mon Sep 17 00:00:00 2001
+From 5fbe366def6557d221b9d955b7ab9bfbe88fd2b3 Mon Sep 17 00:00:00 2001
 From: Colin Watson <cjwatson@debian.org>
 Date: Sun, 9 Feb 2014 16:10:18 +0000
 Subject: Various Debian-specific configuration changes
@@ -6,7 +6,8 @@ Subject: Various Debian-specific configuration changes
 ssh: Enable ForwardX11Trusted, returning to earlier semantics which cause
 fewer problems with existing setups (http://bugs.debian.org/237021).
 
-ssh: Set 'SendEnv LANG LC_*' by default (http://bugs.debian.org/264024).
+ssh: Set 'SendEnv LANG LC_* COLORTERM NO_COLOR' by default
+(http://bugs.debian.org/264024).
 
 ssh: Enable HashKnownHosts by default to try to limit the spread of ssh
 worms.
@@ -20,21 +21,22 @@ PrintMotd.
 
 sshd: Enable X11Forwarding.
 
-sshd: Set 'AcceptEnv LANG LC_*' by default.
+sshd: Set 'AcceptEnv LANG LC_* COLORTERM NO_COLOR' by default.
 
 sshd: Change sftp subsystem path to /usr/lib/openssh/sftp-server.
 
 sshd: Include /etc/ssh/sshd_config.d/*.conf.
 
-sshd: Document Debian's default for SshdSessionPath.
+sshd: Document Debian's defaults for SshdAuthPath and SshdSessionPath.
 
 regress: Run tests with 'UsePAM yes', to match sshd_config.
 
 Document all of this.
 
 Author: Russ Allbery <rra@debian.org>
+Author: Luca Boccassi <bluca@debian.org>
 Forwarded: not-needed
-Last-Update: 2024-07-03
+Last-Update: 2025-04-11
 
 Patch-Name: debian-config.patch
 ---
@@ -44,14 +46,14 @@ Patch-Name: debian-config.patch
  ssh_config           |  8 +++++++-
  ssh_config.5         | 26 +++++++++++++++++++++++++-
  sshd_config          | 18 ++++++++++++------
- sshd_config.5        | 31 ++++++++++++++++++++++++++++++-
- 7 files changed, 100 insertions(+), 10 deletions(-)
+ sshd_config.5        | 33 +++++++++++++++++++++++++++++++--
+ 7 files changed, 101 insertions(+), 11 deletions(-)
 
 diff --git a/readconf.c b/readconf.c
-index 7053ece9b..6ce77f640 100644
+index 8419b5451..fc625a00c 100644
 --- a/readconf.c
 +++ b/readconf.c
-@@ -2791,7 +2791,7 @@ fill_default_options(Options * options)
+@@ -2860,7 +2860,7 @@ fill_default_options(Options * options)
  	if (options->forward_x11 == -1)
  		options->forward_x11 = 0;
  	if (options->forward_x11_trusted == -1)
@@ -61,22 +63,22 @@ index 7053ece9b..6ce77f640 100644
  		options->forward_x11_timeout = 1200;
  	/*
 diff --git a/regress/test-exec.sh b/regress/test-exec.sh
-index 7afc28072..02b122a85 100644
+index 8a00c729c..486826928 100644
 --- a/regress/test-exec.sh
 +++ b/regress/test-exec.sh
-@@ -622,6 +622,7 @@ cat << EOF > $OBJ/sshd_config
- 	Subsystem	sftp	$SFTPSERVER
+@@ -634,6 +634,7 @@ cat << EOF > $OBJ/sshd_config
  	SshdSessionPath		$SSHD_SESSION
+ 	SshdAuthPath		$SSHD_AUTH
  	PerSourcePenalties	no
 +	UsePAM			yes
  EOF
  
  # This may be necessary if /usr/src and/or /usr/obj are group-writable,
 diff --git a/ssh.1 b/ssh.1
-index 3ad246c27..9ca6e18e2 100644
+index 3d849f02c..56bdfa3d9 100644
 --- a/ssh.1
 +++ b/ssh.1
-@@ -863,6 +863,16 @@ directive in
+@@ -873,6 +873,16 @@ directive in
  .Xr ssh_config 5
  for more information.
  .Pp
@@ -93,7 +95,7 @@ index 3ad246c27..9ca6e18e2 100644
  .It Fl x
  Disables X11 forwarding.
  .Pp
-@@ -871,6 +881,20 @@ Enables trusted X11 forwarding.
+@@ -881,6 +891,20 @@ Enables trusted X11 forwarding.
  Trusted X11 forwardings are not subjected to the X11 SECURITY extension
  controls.
  .Pp
@@ -115,7 +117,7 @@ index 3ad246c27..9ca6e18e2 100644
  Send log information using the
  .Xr syslog 3
 diff --git a/ssh_config b/ssh_config
-index 16197d15d..92d06ef38 100644
+index 16197d15d..fc7930bfc 100644
 --- a/ssh_config
 +++ b/ssh_config
 @@ -17,9 +17,12 @@
@@ -136,11 +138,11 @@ index 16197d15d..92d06ef38 100644
  #   ProxyCommand ssh -q -W %h:%p gateway.example.com
  #   RekeyLimit 1G 1h
  #   UserKnownHostsFile ~/.ssh/known_hosts.d/%k
-+    SendEnv LANG LC_*
++    SendEnv LANG LC_* COLORTERM NO_COLOR
 +    HashKnownHosts yes
 +    GSSAPIAuthentication yes
 diff --git a/ssh_config.5 b/ssh_config.5
-index 86258eb4f..9adc0fdb7 100644
+index 0356de8b0..d8452237d 100644
 --- a/ssh_config.5
 +++ b/ssh_config.5
 @@ -71,6 +71,29 @@ Since the first obtained value for each parameter is used, more
@@ -158,7 +160,7 @@ index 86258eb4f..9adc0fdb7 100644
 +.It
 +.Cm Include /etc/ssh/ssh_config.d/*.conf
 +.It
-+.Cm SendEnv No LANG LC_*
++.Cm SendEnv No LANG LC_* COLORTERM NO_COLOR
 +.It
 +.Cm HashKnownHosts No yes
 +.It
@@ -173,7 +175,7 @@ index 86258eb4f..9adc0fdb7 100644
  The file contains keyword-argument pairs, one per line.
  Lines starting with
  .Ql #
-@@ -903,11 +926,12 @@ elapsed.
+@@ -941,11 +964,12 @@ elapsed.
  .It Cm ForwardX11Trusted
  If this option is set to
  .Cm yes ,
@@ -188,7 +190,7 @@ index 86258eb4f..9adc0fdb7 100644
  from stealing or tampering with data belonging to trusted X11
  clients.
 diff --git a/sshd_config b/sshd_config
-index ecfe8d026..677f97d5d 100644
+index 6ddae0370..01e8d9098 100644
 --- a/sshd_config
 +++ b/sshd_config
 @@ -10,6 +10,8 @@
@@ -200,19 +202,21 @@ index ecfe8d026..677f97d5d 100644
  #Port 22
  #AddressFamily any
  #ListenAddress 0.0.0.0
-@@ -57,8 +59,9 @@ AuthorizedKeysFile	.ssh/authorized_keys
+@@ -57,10 +59,11 @@ AuthorizedKeysFile	.ssh/authorized_keys
  #PasswordAuthentication yes
  #PermitEmptyPasswords no
  
--# Change to no to disable s/key passwords
+-# Change to "no" to disable keyboard-interactive authentication.  Depending on
++# Change to "yes" to enable keyboard-interactive authentication.  Depending on
+ # the system's configuration, this may involve passwords, challenge-response,
+ # one-time passwords or some combination of these and other methods.
 -#KbdInteractiveAuthentication yes
-+# Change to yes to enable challenge-response passwords (beware issues with
-+# some PAM modules and threads)
++# Beware issues with some PAM modules and threads.
 +KbdInteractiveAuthentication no
  
  # Kerberos options
  #KerberosAuthentication no
-@@ -81,16 +84,16 @@ AuthorizedKeysFile	.ssh/authorized_keys
+@@ -83,16 +86,16 @@ AuthorizedKeysFile	.ssh/authorized_keys
  # If you just want the PAM account and session checks to run without
  # PAM authentication, then enable this but set PasswordAuthentication
  # and KbdInteractiveAuthentication to 'no'.
@@ -232,12 +236,12 @@ index ecfe8d026..677f97d5d 100644
  #PrintLastLog yes
  #TCPKeepAlive yes
  #PermitUserEnvironment no
-@@ -107,8 +110,11 @@ AuthorizedKeysFile	.ssh/authorized_keys
+@@ -109,8 +112,11 @@ AuthorizedKeysFile	.ssh/authorized_keys
  # no default banner path
  #Banner none
  
-+# Allow client to pass locale environment variables
-+AcceptEnv LANG LC_*
++# Allow client to pass locale and color environment variables
++AcceptEnv LANG LC_* COLORTERM NO_COLOR
 +
  # override default of no subsystems
 -Subsystem	sftp	/usr/libexec/sftp-server
@@ -246,7 +250,7 @@ index ecfe8d026..677f97d5d 100644
  # Example of overriding settings on a per-user basis
  #Match User anoncvs
 diff --git a/sshd_config.5 b/sshd_config.5
-index e177e4af8..2887ed531 100644
+index 80a75fbb7..a5594102f 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
 @@ -56,6 +56,35 @@ Arguments may optionally be enclosed in double quotes
@@ -270,7 +274,7 @@ index e177e4af8..2887ed531 100644
 +.It
 +.Cm PrintMotd No no
 +.It
-+.Cm AcceptEnv No LANG LC_*
++.Cm AcceptEnv No LANG LC_* COLORTERM NO_COLOR
 +.It
 +.Cm Subsystem No sftp /usr/lib/openssh/sftp-server
 +.It
@@ -285,7 +289,15 @@ index e177e4af8..2887ed531 100644
  The possible
  keywords and their meanings are as follows (note that
  keywords are case-insensitive and arguments are case-sensitive):
-@@ -1865,7 +1894,7 @@ Overrides the default path to the
+@@ -1889,14 +1918,14 @@ Overrides the default path to the
+ .Cm sshd-auth
+ binary that is invoked to complete user authentication.
+ The default is
+-.Pa /usr/libexec/sshd-auth .
++.Pa /usr/lib/openssh/sshd-auth .
+ This option is intended for use by tests.
+ .It Cm SshdSessionPath
+ Overrides the default path to the
  .Cm sshd-session
  binary that is invoked to handle each connection.
  The default is

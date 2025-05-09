@@ -1,4 +1,4 @@
-From 1dce8eb1d74c508042e2d7ee2a4405a6870e6bf5 Mon Sep 17 00:00:00 2001
+From 8f693762755211b20d50f7e0b963bd1c3955c4b7 Mon Sep 17 00:00:00 2001
 From: Kees Cook <kees@debian.org>
 Date: Sun, 9 Feb 2014 16:10:06 +0000
 Subject: Add DebianBanner server configuration option
@@ -8,7 +8,7 @@ initial protocol handshake, for those scared by package-versioning.patch.
 
 Bug-Debian: http://bugs.debian.org/562048
 Forwarded: not-needed
-Last-Update: 2024-09-22
+Last-Update: 2025-04-11
 
 Patch-Name: debian-banner.patch
 ---
@@ -58,19 +58,19 @@ index cd6a40333..6a08023d0 100644
  struct kex *kex_new(void);
  int	 kex_ready(struct ssh *, char *[PROPOSAL_MAX]);
 diff --git a/servconf.c b/servconf.c
-index 707cb8872..825400d3a 100644
+index d2025592a..4891a43d6 100644
 --- a/servconf.c
 +++ b/servconf.c
-@@ -219,6 +219,7 @@ initialize_server_options(ServerOptions *options)
- 	options->unused_connection_timeout = -1;
+@@ -221,6 +221,7 @@ initialize_server_options(ServerOptions *options)
  	options->sshd_session_path = NULL;
+ 	options->sshd_auth_path = NULL;
  	options->refuse_connection = -1;
 +	options->debian_banner = -1;
  }
  
  /* Returns 1 if a string option is unset or set to "none" or 0 otherwise. */
-@@ -507,6 +508,8 @@ fill_default_server_options(ServerOptions *options)
- 		options->sshd_session_path = xstrdup(_PATH_SSHD_SESSION);
+@@ -511,6 +512,8 @@ fill_default_server_options(ServerOptions *options)
+ 		options->sshd_auth_path = xstrdup(_PATH_SSHD_AUTH);
  	if (options->refuse_connection == -1)
  		options->refuse_connection = 0;
 +	if (options->debian_banner == -1)
@@ -78,23 +78,23 @@ index 707cb8872..825400d3a 100644
  
  	assemble_algorithms(options);
  
-@@ -591,6 +594,7 @@ typedef enum {
+@@ -595,6 +598,7 @@ typedef enum {
  	sExposeAuthInfo, sRDomain, sPubkeyAuthOptions, sSecurityKeyProvider,
  	sRequiredRSASize, sChannelTimeout, sUnusedConnectionTimeout,
- 	sSshdSessionPath, sRefuseConnection,
+ 	sSshdSessionPath, sSshdAuthPath, sRefuseConnection,
 +	sDebianBanner,
  	sDeprecated, sIgnore, sUnsupported
  } ServerOpCodes;
  
-@@ -770,6 +774,7 @@ static struct {
- 	{ "unusedconnectiontimeout", sUnusedConnectionTimeout, SSHCFG_ALL },
+@@ -775,6 +779,7 @@ static struct {
  	{ "sshdsessionpath", sSshdSessionPath, SSHCFG_GLOBAL },
+ 	{ "sshdauthpath", sSshdAuthPath, SSHCFG_GLOBAL },
  	{ "refuseconnection", sRefuseConnection, SSHCFG_ALL },
 +	{ "debianbanner", sDebianBanner, SSHCFG_GLOBAL },
  	{ NULL, sBadOption, 0 }
  };
  
-@@ -2754,6 +2759,10 @@ process_server_config_line_depth(ServerOptions *options, char *line,
+@@ -2773,6 +2778,10 @@ process_server_config_line_depth(ServerOptions *options, char *line,
  		multistate_ptr = multistate_flag;
  		goto parse_multistate;
  
@@ -105,7 +105,7 @@ index 707cb8872..825400d3a 100644
  	case sDeprecated:
  	case sIgnore:
  	case sUnsupported:
-@@ -3307,6 +3316,7 @@ dump_config(ServerOptions *o)
+@@ -3328,6 +3337,7 @@ dump_config(ServerOptions *o)
  	dump_cfg_fmtint(sFingerprintHash, o->fingerprint_hash);
  	dump_cfg_fmtint(sExposeAuthInfo, o->expose_userauth_info);
  	dump_cfg_fmtint(sRefuseConnection, o->refuse_connection);
@@ -114,11 +114,11 @@ index 707cb8872..825400d3a 100644
  	/* string arguments */
  	dump_cfg_string(sPidFile, o->pid_file);
 diff --git a/servconf.h b/servconf.h
-index 26819aa92..00c834403 100644
+index c3f501400..b510992e3 100644
 --- a/servconf.h
 +++ b/servconf.h
-@@ -254,6 +254,8 @@ typedef struct {
- 	char   *sshd_session_path;
+@@ -255,6 +255,8 @@ typedef struct {
+ 	char   *sshd_auth_path;
  
  	int	refuse_connection;
 +
@@ -127,23 +127,23 @@ index 26819aa92..00c834403 100644
  
  /* Information about the incoming connection as used by Match */
 diff --git a/sshconnect.c b/sshconnect.c
-index cbfc20735..f9d3a1ff2 100644
+index 54de157db..59f66c534 100644
 --- a/sshconnect.c
 +++ b/sshconnect.c
 @@ -1611,7 +1611,7 @@ ssh_login(struct ssh *ssh, Sensitive *sensitive, const char *orighost,
  	lowercase(host);
  
  	/* Exchange protocol version identification strings with the server. */
--	if ((r = kex_exchange_identification(ssh, timeout_ms, NULL)) != 0)
-+	if ((r = kex_exchange_identification(ssh, timeout_ms, 1, NULL)) != 0)
+-	if ((r = kex_exchange_identification(ssh, timeout_ms,
++	if ((r = kex_exchange_identification(ssh, timeout_ms, 1,
+ 	    options.version_addendum)) != 0)
  		sshpkt_fatal(ssh, r, "banner exchange");
  
- 	/* Put the connection into non-blocking mode. */
 diff --git a/sshd-session.c b/sshd-session.c
-index 1d7cdd00a..a9e1cf4f6 100644
+index 372a610b3..2b6d2a98b 100644
 --- a/sshd-session.c
 +++ b/sshd-session.c
-@@ -1314,7 +1314,7 @@ main(int ac, char **av)
+@@ -1295,7 +1295,7 @@ main(int ac, char **av)
  			fatal("login grace time setitimer failed");
  	}
  
@@ -153,7 +153,7 @@ index 1d7cdd00a..a9e1cf4f6 100644
  		sshpkt_fatal(ssh, r, "banner exchange");
  
 diff --git a/sshd_config.5 b/sshd_config.5
-index 11a8e922f..ed2f74060 100644
+index b79e8a3ee..677567908 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
 @@ -629,6 +629,11 @@ or

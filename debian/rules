@@ -81,10 +81,17 @@ confflags_udeb := $(confflags)
 confflags += --with-pam
 confflags += --with-libedit
 confflags += --with-kerberos5=/usr
+confflags += --with-ssl-engine
+confflags += --with-wtmpdb
 ifeq ($(DEB_HOST_ARCH_OS),linux)
 confflags += --with-selinux
 confflags += --with-audit=linux
 confflags += --with-security-key-builtin
+# On riscv64, this causes failures in ed25519-sk keytype tests, for unclear
+# reasons.
+ifneq ($(DEB_HOST_ARCH),riscv64)
+confflags += --with-linux-memlock-onfault
+endif
 endif
 
 # The deb build wants xauth; the udeb build doesn't.
@@ -138,6 +145,13 @@ ifeq ($(filter noudeb,$(DEB_BUILD_PROFILES)),)
 	cd debian/build-udeb && ./config.status
 endif
 
+	# Nothing reads /var/log/btmp any more (see
+	# https://bugs.debian.org/1072184).
+	perl -pi -e 's,.*#define USE_BTMP .*,/* #undef USE_BTMP */,' debian/build-deb/config.h
+ifeq ($(filter noudeb,$(DEB_BUILD_PROFILES)),)
+	perl -pi -e 's,.*#define USE_BTMP .*,/* #undef USE_BTMP */,' debian/build-udeb/config.h
+endif
+
 override_dh_auto_configure-indep:
 
 override_dh_auto_build-arch:
@@ -145,7 +159,7 @@ override_dh_auto_build-arch:
 	$(MAKE) -C debian/build-deb regress-prep
 	$(MAKE) -C debian/build-deb $(PARALLEL) regress-binaries regress-unit-binaries
 ifeq ($(filter noudeb,$(DEB_BUILD_PROFILES)),)
-	$(MAKE) -C debian/build-udeb $(PARALLEL) ASKPASS_PROGRAM='/usr/bin/ssh-askpass' ssh scp sftp sshd ssh-keygen sshd-session
+	$(MAKE) -C debian/build-udeb $(PARALLEL) ASKPASS_PROGRAM='/usr/bin/ssh-askpass' ssh scp sftp sshd ssh-keygen sshd-auth sshd-session
 endif
 
 ifeq ($(filter pkg.openssh.nognome,$(DEB_BUILD_PROFILES)),)
@@ -198,10 +212,18 @@ override_dh_installdocs:
 	# Avoid breaking dh_installexamples later.
 	mkdir -p debian/openssh-server/usr/share/doc/openssh-client
 
+override_dh_installinit:
+	dh_installinit -R --name ssh
+
+# Can be dropped in compat level 14
+execute_after_dh_installinit:
+	dh_installsysusers
+
 override_dh_installsystemd:
 	dh_installsystemd -popenssh-server ssh.service
 	dh_installsystemd -popenssh-server --no-enable ssh.socket
 	dh_installsystemd -popenssh-server --no-start rescue-ssh.target
+	dh_installsystemd -popenssh-server sshd-keygen.service
 
 debian/openssh-server.sshd.pam: debian/openssh-server.sshd.pam.in
 ifeq ($(DEB_HOST_ARCH_OS),linux)

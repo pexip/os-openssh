@@ -27,6 +27,7 @@ make -C "$tmp/regress" \
 	SUDO=sudo \
 	TEST_SHELL=/bin/sh \
 	TEST_SSH_SSH=/usr/bin/ssh \
+	TEST_SSH_SSHD_AUTH=/usr/lib/openssh/sshd-auth \
 	TEST_SSH_SSHD_SESSION=/usr/lib/openssh/sshd-session \
 	TEST_SSH_SFTPSERVER=/usr/lib/openssh/sftp-server \
 	TEST_SSH_PLINK=/usr/bin/plink \
