@@ -1,6 +1,7 @@
 openssh (1:10.0p1-2+pexip24u1) pexip; urgency=medium
 
   * New upstream release
+  * Disable wtmpdb for bookworm as it is not available
 
  -- Mark Hymers <mark.hymers@pexip.com>  Fri, 16 May 2025 08:38:41 +0000
 
