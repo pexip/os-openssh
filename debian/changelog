@@ -1,3 +1,31 @@
+openssh (1:10.0p1-5+pexip25u1) pexip-trixie; urgency=medium
+
+  * New upstream release.
+
+ -- Steve McIntyre <steve.mcintyre@pexip.com>  Thu, 31 Jul 2025 17:36:41 +0100
+
+openssh (1:10.0p1-5) unstable; urgency=medium
+
+  * Ensure that configure knows the path to passwd; fixes reproducibility of
+    openssh-tests.
+
+ -- Colin Watson <cjwatson@debian.org>  Fri, 09 May 2025 13:40:49 +0100
+
+openssh (1:10.0p1-4) unstable; urgency=medium
+
+  [ Daniel Kahn Gillmor ]
+  * Add Requires=ssh-agent.socket to ssh-agent.service (closes: #1103522).
+
+ -- Colin Watson <cjwatson@debian.org>  Fri, 09 May 2025 10:16:45 +0100
+
+openssh (1:10.0p1-3) unstable; urgency=medium
+
+  * Disable --with-linux-memlock-onfault again, since it causes
+    RLIMIT_MEMLOCK to be exceeded with some combinations of PAM modules
+    (closes: #1103418).
+
+ -- Colin Watson <cjwatson@debian.org>  Wed, 07 May 2025 16:18:43 +0100
+
 openssh (1:10.0p1-2+pexip25u1) pexip-trixie; urgency=medium
 
   * New upstream release.
