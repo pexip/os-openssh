@@ -1,3 +1,17 @@
+openssh (1:10.0p1-7) unstable; urgency=medium
+
+  * Make postinst logic for cleaning up the sshd diversion more robust.
+
+ -- Colin Watson <cjwatson@debian.org>  Fri, 01 Aug 2025 16:02:27 +0100
+
+openssh (1:10.0p1-6) unstable; urgency=medium
+
+  * Temporarily divert /usr/sbin/sshd during upgrades from before
+    1:9.8p1-1~, to avoid new connections failing between unpack and
+    configure (closes: #1109742).
+
+ -- Colin Watson <cjwatson@debian.org>  Mon, 28 Jul 2025 12:17:42 +0100
+
 openssh (1:10.0p1-5) unstable; urgency=medium
 
   * Ensure that configure knows the path to passwd; fixes reproducibility of

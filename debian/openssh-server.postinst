@@ -11,10 +11,16 @@ umask 022
 
 get_config_option() {
 	option="$1"
+	sshd_path=/usr/sbin/sshd
 
 	[ -f /etc/ssh/sshd_config ] || return
 
-	/usr/sbin/sshd -G | sed -n "s/^$option //Ip"
+	# begin-remove-after: released:forky
+	if [ -e /usr/sbin/sshd.session-split ]; then
+		sshd_path=/usr/sbin/sshd.session-split
+	fi
+	# end-remove-after
+	"$sshd_path" -G | sed -n "s/^$option //Ip"
 }
 
 
@@ -109,6 +115,23 @@ if [ "$action" = configure ]; then
 		systemctl unmask ssh.service
 		systemctl disable ssh.service
 	fi
+	# begin-remove-after: released:forky
+	if [ -e /usr/sbin/sshd.session-split ]; then
+		# We're ready to restart the listener process so that it
+		# executes sshd-session rather than sshd for new
+		# connections, so we can remove this diversion now.  This
+		# starts a brief window where new connections will fail
+		# (ending when the service is restarted), but at least it's
+		# all contained within this postinst.
+		#
+		# See openssh-server.preinst for why we use this odd package
+		# name.
+		echo "Finishing upgrade from pre-9.8 monolithic sshd ..."
+		dpkg-divert --package openssh-client --remove --no-rename \
+			--divert /usr/sbin/sshd.session-split /usr/sbin/sshd
+		mv -f /usr/sbin/sshd.session-split /usr/sbin/sshd
+	fi
+	# end-remove-after
 fi
 
 #DEBHELPER#
