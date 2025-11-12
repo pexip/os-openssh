@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+
+# begin-remove-after: released:forky
+if [ "$1" = upgrade ] && dpkg --compare-versions "$2" lt-nl 1:9.8p1-1~; then
+	# Temporarily divert the new sshd binary, since OpenSSH 9.8 moved
+	# part of its responsibilities to sshd-session, and unpacking the
+	# new sshd to its normal path would break new connections.  We'll
+	# remove this diversion when we're ready to restart the listener
+	# process.
+	#
+	# Since we're trying to divert a file shipped in this package, we
+	# use a package name that we know doesn't ship /usr/sbin/sshd.
+	dpkg-divert --package openssh-client --add --no-rename \
+		--divert /usr/sbin/sshd.session-split /usr/sbin/sshd
+fi
+# end-remove-after
+
+#DEBHELPER#
+
+exit 0
