@@ -1,3 +1,15 @@
+openssh (1:10.0p1-7+deb13u1) trixie; urgency=medium
+
+  * CVE-2025-61984: ssh(1): disallow control characters in usernames passed
+    via the commandline or expanded using %-sequences from the configuration
+    file (closes: #1117529).
+  * CVE-2025-61985: ssh(1): disallow \0 characters in ssh:// URIs (closes:
+    #1117530).
+  * Fix mistracking of MaxStartups process exits in some situations (closes:
+    #1080350).
+
+ -- Colin Watson <cjwatson@debian.org>  Tue, 03 Feb 2026 13:15:29 +0000
+
 openssh (1:10.0p1-7) unstable; urgency=medium
 
   * Make postinst logic for cleaning up the sshd diversion more robust.
