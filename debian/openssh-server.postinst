@@ -92,13 +92,14 @@ HostKey /etc/ssh/ssh_host_ed25519_key
 
 # Logging
 SyslogFacility AUTH
-LogLevel INFO
+LogLevel VERBOSE
 
 # Authentication:
-LoginGraceTime 120
+LoginGraceTime 60
 PermitRootLogin no
 StrictModes yes
 AllowGroups adm
+MaxAuthTries 4
 
 PubkeyAuthentication yes
 #AuthorizedKeysFile	%h/.ssh/authorized_keys
@@ -142,13 +143,13 @@ PermitUserEnvironment no
 PermitTunnel no
 MaxSessions 10
 Compression delayed
-ClientAliveInterval 180
+ClientAliveInterval 60
 DebianBanner no
 
 Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com
 MACs hmac-sha2-256,hmac-sha2-512
 
-#MaxStartups 10:30:60
+MaxStartups 10:30:60
 #Banner /etc/issue.net
 
 # Allow client to pass locale environment variables
@@ -167,6 +168,7 @@ Subsystem sftp /usr/lib/openssh/sftp-server
 # and ChallengeResponseAuthentication to 'no'.
 UsePAM yes
 EOF
+	chmod 600 /etc/ssh/sshd_config
 }
 
 if [ "$action" = configure ]; then
