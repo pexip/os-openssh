@@ -1,3 +1,9 @@
+openssh (1:10.0p1-7+pexip25u3) pexip-trixie; urgency=medium
+
+  * d/ssh-postinst: tweak values from security reviews
+
+ -- Huw Jones <huw@pexip.com>  Tue, 10 Feb 2026 15:08:12 +0000
+
 openssh (1:10.0p1-7+pexip25u2) pexip-trixie; urgency=medium
 
   * Trixie build for product distribution
