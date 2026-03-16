@@ -27,6 +27,10 @@ skip-utimensat-test-on-zfs.patch
 regress-conch-dev-zero.patch
 configure-cache-vars.patch
 pam-avoid-unknown-host.patch
+CVE-2025-61984.patch
+CVE-2025-61985.patch
+CVE-2025-61984-tests.patch
+fix-max-startups-tracking.patch
 
 # Extra patches for Pexip needs
 extra-config.patch
