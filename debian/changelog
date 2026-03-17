@@ -1,4 +1,4 @@
-openssh (1:10.0p1-7+pexip25u2+deb13u1) pexip-trixie; urgency=medium
+openssh (1:10.0p1-7+pexip25u3+deb13u1) pexip-trixie; urgency=medium
 
   * New upstream release with security fixes
 
