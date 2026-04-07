@@ -1,3 +1,7 @@
+Replace use of old APIs which are deprecated in OpenSSL 3
+
+This patch updates moduli handling.
+
 diff --git a/moduli.c b/moduli.c
 index 8dd36b1..f097210 100644
 --- a/moduli.c

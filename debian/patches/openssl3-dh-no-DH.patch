@@ -1,3 +1,8 @@
+Replace use of old APIs which are deprecated in OpenSSL 3
+
+This patch updates DH key handling to use the EVP APIs instead of the
+deprecated DH ones.
+
 diff --git a/dh.c b/dh.c
 index ce2eb47..0b4b429 100644
 --- a/dh.c

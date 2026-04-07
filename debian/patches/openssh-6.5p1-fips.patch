@@ -1,3 +1,5 @@
+Implement FIPS support for OpenSSH.
+
 Index: os-openssh/Makefile.in
 ===================================================================
 --- os-openssh.orig/Makefile.in

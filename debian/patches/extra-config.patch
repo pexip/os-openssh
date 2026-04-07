@@ -1,3 +1,5 @@
+Update default SSHD config to match Pexip requirements
+
 Index: os-openssh/ssh_config
 ===================================================================
 --- os-openssh.orig/ssh_config

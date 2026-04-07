@@ -1,3 +1,8 @@
+Replace use of old APIs which are deprecated in OpenSSL 3
+
+This patch updates key exchange logic to use EVP_PKEY instead
+of the deprecated EC_KEY.
+
 diff --git a/kex.c b/kex.c
 index 6b957e5..0786ec6 100644
 --- a/kex.c

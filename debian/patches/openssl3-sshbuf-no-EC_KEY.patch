@@ -1,3 +1,7 @@
+Replace use of old APIs which are deprecated in OpenSSL 3
+
+This patch updates regression unittests.
+
 diff --git a/regress/unittests/sshbuf/test_sshbuf_getput_crypto.c b/regress/unittests/sshbuf/test_sshbuf_getput_crypto.c
 index e3620e9..5ac2ea1 100644
 --- a/regress/unittests/sshbuf/test_sshbuf_getput_crypto.c

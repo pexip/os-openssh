@@ -1,3 +1,7 @@
+Replace use of old APIs which are deprecated in OpenSSL 3
+
+This patch updates the OpenSSL compat layer.
+
 diff --git a/openbsd-compat/openssl-compat.c b/openbsd-compat/openssl-compat.c
 index 1486507..e196547 100644
 --- a/openbsd-compat/openssl-compat.c

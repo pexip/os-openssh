@@ -1,3 +1,7 @@
+Replace use of old APIs which are deprecated in OpenSSL 3
+
+This patch updates regresssion unittests.
+
 diff --git a/regress/unittests/sshsig/tests.c b/regress/unittests/sshsig/tests.c
 index 80966bd..573a8e8 100644
 --- a/regress/unittests/sshsig/tests.c

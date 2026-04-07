@@ -1,3 +1,7 @@
+Replace use of old APIs which are deprecated in OpenSSL 3
+
+This patch updates the LibreSSL API compatibility layer.
+
 diff --git a/openbsd-compat/libressl-api-compat.c b/openbsd-compat/libressl-api-compat.c
 index 59be173..88825a3 100644
 --- a/openbsd-compat/libressl-api-compat.c

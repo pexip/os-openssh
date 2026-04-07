@@ -1,3 +1,7 @@
+Replace use of old APIs which are deprecated in OpenSSL 3
+
+This patch updates the umac code.
+
 diff --git a/umac.c b/umac.c
 index a710424..8fb73f4 100644
 --- a/umac.c

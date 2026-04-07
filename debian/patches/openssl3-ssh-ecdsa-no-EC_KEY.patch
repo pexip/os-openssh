@@ -1,3 +1,7 @@
+Replace use of old APIs which are deprecated in OpenSSL 3
+
+This patch updates EC key handling.
+
 diff --git a/ssh-ecdsa.c b/ssh-ecdsa.c
 index 695ed45..b566157 100644
 --- a/ssh-ecdsa.c

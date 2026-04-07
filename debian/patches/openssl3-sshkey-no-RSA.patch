@@ -1,3 +1,7 @@
+Replace use of old APIs which are deprecated in OpenSSL 3
+
+This patch updates the sshkey utility to avoid using deprecated RSA_ routines.
+
 diff --git a/sshkey.c b/sshkey.c
 index 1db8378..b2326a7 100644
 --- a/sshkey.c

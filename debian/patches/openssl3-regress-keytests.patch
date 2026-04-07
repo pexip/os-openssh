@@ -1,3 +1,7 @@
+Replace use of old APIs which are deprecated in OpenSSL 3
+
+This patch updates regression unittests.
+
 diff --git a/regress/unittests/sshkey/common.c b/regress/unittests/sshkey/common.c
 index f325c2a..c1fdf83 100644
 --- a/regress/unittests/sshkey/common.c

@@ -1,3 +1,7 @@
+Replace use of old APIs which are deprecated in OpenSSL 3
+
+This patch updates the configure system to use the appropriate API.
+
 diff --git a/configure.ac b/configure.ac
 index 9053a9a..f4f802a 100644
 --- a/configure.ac

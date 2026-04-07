@@ -1,3 +1,8 @@
+Replace use of old APIs which are deprecated in OpenSSL 3
+
+This patch updates the sshkey utility to avoid using deprecated EC_KEY
+routines.
+
 Index: os-openssh/ssh-ecdsa.c
 ===================================================================
 --- os-openssh.orig/ssh-ecdsa.c

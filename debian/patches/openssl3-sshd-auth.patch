@@ -1,3 +1,8 @@
+Replace use of old APIs which are deprecated in OpenSSL 3
+
+This patch updates sshd-auth code to avoid calling a removed and unnecessary
+function.
+
 Index: os-openssh/sshd-auth.c
 ===================================================================
 --- os-openssh.orig/sshd-auth.c

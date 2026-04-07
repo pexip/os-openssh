@@ -1,3 +1,7 @@
+Replace use of old APIs which are deprecated in OpenSSL 3
+
+This patch updates the sshkey utility.
+
 diff --git a/sshkey.h b/sshkey.h
 index d0cdea0..7f6c72c 100644
 --- a/sshkey.h

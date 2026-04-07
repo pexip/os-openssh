@@ -1,3 +1,7 @@
+Replace use of old APIs which are deprecated in OpenSSL 3
+
+This patch updates the sshkey utility.
+
 Index: os-openssh/sshkey.h
 ===================================================================
 --- os-openssh.orig/sshkey.h
