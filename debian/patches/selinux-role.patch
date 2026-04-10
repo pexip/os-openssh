@@ -1,4 +1,4 @@
-From ad6e66e766ecc3a76c62c6daf81ebf19432713cb Mon Sep 17 00:00:00 2001
+From 07862c90f7824e24d59ea65ffcb8dbba5f84315b Mon Sep 17 00:00:00 2001
 From: Manoj Srivastava <srivasta@debian.org>
 Date: Sun, 9 Feb 2014 16:09:49 +0000
 Subject: Handle SELinux authorisation roles

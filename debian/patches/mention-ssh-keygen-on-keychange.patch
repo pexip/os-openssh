@@ -1,4 +1,4 @@
-From 4bf6a2acf9290928d4393c3d3f219074c9c7eb3c Mon Sep 17 00:00:00 2001
+From 7d939cbba308f7fd89681e80a2fdf3a0fdbd1615 Mon Sep 17 00:00:00 2001
 From: Scott Moser <smoser@ubuntu.com>
 Date: Sun, 9 Feb 2014 16:10:03 +0000
 Subject: Mention ssh-keygen in ssh fingerprint changed warning
