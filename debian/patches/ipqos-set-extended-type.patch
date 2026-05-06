@@ -1,0 +1,68 @@
+From 4207d8a7a4060cad77ec1b78ff08f3e0546c4fbd Mon Sep 17 00:00:00 2001
+From: "djm@openbsd.org" <djm@openbsd.org>
+Date: Sun, 19 Apr 2026 23:37:22 +0000
+Subject: upstream: correctly set extended type for client-side channels.
+
+Fixes interactive vs bulk IPQoS for client->server traffic. ok job@
+
+OpenBSD-Commit-ID: 34f5131face8d6dc4ae6955196e5fcafb3570cfe
+
+Origin: upstream, https://anongit.mindrot.org/openssh.git/commit/?id=45b30e0a5439a02417a4fe982a4b16a9c126ba6b
+Last-Update: 2026-05-03
+
+Patch-Name: ipqos-set-extended-type.patch
+---
+ clientloop.c | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/clientloop.c b/clientloop.c
+index 34a94fdb5..5979d5803 100644
+--- a/clientloop.c
++++ b/clientloop.c
+@@ -2702,7 +2702,7 @@ client_session2_setup(struct ssh *ssh, int id, int want_tty, int want_subsystem,
+ {
+ 	size_t i, j, len;
+ 	int matched, r;
+-	char *name, *val;
++	char *type = NULL, *cmdstring = NULL, *name, *val;
+ 	Channel *c = NULL;
+ 
+ 	debug2_f("id %d", id);
+@@ -2777,19 +2777,21 @@ client_session2_setup(struct ssh *ssh, int id, int want_tty, int want_subsystem,
+ 
+ 	len = sshbuf_len(cmd);
+ 	if (len > 0) {
++		if ((cmdstring = sshbuf_dup_string(cmd)) == NULL)
++			fatal_f("sshbuf_dup_string failed");
+ 		if (len > 900)
+ 			len = 900;
+ 		if (want_subsystem) {
+-			debug("Sending subsystem: %.*s",
+-			    (int)len, (const u_char*)sshbuf_ptr(cmd));
++			debug("Sending subsystem: %.*s", (int)len, cmdstring);
+ 			channel_request_start(ssh, id, "subsystem", 1);
+ 			client_expect_confirm(ssh, id, "subsystem",
+ 			    CONFIRM_CLOSE);
++			xasprintf(&type, "session:subsystem:%s", cmdstring);
+ 		} else {
+-			debug("Sending command: %.*s",
+-			    (int)len, (const u_char*)sshbuf_ptr(cmd));
++			debug("Sending command: %.*s", (int)len, cmdstring);
+ 			channel_request_start(ssh, id, "exec", 1);
+ 			client_expect_confirm(ssh, id, "exec", CONFIRM_CLOSE);
++			xasprintf(&type, "session:command");
+ 		}
+ 		if ((r = sshpkt_put_stringb(ssh, cmd)) != 0 ||
+ 		    (r = sshpkt_send(ssh)) != 0)
+@@ -2799,7 +2801,11 @@ client_session2_setup(struct ssh *ssh, int id, int want_tty, int want_subsystem,
+ 		client_expect_confirm(ssh, id, "shell", CONFIRM_CLOSE);
+ 		if ((r = sshpkt_send(ssh)) != 0)
+ 			fatal_fr(r, "send shell");
++		xasprintf(&type, "session:shell");
+ 	}
++	channel_set_xtype(ssh, id, type);
++	free(cmdstring);
++	free(type);
+ 
+ 	session_setup_complete = 1;
+ 	client_repledge();

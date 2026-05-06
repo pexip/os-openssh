@@ -1,4 +1,4 @@
-From 947d15f4b44cf7d4ce337c82ed7e1a167a4f4dc2 Mon Sep 17 00:00:00 2001
+From 26128e0a946eff65c311f8c00f2449e1efb7fdff Mon Sep 17 00:00:00 2001
 From: "djm@openbsd.org" <djm@openbsd.org>
 Date: Fri, 4 Jul 2025 09:51:01 +0000
 Subject: upstream: Fix mistracking of MaxStartups process exits in some
