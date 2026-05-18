@@ -1,0 +1,67 @@
+From aa43d30c43eee0901aa8e3993b47c712e4d4ae16 Mon Sep 17 00:00:00 2001
+From: "djm@openbsd.org" <djm@openbsd.org>
+Date: Tue, 7 Oct 2025 08:02:32 +0000
+Subject: upstream: don't reuse c->isatty for signalling that the remote
+ channel
+
+has a tty attached as this causes side effects, e.g. in channel_handle_rfd().
+bz3872
+
+ok markus@
+
+OpenBSD-Commit-ID: 4cd8a9f641498ca6089442e59bad0fd3dcbe85f8
+
+Origin: upstream, https://anongit.mindrot.org/openssh.git/commit/?id=979cbc2c1e0c9cd2f60d45d8d1da69519ec425cf
+Bug-Debian: https://bugs.debian.org/1135798
+Last-Update: 2026-05-06
+
+Patch-Name: avoid-channel-isatty-overloading.patch
+---
+ channels.c | 7 ++++---
+ channels.h | 1 +
+ 2 files changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/channels.c b/channels.c
+index 1a8f8ad4a..1fe9710a4 100644
+--- a/channels.c
++++ b/channels.c
+@@ -368,7 +368,7 @@ channel_classify(struct ssh *ssh, Channel *c)
+ {
+ 	struct ssh_channels *sc = ssh->chanctxt;
+ 	const char *type = c->xctype == NULL ? c->ctype : c->xctype;
+-	const char *classifier = c->isatty ?
++	const char *classifier = (c->isatty || c->remote_has_tty) ?
+ 	    sc->bulk_classifier_tty : sc->bulk_classifier_notty;
+ 
+ 	c->bulk = type != NULL && match_pattern_list(type, classifier, 0) == 1;
+@@ -572,7 +572,7 @@ channel_new(struct ssh *ssh, char *ctype, int type, int rfd, int wfd, int efd,
+ void
+ channel_set_tty(struct ssh *ssh, Channel *c)
+ {
+-	c->isatty = 1;
++	c->remote_has_tty = 1;
+ 	channel_classify(ssh, c);
+ }
+ 
+@@ -1063,7 +1063,8 @@ channel_format_status(const Channel *c)
+ 	    c->rfd, c->wfd, c->efd, c->sock, c->ctl_chan,
+ 	    c->have_ctl_child_id ? "c" : "nc", c->ctl_child_id,
+ 	    c->io_want, c->io_ready,
+-	    c->isatty ? "T" : "", c->bulk ? "B" : "I");
++	    c->isatty ? "T" : (c->remote_has_tty ? "RT" : ""),
++	    c->bulk ? "B" : "I");
+ 	return ret;
+ }
+ 
+diff --git a/channels.h b/channels.h
+index a84c9dfdd..b33db8d8e 100644
+--- a/channels.h
++++ b/channels.h
+@@ -145,6 +145,7 @@ struct Channel {
+ 	int     ctl_chan;	/* control channel (multiplexed connections) */
+ 	uint32_t ctl_child_id;	/* child session for mux controllers */
+ 	int	have_ctl_child_id;/* non-zero if ctl_child_id is valid */
++	int     remote_has_tty;	/* remote side has a tty */
+ 	int     isatty;		/* rfd is a tty */
+ #ifdef _AIX
+ 	int     wfd_isatty;	/* wfd is a tty */

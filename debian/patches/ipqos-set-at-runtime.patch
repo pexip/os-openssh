@@ -1,0 +1,595 @@
+From 62e161b58f41afdf8d3bdca5ec2a84c348775169 Mon Sep 17 00:00:00 2001
+From: "djm@openbsd.org" <djm@openbsd.org>
+Date: Mon, 18 Aug 2025 03:43:01 +0000
+Subject: upstream: Make ssh(1) and sshd(8) set IP QoS (aka IP_TOS,
+ IPV6_TCLASS)
+
+continually at runtime based on what sessions/channels are open.
+
+Previously, ssh(1) and sshd(8) would pick a QoS value when they
+were started and use it for the whole connection. This could
+produce suboptimal choices for the QoS value, e.g. for multiplexed
+sessions that started interactive but picked up a sftp client,
+or sessions that moved large amounts of data via port forwarding.
+
+Now the QoS value will change to the non-interactive IPQoS whenever
+a "non-interactive" channel is open; basically any channel that lacks
+a tty other than agent forwarding.
+
+This is important now that the default interactive IPQoS is EF
+(Expedited Forwarding), as many networks are configured to allow
+only relatively small amounts of traffic of this class and they will
+aggressively deprioritise the entire connection if this is exceeded.
+
+NB. because ssh(1) and sshd(8) now change IP_TOS/IPV6_TCLASS
+continually via setsockopt(), this commit requires a recent pledge(2)
+change that landed recently in the OpenBSD kernel. Please ensure
+you have updated to a kernel from within the last two weeks before
+updating OpenSSH.
+
+with job@ deraadt@
+
+OpenBSD-Commit-ID: 325fc41717eecdf5e4b534bfa8d66817425b840f
+
+Origin: backport, https://anongit.mindrot.org/openssh.git/commit/?id=289239046b2c4b0076c14394ae9703a879e78706
+Last-Update: 2026-05-03
+
+Patch-Name: ipqos-set-at-runtime.patch
+---
+ channels.c     | 44 ++++++++++++++++++++++++++++---
+ channels.h     |  7 +++++
+ clientloop.c   | 11 +++++---
+ misc.c         |  4 +++
+ mux.c          |  2 ++
+ packet.c       | 71 ++++++++++++++++++++++++++++++++++----------------
+ packet.h       |  3 ++-
+ serverloop.c   |  7 +++++
+ session.c      |  5 ----
+ ssh.c          | 25 +++++-------------
+ sshd-auth.c    |  2 ++
+ sshd-session.c |  2 ++
+ 12 files changed, 130 insertions(+), 53 deletions(-)
+
+diff --git a/channels.c b/channels.c
+index bfe2e3b2d..1a8f8ad4a 100644
+--- a/channels.c
++++ b/channels.c
+@@ -212,6 +212,10 @@ struct ssh_channels {
+ 	/* Global timeout for all OPEN channels */
+ 	int global_deadline;
+ 	time_t lastused;
++	/* pattern-lists used to classify channels as bulk */
++	char *bulk_classifier_tty, *bulk_classifier_notty;
++	/* Number of active bulk channels (set by channel_handler) */
++	u_int nbulk;
+ };
+ 
+ /* helper */
+@@ -239,6 +243,8 @@ channel_init_channels(struct ssh *ssh)
+ 	sc->channels_alloc = 10;
+ 	sc->channels = xcalloc(sc->channels_alloc, sizeof(*sc->channels));
+ 	sc->IPv4or6 = AF_UNSPEC;
++	sc->bulk_classifier_tty = xstrdup(CHANNEL_BULK_TTY);
++	sc->bulk_classifier_notty = xstrdup(CHANNEL_BULK_NOTTY);
+ 	channel_handler_init(sc);
+ 
+ 	ssh->chanctxt = sc;
+@@ -357,6 +363,17 @@ lookup_timeout(struct ssh *ssh, const char *type)
+ 	return 0;
+ }
+ 
++static void
++channel_classify(struct ssh *ssh, Channel *c)
++{
++	struct ssh_channels *sc = ssh->chanctxt;
++	const char *type = c->xctype == NULL ? c->ctype : c->xctype;
++	const char *classifier = c->isatty ?
++	    sc->bulk_classifier_tty : sc->bulk_classifier_notty;
++
++	c->bulk = type != NULL && match_pattern_list(type, classifier, 0) == 1;
++}
++
+ /*
+  * Sets "extended type" of a channel; used by session layer to add additional
+  * information about channel types (e.g. shell, login, subsystem) that can then
+@@ -375,6 +392,7 @@ channel_set_xtype(struct ssh *ssh, int id, const char *xctype)
+ 	c->xctype = xstrdup(xctype);
+ 	/* Type has changed, so look up inactivity deadline again */
+ 	c->inactive_deadline = lookup_timeout(ssh, c->xctype);
++	channel_classify(ssh, c);
+ 	debug2_f("labeled channel %d as %s (inactive timeout %u)", id, xctype,
+ 	    c->inactive_deadline);
+ }
+@@ -411,6 +429,13 @@ channel_get_expiry(struct ssh *ssh, Channel *c)
+ 	return expiry;
+ }
+ 
++/* Returns non-zero if there is an open, non-interactive channel */
++int
++channel_has_bulk(struct ssh *ssh)
++{
++	return ssh->chanctxt != NULL && ssh->chanctxt->nbulk != 0;
++}
++
+ /*
+  * Register filedescriptors for a channel, used when allocating a channel or
+  * when the channel consumer/producer is ready, e.g. shell exec'd
+@@ -478,6 +503,7 @@ channel_register_fds(struct ssh *ssh, Channel *c, int rfd, int wfd, int efd,
+ 	}
+ 	/* channel might be entering a larval state, so reset global timeout */
+ 	channel_set_used_time(ssh, NULL);
++	channel_classify(ssh, c);
+ }
+ 
+ /*
+@@ -537,11 +563,19 @@ channel_new(struct ssh *ssh, char *ctype, int type, int rfd, int wfd, int efd,
+ 	c->delayed = 1;		/* prevent call to channel_post handler */
+ 	c->inactive_deadline = lookup_timeout(ssh, c->ctype);
+ 	TAILQ_INIT(&c->status_confirms);
++	channel_classify(ssh, c);
+ 	debug("channel %d: new %s [%s] (inactive timeout: %u)",
+ 	    found, c->ctype, remote_name, c->inactive_deadline);
+ 	return c;
+ }
+ 
++void
++channel_set_tty(struct ssh *ssh, Channel *c)
++{
++	c->isatty = 1;
++	channel_classify(ssh, c);
++}
++
+ int
+ channel_close_fd(struct ssh *ssh, Channel *c, int *fdp)
+ {
+@@ -1019,7 +1053,7 @@ channel_format_status(const Channel *c)
+ 	char *ret = NULL;
+ 
+ 	xasprintf(&ret, "t%d [%s] %s%u %s%u i%u/%zu o%u/%zu e[%s]/%zu "
+-	    "fd %d/%d/%d sock %d cc %d %s%u io 0x%02x/0x%02x",
++	    "fd %d/%d/%d sock %d cc %d %s%u io 0x%02x/0x%02x %s%s",
+ 	    c->type, c->xctype != NULL ? c->xctype : c->ctype,
+ 	    c->have_remote_id ? "r" : "nr", c->remote_id,
+ 	    c->mux_ctx != NULL ? "m" : "nm", c->mux_downstream_id,
+@@ -1028,7 +1062,8 @@ channel_format_status(const Channel *c)
+ 	    channel_format_extended_usage(c), sshbuf_len(c->extended),
+ 	    c->rfd, c->wfd, c->efd, c->sock, c->ctl_chan,
+ 	    c->have_ctl_child_id ? "c" : "nc", c->ctl_child_id,
+-	    c->io_want, c->io_ready);
++	    c->io_want, c->io_ready,
++	    c->isatty ? "T" : "", c->bulk ? "B" : "I");
+ 	return ret;
+ }
+ 
+@@ -2606,10 +2641,13 @@ channel_handler(struct ssh *ssh, int table, struct timespec *timeout)
+ 	time_t now;
+ 
+ 	now = monotime();
+-	for (i = 0, oalloc = sc->channels_alloc; i < oalloc; i++) {
++	for (sc->nbulk = i = 0, oalloc = sc->channels_alloc; i < oalloc; i++) {
+ 		c = sc->channels[i];
+ 		if (c == NULL)
+ 			continue;
++		/* Count open channels in bulk state */
++		if (c->type == SSH_CHANNEL_OPEN && c->bulk)
++			sc->nbulk++;
+ 		/* Try to keep IO going while rekeying */
+ 		if (ssh_packet_is_rekeying(ssh) && c->type != SSH_CHANNEL_OPEN)
+ 			continue;
+diff --git a/channels.h b/channels.h
+index 134528d59..a84c9dfdd 100644
+--- a/channels.h
++++ b/channels.h
+@@ -82,6 +82,10 @@
+ #define FORWARD_ADM		0x100
+ #define FORWARD_USER		0x101
+ 
++/* default pattern-lists used to classify channel types as bulk */
++#define CHANNEL_BULK_TTY	""
++#define CHANNEL_BULK_NOTTY	"direct-*,forwarded-*,tun-*,x11-*,session*"
++
+ struct ssh;
+ struct Channel;
+ typedef struct Channel Channel;
+@@ -180,6 +184,7 @@ struct Channel {
+ 
+ 	char   *ctype;		/* const type - NB. not freed on channel_free */
+ 	char   *xctype;		/* extended type */
++	int	bulk;		/* channel is non-interactive */
+ 
+ 	/* callback */
+ 	channel_open_fn		*open_confirm;
+@@ -289,6 +294,7 @@ Channel *channel_new(struct ssh *, char *, int, int, int, int,
+ 	    u_int, u_int, int, const char *, int);
+ void	 channel_set_fds(struct ssh *, int, int, int, int, int,
+ 	    int, int, u_int);
++void	 channel_set_tty(struct ssh *, Channel *);
+ void	 channel_free(struct ssh *, Channel *);
+ void	 channel_free_all(struct ssh *);
+ void	 channel_stop_listening(struct ssh *);
+@@ -308,6 +314,7 @@ void	 channel_register_status_confirm(struct ssh *, int,
+ void	 channel_cancel_cleanup(struct ssh *, int);
+ int	 channel_close_fd(struct ssh *, Channel *, int *);
+ void	 channel_send_window_changes(struct ssh *);
++int	 channel_has_bulk(struct ssh *);
+ 
+ /* channel inactivity timeouts */
+ void channel_add_timeout(struct ssh *, const char *, int);
+diff --git a/clientloop.c b/clientloop.c
+index 407b76b4c..34a94fdb5 100644
+--- a/clientloop.c
++++ b/clientloop.c
+@@ -1451,7 +1451,7 @@ client_loop(struct ssh *ssh, int have_pty, int escape_char_arg,
+ 	struct pollfd *pfd = NULL;
+ 	u_int npfd_alloc = 0, npfd_active = 0;
+ 	double start_time, total_time;
+-	int channel_did_enqueue = 0, r;
++	int interactive = -1, channel_did_enqueue = 0, r;
+ 	u_int64_t ibytes, obytes;
+ 	int conn_in_ready, conn_out_ready;
+ 	sigset_t bsigset, osigset;
+@@ -1620,6 +1620,12 @@ client_loop(struct ssh *ssh, int have_pty, int escape_char_arg,
+ 		 * sender.
+ 		 */
+ 		if (conn_out_ready) {
++			if (interactive != !channel_has_bulk(ssh)) {
++				interactive = !channel_has_bulk(ssh);
++				debug2_f("session QoS is now %s", interactive ?
++				    "interactive" : "non-interactive");
++				ssh_packet_set_interactive(ssh, interactive);
++			}
+ 			if ((r = ssh_packet_write_poll(ssh)) != 0) {
+ 				sshpkt_fatal(ssh, r,
+ 				    "%s: ssh_packet_write_poll", __func__);
+@@ -2704,9 +2710,6 @@ client_session2_setup(struct ssh *ssh, int id, int want_tty, int want_subsystem,
+ 	if ((c = channel_lookup(ssh, id)) == NULL)
+ 		fatal_f("channel %d: unknown channel", id);
+ 
+-	ssh_packet_set_interactive(ssh, want_tty,
+-	    options.ip_qos_interactive, options.ip_qos_bulk);
+-
+ 	if (want_tty) {
+ 		struct winsize ws;
+ 
+diff --git a/misc.c b/misc.c
+index 3ff464573..28c3f150d 100644
+--- a/misc.c
++++ b/misc.c
+@@ -297,6 +297,10 @@ set_sock_tos(int fd, int tos)
+ #ifndef IP_TOS_IS_BROKEN
+ 	int af;
+ 
++	if (tos < 0 || tos == INT_MAX) {
++		debug_f("invalid TOS %d", tos);
++		return;
++	}
+ 	switch ((af = get_sock_af(fd))) {
+ 	case -1:
+ 		/* assume not a socket */
+diff --git a/mux.c b/mux.c
+index b48e69a12..c5eaf1007 100644
+--- a/mux.c
++++ b/mux.c
+@@ -460,6 +460,8 @@ mux_master_process_new_session(struct ssh *ssh, u_int rid,
+ 	nc = channel_new(ssh, "session", SSH_CHANNEL_OPENING,
+ 	    new_fd[0], new_fd[1], new_fd[2], window, packetmax,
+ 	    CHAN_EXTENDED_WRITE, "client-session", CHANNEL_NONBLOCK_STDIO);
++	if (cctx->want_tty)
++		channel_set_tty(ssh, nc);
+ 
+ 	nc->ctl_chan = c->self;		/* link session -> control channel */
+ 	c->ctl_child_id = nc->self;	/* link control -> session channel */
+diff --git a/packet.c b/packet.c
+index 9dea2cfc5..51135847a 100644
+--- a/packet.c
++++ b/packet.c
+@@ -210,8 +210,8 @@ struct session_state {
+ 	/* Used in ssh_packet_send_mux() */
+ 	int mux;
+ 
+-	/* Used in packet_set_interactive */
+-	int set_interactive_called;
++	/* QoS handling */
++	int qos_interactive, qos_other;
+ 
+ 	/* Used in packet_set_maxsize */
+ 	int set_maxsize_called;
+@@ -219,6 +219,9 @@ struct session_state {
+ 	/* One-off warning about weak ciphers */
+ 	int cipher_warning_done;
+ 
++	/* Nagle disabled on socket */
++	int nodelay_set;
++
+ 	/* Hook for fuzzing inbound packets */
+ 	ssh_packet_hook_fn *hook_in;
+ 	void *hook_in_ctx;
+@@ -247,6 +250,8 @@ ssh_alloc_session_state(void)
+ 	state->connection_out = -1;
+ 	state->max_packet_size = 32768;
+ 	state->packet_timeout_ms = -1;
++	state->interactive_mode = 1;
++	state->qos_interactive = state->qos_other = -1;
+ 	state->p_send.packets = state->p_read.packets = 0;
+ 	state->initialized = 1;
+ 	/*
+@@ -2206,37 +2211,44 @@ ssh_packet_interactive_data_to_write(struct ssh *ssh)
+ 	    sshbuf_len(ssh->state->output) < 256;
+ }
+ 
+-void
+-ssh_packet_set_tos(struct ssh *ssh, int tos)
++static void
++apply_qos(struct ssh *ssh)
+ {
+-	if (!ssh_packet_connection_is_on_socket(ssh) || tos == INT_MAX)
++	struct session_state *state = ssh->state;
++	int qos = state->interactive_mode ?
++	    state->qos_interactive : state->qos_other;
++
++	if (!ssh_packet_connection_is_on_socket(ssh))
+ 		return;
+-	set_sock_tos(ssh->state->connection_in, tos);
++	if (!state->nodelay_set) {
++		set_nodelay(state->connection_in);
++		state->nodelay_set = 1;
++	}
++	set_sock_tos(ssh->state->connection_in, qos);
+ }
+ 
+-/* Informs that the current session is interactive.  Sets IP flags for that. */
+-
++/* Informs that the current session is interactive. */
+ void
+-ssh_packet_set_interactive(struct ssh *ssh, int interactive, int qos_interactive, int qos_bulk)
++ssh_packet_set_interactive(struct ssh *ssh, int interactive)
+ {
+ 	struct session_state *state = ssh->state;
+ 
+-	if (state->set_interactive_called)
+-		return;
+-	state->set_interactive_called = 1;
+-
+-	/* Record that we are in interactive mode. */
+ 	state->interactive_mode = interactive;
++	apply_qos(ssh);
++}
+ 
+-	/* Only set socket options if using a socket.  */
+-	if (!ssh_packet_connection_is_on_socket(ssh))
+-		return;
+-	set_nodelay(state->connection_in);
+-	ssh_packet_set_tos(ssh, interactive ? qos_interactive : qos_bulk);
++/* Set QoS flags to be used for interactive and non-interactive sessions */
++void
++ssh_packet_set_qos(struct ssh *ssh, int qos_interactive, int qos_other)
++{
++	struct session_state *state = ssh->state;
++
++	state->qos_interactive = qos_interactive;
++	state->qos_other = qos_other;
++	apply_qos(ssh);
+ }
+ 
+ /* Returns true if the current connection is interactive. */
+-
+ int
+ ssh_packet_is_interactive(struct ssh *ssh)
+ {
+@@ -2415,6 +2427,7 @@ ssh_packet_get_state(struct ssh *ssh, struct sshbuf *m)
+ 	struct session_state *state = ssh->state;
+ 	int r;
+ 
++#define ENCODE_INT(v) (((v) < 0) ? 0xFFFFFFFF : (u_int)v)
+ 	if ((r = kex_to_blob(m, ssh->kex)) != 0 ||
+ 	    (r = newkeys_to_blob(m, ssh, MODE_OUT)) != 0 ||
+ 	    (r = newkeys_to_blob(m, ssh, MODE_IN)) != 0 ||
+@@ -2429,9 +2442,12 @@ ssh_packet_get_state(struct ssh *ssh, struct sshbuf *m)
+ 	    (r = sshbuf_put_u32(m, state->p_read.packets)) != 0 ||
+ 	    (r = sshbuf_put_u64(m, state->p_read.bytes)) != 0 ||
+ 	    (r = sshbuf_put_stringb(m, state->input)) != 0 ||
+-	    (r = sshbuf_put_stringb(m, state->output)) != 0)
++	    (r = sshbuf_put_stringb(m, state->output)) != 0 ||
++	    (r = sshbuf_put_u32(m, ENCODE_INT(state->interactive_mode))) != 0 ||
++	    (r = sshbuf_put_u32(m, ENCODE_INT(state->qos_interactive))) != 0 ||
++	    (r = sshbuf_put_u32(m, ENCODE_INT(state->qos_other))) != 0)
+ 		return r;
+-
++#undef ENCODE_INT
+ 	return 0;
+ }
+ 
+@@ -2550,6 +2566,7 @@ ssh_packet_set_state(struct ssh *ssh, struct sshbuf *m)
+ 	const u_char *input, *output;
+ 	size_t ilen, olen;
+ 	int r;
++	u_int interactive, qos_interactive, qos_other;
+ 
+ 	if ((r = kex_from_blob(m, &ssh->kex)) != 0 ||
+ 	    (r = newkeys_from_blob(m, ssh, MODE_OUT)) != 0 ||
+@@ -2586,6 +2603,16 @@ ssh_packet_set_state(struct ssh *ssh, struct sshbuf *m)
+ 	    (r = sshbuf_put(state->output, output, olen)) != 0)
+ 		return r;
+ 
++	if ((r = sshbuf_get_u32(m, &interactive)) != 0 ||
++	    (r = sshbuf_get_u32(m, &qos_interactive)) != 0 ||
++	    (r = sshbuf_get_u32(m, &qos_other)) != 0)
++		return r;
++#define DECODE_INT(v) ((v) > INT_MAX ? -1 : (v))
++	state->interactive_mode = DECODE_INT(interactive);
++	state->qos_interactive = DECODE_INT(qos_interactive);
++	state->qos_other = DECODE_INT(qos_other);
++#undef DECODE_INT
++
+ 	if (sshbuf_len(m))
+ 		return SSH_ERR_INVALID_FORMAT;
+ 	debug3_f("done");
+diff --git a/packet.h b/packet.h
+index 49bb87f07..85d292aa1 100644
+--- a/packet.h
++++ b/packet.h
+@@ -111,8 +111,9 @@ int	 ssh_packet_check_rekey(struct ssh *);
+ void     ssh_packet_set_protocol_flags(struct ssh *, u_int);
+ u_int	 ssh_packet_get_protocol_flags(struct ssh *);
+ void	 ssh_packet_set_tos(struct ssh *, int);
+-void     ssh_packet_set_interactive(struct ssh *, int, int, int);
++void	 ssh_packet_set_interactive(struct ssh *, int);
+ int      ssh_packet_is_interactive(struct ssh *);
++void	 ssh_packet_set_qos(struct ssh *, int, int);
+ void     ssh_packet_set_server(struct ssh *);
+ void     ssh_packet_set_authenticated(struct ssh *);
+ void     ssh_packet_set_mux(struct ssh *);
+diff --git a/serverloop.c b/serverloop.c
+index 40ddfb042..395a7e317 100644
+--- a/serverloop.c
++++ b/serverloop.c
+@@ -285,8 +285,15 @@ static void
+ process_output(struct ssh *ssh, int connection_out)
+ {
+ 	int r;
++	static int interactive = -1;
+ 
+ 	/* Send any buffered packet data to the client. */
++	if (interactive != !channel_has_bulk(ssh)) {
++		interactive = !channel_has_bulk(ssh);
++		debug2_f("session QoS is now %s", interactive ?
++		    "interactive" : "non-interactive");
++		ssh_packet_set_interactive(ssh, interactive);
++	}
+ 	if ((r = ssh_packet_write_poll(ssh)) != 0) {
+ 		sshpkt_fatal(ssh, r, "%s: ssh_packet_write_poll",
+ 		    __func__);
+diff --git a/session.c b/session.c
+index 6614d8560..dfa97ee1c 100644
+--- a/session.c
++++ b/session.c
+@@ -524,9 +524,6 @@ do_exec_no_pty(struct ssh *ssh, Session *s, const char *command)
+ #endif
+ 
+ 	s->pid = pid;
+-	/* Set interactive/non-interactive mode. */
+-	ssh_packet_set_interactive(ssh, s->display != NULL,
+-	    options.ip_qos_interactive, options.ip_qos_bulk);
+ 
+ 	/*
+ 	 * Clear loginmsg, since it's the child's responsibility to display
+@@ -654,8 +651,6 @@ do_exec_pty(struct ssh *ssh, Session *s, const char *command)
+ 
+ 	/* Enter interactive session. */
+ 	s->ptymaster = ptymaster;
+-	ssh_packet_set_interactive(ssh, 1,
+-	    options.ip_qos_interactive, options.ip_qos_bulk);
+ 	session_set_fds(ssh, s, ptyfd, fdout, -1, 1, 1);
+ 	return 0;
+ }
+diff --git a/ssh.c b/ssh.c
+index e668fb771..ff60ae569 100644
+--- a/ssh.c
++++ b/ssh.c
+@@ -710,7 +710,6 @@ main(int ac, char **av)
+ 		fatal("Couldn't allocate session state");
+ 	channel_init_channels(ssh);
+ 
+-
+ 	/* Parse command-line arguments. */
+ 	args = argv_assemble(ac, av); /* logged later */
+ 	host = NULL;
+@@ -1344,6 +1343,8 @@ main(int ac, char **av)
+ 	if (options.port == 0)
+ 		options.port = default_ssh_port();
+ 	channel_set_af(ssh, options.address_family);
++	ssh_packet_set_qos(ssh, options.ip_qos_interactive,
++	    options.ip_qos_bulk);
+ 
+ 	/* Tidy and check options */
+ 	if (options.host_key_alias != NULL)
+@@ -2168,7 +2169,7 @@ ssh_session2_setup(struct ssh *ssh, int id, int success, void *arg)
+ {
+ 	extern char **environ;
+ 	const char *display, *term;
+-	int r, interactive = tty_flag;
++	int r;
+ 	char *proto = NULL, *data = NULL;
+ 
+ 	if (!success)
+@@ -2187,7 +2188,6 @@ ssh_session2_setup(struct ssh *ssh, int id, int success, void *arg)
+ 		    data, 1);
+ 		client_expect_confirm(ssh, id, "X11 forwarding", CONFIRM_WARN);
+ 		/* XXX exit_on_forward_failure */
+-		interactive = 1;
+ 	}
+ 
+ 	check_agent_present();
+@@ -2198,10 +2198,6 @@ ssh_session2_setup(struct ssh *ssh, int id, int success, void *arg)
+ 			fatal_fr(r, "send packet");
+ 	}
+ 
+-	/* Tell the packet module whether this is an interactive session. */
+-	ssh_packet_set_interactive(ssh, interactive,
+-	    options.ip_qos_interactive, options.ip_qos_bulk);
+-
+ 	if ((term = lookup_env_in_list("TERM", options.setenv,
+ 	    options.num_setenv)) == NULL || *term == '\0')
+ 		term = getenv("TERM");
+@@ -2238,8 +2234,9 @@ ssh_session2_open(struct ssh *ssh)
+ 	    "session", SSH_CHANNEL_OPENING, in, out, err,
+ 	    window, packetmax, CHAN_EXTENDED_WRITE,
+ 	    "client-session", CHANNEL_NONBLOCK_STDIO);
+-
+-	debug3_f("channel_new: %d", c->self);
++	if (tty_flag)
++		channel_set_tty(ssh, c);
++	debug3_f("channel_new: %d%s", c->self, tty_flag ? " (tty)" : "");
+ 
+ 	channel_send_open(ssh, c->self);
+ 	if (options.session_type != SESSION_TYPE_NONE)
+@@ -2252,7 +2249,7 @@ ssh_session2_open(struct ssh *ssh)
+ static int
+ ssh_session2(struct ssh *ssh, const struct ssh_conn_info *cinfo)
+ {
+-	int r, interactive, id = -1;
++	int r, id = -1;
+ 	char *cp, *tun_fwd_ifname = NULL;
+ 
+ 	/* XXX should be pre-session */
+@@ -2308,14 +2305,6 @@ ssh_session2(struct ssh *ssh, const struct ssh_conn_info *cinfo)
+ 
+ 	if (options.session_type != SESSION_TYPE_NONE)
+ 		id = ssh_session2_open(ssh);
+-	else {
+-		interactive = options.control_master == SSHCTL_MASTER_NO;
+-		/* ControlPersist may have clobbered ControlMaster, so check */
+-		if (need_controlpersist_detach)
+-			interactive = otty_flag != 0;
+-		ssh_packet_set_interactive(ssh, interactive,
+-		    options.ip_qos_interactive, options.ip_qos_bulk);
+-	}
+ 
+ 	/* If we don't expect to open a new session, then disallow it */
+ 	if (options.control_master == SSHCTL_MASTER_NO &&
+diff --git a/sshd-auth.c b/sshd-auth.c
+index 362abc92c..371a4b795 100644
+--- a/sshd-auth.c
++++ b/sshd-auth.c
+@@ -672,6 +672,8 @@ main(int ac, char **av)
+ 	/* Fill in default values for those options not explicitly set. */
+ 	fill_default_server_options(&options);
+ 	options.timing_secret = timing_secret; /* XXX eliminate from unpriv */
++	ssh_packet_set_qos(ssh, options.ip_qos_interactive,
++	    options.ip_qos_bulk);
+ 
+ 	/* Reinit logging in case config set Level, Facility or Verbose. */
+ 	log_init(__progname, options.log_level, options.log_facility, 1);
+diff --git a/sshd-session.c b/sshd-session.c
+index 2b6d2a98b..989e21734 100644
+--- a/sshd-session.c
++++ b/sshd-session.c
+@@ -1215,6 +1215,8 @@ main(int ac, char **av)
+ 		fatal("Unable to create connection");
+ 	the_active_state = ssh;
+ 	ssh_packet_set_server(ssh);
++	ssh_packet_set_qos(ssh, options.ip_qos_interactive,
++	    options.ip_qos_bulk);
+ 
+ 	check_ip_options(ssh);
+ 

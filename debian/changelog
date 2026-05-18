@@ -1,3 +1,71 @@
+openssh (1:10.0p1-7+deb13u4) trixie; urgency=medium
+
+  * Don't reuse c->isatty for signalling that the remote channel has a tty
+    attached (closes: #1135798).
+
+ -- Colin Watson <cjwatson@debian.org>  Wed, 06 May 2026 13:33:32 +0100
+
+openssh (1:10.0p1-7+deb13u3) trixie; urgency=medium
+
+  * Backport minor security fixes from 10.3p1:
+    - ssh(1): the -J and equivalent -oProxyJump="..." options now validate
+      user and host names for ProxyJump/-J options passed via the
+      command-line (no such validation is performed for this option in
+      configuration files). This prevents shell injection in situations
+      where these were directly exposed to adversarial input, which would
+      have been a terrible idea to begin with.
+    - CVE-2026-35386: ssh(1): validation of shell metacharacters in user
+      names supplied on the command-line was performed too late to prevent
+      some situations where they could be expanded from %-tokens in
+      ssh_config. For certain configurations, such as those that use a "%u"
+      token in a "Match exec" block, an attacker who can control the user
+      name passed to ssh(1) could potentially execute arbitrary shell
+      commands. Reported by Florian Kohnhäuser (closes: #1132573).
+      We continue to recommend against directly exposing ssh(1) and other
+      tools' command-lines to untrusted input. Mitigations such as this can
+      not be absolute given the variety of shells and user configurations in
+      use.
+    - CVE-2026-35414: sshd(8): when matching an authorized_keys
+      principals="" option against a list of principals in a certificate, an
+      incorrect algorithm was used that could allow inappropriate matching
+      in cases where a principal name in the certificate contains a comma
+      character. Exploitation of the condition requires an authorized_keys
+      principals="" option that lists more than one principal *and* a CA
+      that will issue a certificate that encodes more than one of these
+      principal names separated by a comma (typical CAs strongly constrain
+      which principal names they will place in a certificate). This
+      condition only applies to user- trusted CA keys in authorized_keys,
+      the main certificate authentication path
+      (TrustedUserCAKeys/AuthorizedPrincipalsFile) is not affected. Reported
+      by Vladimir Tokarev (closes: #1132576).
+    - CVE-2026-35385: scp(1): when downloading files as root in legacy (-O)
+      mode and without the -p (preserve modes) flag set, scp did not clear
+      setuid/setgid bits from downloaded files as one might typically
+      expect. This bug dates back to the original Berkeley rcp program.
+      Reported by Christos Papakonstantinou of Cantina and Spearbit (closes:
+      #1132572).
+    - CVE-2026-35387: sshd(8): fix incomplete application of
+      PubkeyAcceptedAlgorithms and HostbasedAcceptedAlgorithms with regard
+      to ECDSA keys. Previously if one of these directives contains any
+      ECDSA algorithm name (say "ecdsa-sha2-nistp384"), then any other ECDSA
+      algorithm would be accepted in its place regardless of whether it was
+      listed or not.  Reported by Christos Papakonstantinou of Cantina and
+      Spearbit (closes: #1132574).
+    - CVE-2026-35388: ssh(1): connection multiplexing confirmation
+      (requested using "ControlMaster ask/autoask") was not being tested for
+      proxy mode multiplexing sessions (i.e. "ssh -O proxy ..."). Reported
+      by Michalis Vasileiadis (closes: #1132575).
+  * Cherry-pick IPQoS handling updates from upstream:
+    - Set default IPQoS for interactive sessions to Expedited Forwarding
+      (EF).
+    - Deprecate support for IPv4 type-of-service (TOS) IPQoS keywords.
+    - Make ssh(1) and sshd(8) set IP QoS (aka IP_TOS, IPV6_TCLASS)
+      continually at runtime based on what sessions/channels are open.
+    - Correctly set extended type for client-side channels.  Fixes
+      interactive vs bulk IPQoS for client->server traffic.
+
+ -- Colin Watson <cjwatson@debian.org>  Tue, 05 May 2026 11:25:39 +0100
+
 openssh (1:10.0p1-7+pexip25u4+deb13u2) pexip-trixie; urgency=medium
 
   * New upstream release with security fix

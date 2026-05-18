@@ -1,0 +1,86 @@
+From 2a343893126e8fb4a6504c94a012e3a6e1dc4ac0 Mon Sep 17 00:00:00 2001
+From: "job@openbsd.org" <job@openbsd.org>
+Date: Thu, 31 Jul 2025 09:38:41 +0000
+Subject: upstream: Set default IPQoS for interactive sessions to Expedited
+
+Forwarding (EF)
+
+Marking interactive session data with DSCP value EF (RFC3246, RFC3247)
+helps inform the network on relative priority compared to other traffic.
+This is especially useful for differentiated treatment over wireless media.
+
+Following the reconciled IETF Diffserv to IEEE 802.11 mappings (RFC 8325),
+traffic marked with DSCP value EF maps to User Priority 6 in QoS Control,
+in turn mapping to the high priority WMM AC_VO access category.
+
+OK djm@
+
+OpenBSD-Commit-ID: aadda7b9da794d70d7c6b381a861a0610afce1b3
+
+Origin: upstream, https://anongit.mindrot.org/openssh.git/commit/?id=65909fa114e7dd7511800db2b7bacb8774afe887
+Last-Update: 2026-05-03
+
+Patch-Name: ipqos-interactive-ef.patch
+---
+ readconf.c    | 2 +-
+ servconf.c    | 2 +-
+ ssh_config.5  | 4 ++--
+ sshd_config.5 | 4 ++--
+ 4 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/readconf.c b/readconf.c
+index 3bb7ac249..796c16f23 100644
+--- a/readconf.c
++++ b/readconf.c
+@@ -3009,7 +3009,7 @@ fill_default_options(Options * options)
+ 	if (options->visual_host_key == -1)
+ 		options->visual_host_key = 0;
+ 	if (options->ip_qos_interactive == -1)
+-		options->ip_qos_interactive = IPTOS_DSCP_AF21;
++		options->ip_qos_interactive = IPTOS_DSCP_EF;
+ 	if (options->ip_qos_bulk == -1)
+ 		options->ip_qos_bulk = IPTOS_DSCP_CS1;
+ 	if (options->request_tty == -1)
+diff --git a/servconf.c b/servconf.c
+index 4891a43d6..490ef074d 100644
+--- a/servconf.c
++++ b/servconf.c
+@@ -485,7 +485,7 @@ fill_default_server_options(ServerOptions *options)
+ 	if (options->permit_tun == -1)
+ 		options->permit_tun = SSH_TUNMODE_NO;
+ 	if (options->ip_qos_interactive == -1)
+-		options->ip_qos_interactive = IPTOS_DSCP_AF21;
++		options->ip_qos_interactive = IPTOS_DSCP_EF;
+ 	if (options->ip_qos_bulk == -1)
+ 		options->ip_qos_bulk = IPTOS_DSCP_CS1;
+ 	if (options->version_addendum == NULL)
+diff --git a/ssh_config.5 b/ssh_config.5
+index d8452237d..75c85ce48 100644
+--- a/ssh_config.5
++++ b/ssh_config.5
+@@ -1367,8 +1367,8 @@ If one argument is specified, it is used as the packet class unconditionally.
+ If two values are specified, the first is automatically selected for
+ interactive sessions and the second for non-interactive sessions.
+ The default is
+-.Cm af21
+-(Low-Latency Data)
++.Cm ef
++(Expedited Forwarding)
+ for interactive sessions and
+ .Cm cs1
+ (Lower Effort)
+diff --git a/sshd_config.5 b/sshd_config.5
+index a5594102f..a1afb4f89 100644
+--- a/sshd_config.5
++++ b/sshd_config.5
+@@ -1022,8 +1022,8 @@ If one argument is specified, it is used as the packet class unconditionally.
+ If two values are specified, the first is automatically selected for
+ interactive sessions and the second for non-interactive sessions.
+ The default is
+-.Cm af21
+-(Low-Latency Data)
++.Cm ef
++(Expedited Forwarding)
+ for interactive sessions and
+ .Cm cs1
+ (Lower Effort)
