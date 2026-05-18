@@ -1,3 +1,9 @@
+openssh (1:10.0p1-7+pexip25u5+deb13u4) pexip-trixie; urgency=medium
+
+  * New upstream version
+
+ -- Huw Jones <huw@pexip.com>  Mon, 18 May 2026 12:24:54 +0100
+
 openssh (1:10.0p1-7+deb13u4) trixie; urgency=medium
 
   * Don't reuse c->isatty for signalling that the remote channel has a tty
